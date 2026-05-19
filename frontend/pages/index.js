@@ -176,7 +176,7 @@ export default function Home({ locale }) {
             {/* Bekvämligheter */}
             <div style={{ borderBottom:'1px solid var(--sand-dark)', paddingBottom:24, marginBottom:24 }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:16 }}>
-                {t('property.amenities_title')}
+                {content.amenities_title || 'Bekvämligheter'}
               </h3>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 {AMENITIES.map((a, i) => (
@@ -190,7 +190,7 @@ export default function Home({ locale }) {
             {/* Rum — klickbara */}
             <div style={{ borderBottom:'1px solid var(--sand-dark)', paddingBottom:24, marginBottom:24 }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:16 }}>
-                {t('property.sleep_title')}
+                {content.sleep_title || 'Var du sover'}
               </h3>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 {rooms.map(r => (
@@ -225,7 +225,7 @@ export default function Home({ locale }) {
             {/* Husregler */}
             <div>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:16 }}>
-                {t('property.rules_title')}
+                {content.rules_title || 'Husregler'}
               </h3>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {rules.map((r, i) => (
