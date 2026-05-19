@@ -64,7 +64,7 @@ export default function AdminCMS() {
   const saveContent = async (block) => {
     try {
       await axios.put(`${API}/cms/admin/content/${block.key}`, null, {
-        headers,
+        headers: getHeaders(),
         params: { value_sv: block.value_sv||'', value_en: block.value_en||'', value_de: block.value_de||'' },
       });
       setMsg(`Sparat!`);
@@ -142,7 +142,7 @@ export default function AdminCMS() {
   };
 
   const toggleGalleryImg = async (id, field, val) => {
-    await axios.patch(`${API}/cms/admin/gallery/${id}`, null, { headers, params: { [field]: !val } });
+    await axios.patch(`${API}/cms/admin/gallery/${id}`, null, { headers: getHeaders(), params: { [field]: !val } });
     load();
   };
 
