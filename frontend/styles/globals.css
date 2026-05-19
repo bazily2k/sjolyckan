@@ -1,0 +1,248 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --water: #2d6a8f;
+  --water-light: #4a90b8;
+  --water-pale: #e8f4f8;
+  --forest: #3d5a3e;
+  --forest-light: #5a7a5b;
+  --sand: #f2e8d9;
+  --sand-dark: #e0cdb4;
+  --bark: #8b6f52;
+  --sky: #d4eaf5;
+  --white: #fafaf8;
+  --ink: #1a2420;
+  --ink-light: #4a5550;
+  --ink-pale: #8a9590;
+  --red: #c0392b;
+  --red-light: #e74c3c;
+  --gold: #c9a84c;
+
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-sm: 0 1px 3px rgba(26,36,32,0.08);
+  --shadow-md: 0 4px 16px rgba(26,36,32,0.10);
+  --shadow-lg: 0 8px 32px rgba(26,36,32,0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--white);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  line-height: 1.2;
+}
+
+a { color: inherit; text-decoration: none; }
+
+input, select, textarea, button {
+  font-family: var(--font-body);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--sand); }
+::-webkit-scrollbar-thumb { background: var(--water); border-radius: 3px; }
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-up { animation: fadeUp 0.5s ease forwards; }
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+
+/* ═══════════════════════════════════════════════════
+   MOBILRESPONSIVITET — påverkar ej PC/tablet
+   ═══════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* Navigering */
+  nav > div {
+    padding: 0 12px !important;
+    height: 56px !important;
+  }
+  nav a[href="/"] {
+    font-size: 18px !important;
+  }
+
+  /* Hero */
+  section[style*="height:100vh"] h1,
+  section h1 {
+    font-size: clamp(36px, 12vw, 56px) !important;
+    letter-spacing: -1px !important;
+  }
+
+  /* Galleri — stapla istället för grid */
+  section > div[style*="grid-template-columns: 2fr"] {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+    height: auto !important;
+  }
+  section > div[style*="grid-template-columns: 2fr"] > div {
+    grid-row: auto !important;
+    height: 200px !important;
+  }
+
+  /* Huvud-layout — stapla kolumner */
+  section#boka > div > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  /* Boknings-sidebar — inte sticky på mobil */
+  section#boka div[style*="position:sticky"],
+  section#boka div[style*="position: sticky"] {
+    position: relative !important;
+    top: auto !important;
+  }
+
+  /* Rum-grid — en kolumn på mobil */
+  div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Kalender — stapla månader */
+  div[style*="grid-template-columns: 1fr 1fr"][style*="gap: 32"] {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  /* Padding på sektioner */
+  section {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Admin-layout */
+  aside[style*="width: 220px"] {
+    width: 100% !important;
+    position: relative !important;
+    height: auto !important;
+  }
+  main[style*="margin-left: 220px"] {
+    margin-left: 0 !important;
+    padding: 16px !important;
+  }
+
+  /* Bokningsformulär — postnummer + ort */
+  div[style*="grid-template-columns: 2fr 3fr"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Min sida — namn-grid */
+  div[style*="grid-template-columns: 1fr 1fr"][style*="gap: 12"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Mycket små skärmar */
+  nav > div > div[style*="gap: 8"] {
+    gap: 4px !important;
+  }
+  nav button[style*="fontSize: 12"] {
+    padding: 3px 5px !important;
+    font-size: 10px !important;
+  }
+  section[style*="height:100vh"] p[style*="fontSize: 18"] {
+    font-size: 15px !important;
+  }
+  section[style*="height:100vh"] a[style*="padding: 14px 36px"] {
+    padding: 12px 24px !important;
+    font-size: 14px !important;
+  }
+}
+
+/* ═══ MOBILFIX V2 ═══════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Fixa radbrytning — ord ska inte brytas ett per rad */
+  p, span, div, h1, h2, h3, li {
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+  }
+
+  /* Huvud-layout — tvinga en kolumn */
+  #boka > div {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Sidebar — ta bort sticky och full bredd */
+  #boka > div > div:last-child {
+    position: relative !important;
+    top: auto !important;
+    width: 100% !important;
+  }
+
+  /* Innehållsdelen — full bredd */
+  #boka > div > div:first-child {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Rum-grid — en kolumn */
+  #boka div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Bekvämligheter-grid — en kolumn */
+  div[style*="grid-template-columns: 1fr 1fr"][style*="gap: 10"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Kapacitetstext — tillåt radbrytning normalt */
+  p[style*="font-size: 14px"] {
+    word-break: normal !important;
+    white-space: normal !important;
+  }
+
+  /* Husregler — fixa radbrytning */
+  div[style*="flex-direction: column"] span,
+  div[style*="flex-direction: column"] div {
+    word-break: normal !important;
+  }
+
+  /* Bokningsformuläret — full bredd */
+  div[style*="border-radius: var(--radius-lg)"][style*="padding: 20"] {
+    max-width: 100% !important;
+  }
+}
+
+/* ═══ KALENDER MOBILPLACERING ═══════════════════════ */
+/* Dölj kalender-sektionen ovanför på mobil */
+@media (max-width: 768px) {
+  section#kalender {
+    display: none !important;
+  }
+  .mobile-calendar {
+    display: block !important;
+    margin-bottom: 24px;
+  }
+}
+/* Dölj mobil-kalender på desktop */
+.mobile-calendar {
+  display: none;
+}

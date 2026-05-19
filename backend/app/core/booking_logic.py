@@ -1,0 +1,208 @@
+from datetime import date, timedelta
+from decimal import Decimal
+from typing import Optional
+from sqlalchemy.orm import Session
+from app.models.models import Season, PriceOverride, Article, Booking, BookingArticle, Payment
+from app.models.models import BookingStatus, PaymentMethod, PaymentType, PaymentStatus
+import random
+import string
+
+
+def generate_booking_ref(db: Session) -> str:
+    year = date.today().year
+    while True:
+        suffix = "".join(random.choices(string.digits, k=4))
+        ref = f"SJO-{year}-{suffix}"
+        exists = db.query(Booking).filter(Booking.booking_ref == ref).first()
+        if not exists:
+            return ref
+
+
+def get_season_for_date(db: Session, d: date) -> Optional[Season]:
+    """Hitta aktiv säsong för ett datum."""
+    return db.query(Season).filter(
+        Season.date_from <= d,
+        Season.date_to >= d,
+        Season.active == True,
+    ).first()
+
+
+def get_price_for_date(db: Session, d: date) -> tuple[Decimal, Optional[Season]]:
+    """
+    Returnerar (pris, säsong) för ett datum.
+    PriceOverride har högst prioritet, sedan Season.
+    """
+    override = db.query(PriceOverride).filter(
+        PriceOverride.date == d,
+        PriceOverride.active == True,
+    ).first()
+    if override:
+        season = get_season_for_date(db, d)
+        return override.price_per_night, season
+
+    season = get_season_for_date(db, d)
+    if season:
+        return season.price_per_night, season
+
+    return None, None
+
+
+def calculate_booking_price(
+    db: Session,
+    date_from: date,
+    date_to: date,
+    guests_count: int,
+    article_ids: list[int],
+) -> dict:
+    """
+    Beräkna fullständigt pris och samla ihop snapshot-data.
+    """
+    nights = (date_to - date_from).days
+    if nights <= 0:
+        raise ValueError("Utcheckning måste vara efter incheckning")
+
+    # Beräkna nätterpris dag för dag (stöder varierade priser)
+    base_amount = Decimal("0")
+    daily_prices = []
+    dominant_season = None
+
+    for i in range(nights):
+        day = date_from + timedelta(days=i)
+        price, season = get_price_for_date(db, day)
+        if price is None:
+            raise ValueError(f"Inget pris definierat för {day}")
+        base_amount += price
+        daily_prices.append({"date": str(day), "price": float(price)})
+        if season and not dominant_season:
+            dominant_season = season
+
+    # Tillägg
+    articles_data = []
+    articles_amount = Decimal("0")
+    for aid in article_ids:
+        art = db.query(Article).filter(
+            Article.id == aid,
+            Article.active == True,
+            Article.visible == True,
+            Article.bookable == True,
+        ).first()
+        if not art:
+            continue
+        if art.price_type == "per_night":
+            line_total = art.price * nights
+        elif art.price_type == "per_guest":
+            line_total = art.price * guests_count
+        else:  # fixed
+            line_total = art.price
+        articles_amount += line_total
+        articles_data.append({
+            "article_id": art.id,
+            "name_sv": art.name_sv,
+            "name_en": art.name_en,
+            "name_de": art.name_de,
+            "price": float(art.price),
+            "price_type": art.price_type,
+            "line_total": float(line_total),
+        })
+
+    # Extra avgift för gäster över threshold
+    extra_guest_fee = Decimal("0")
+    if dominant_season and hasattr(dominant_season, "extra_guest_fee") and dominant_season.extra_guest_fee:
+        threshold = dominant_season.extra_guest_threshold or 4
+        if guests_count > threshold:
+            extra_guests = guests_count - threshold
+            extra_guest_fee = Decimal(str(dominant_season.extra_guest_fee)) * extra_guests * nights
+
+    total_amount = base_amount + articles_amount + extra_guest_fee
+
+    # Säsongsvillkor (använder dominant säsong eller standardvärden)
+    deposit_pct = Decimal(str(dominant_season.deposit_pct)) if dominant_season else Decimal("10")
+    deposit_days = dominant_season.deposit_days if dominant_season else 7
+    payment_days_before = dominant_season.payment_days_before if dominant_season else 60
+    reminder_1_days = dominant_season.reminder_1_days if dominant_season else 14
+    reminder_2_days = dominant_season.reminder_2_days if dominant_season else 3
+    min_nights = dominant_season.min_nights if dominant_season else 2
+
+    deposit_amount = (total_amount * deposit_pct / 100).quantize(Decimal("1"))
+    deposit_due_date = date.today() + timedelta(days=deposit_days)
+    payment_due_date = date_from - timedelta(days=payment_days_before)
+
+    # Om betalfrist är i det förflutna, sätt till imorgon
+    if payment_due_date <= date.today():
+        payment_due_date = date.today() + timedelta(days=1)
+
+    snapshot = {
+        "season_id": dominant_season.id if dominant_season else None,
+        "season_name_sv": dominant_season.name_sv if dominant_season else "Standard",
+        "season_name_en": dominant_season.name_en if dominant_season else "Standard",
+        "season_name_de": dominant_season.name_de if dominant_season else "Standard",
+        "price_per_night_avg": float(base_amount / nights),
+        "deposit_pct": float(deposit_pct),
+        "deposit_days": deposit_days,
+        "payment_days_before": payment_days_before,
+        "reminder_1_days": reminder_1_days,
+        "reminder_2_days": reminder_2_days,
+        "min_nights": min_nights,
+        "daily_prices": daily_prices,
+        "articles": articles_data,
+        "extra_guest_fee": float(extra_guest_fee),
+        "extra_guest_threshold": dominant_season.extra_guest_threshold if dominant_season else 4,
+        "terms_version": "1.0",
+    }
+
+    return {
+        "nights": nights,
+        "base_amount": base_amount,
+        "articles_amount": articles_amount,
+        "total_amount": total_amount,
+        "deposit_amount": deposit_amount,
+        "extra_guest_fee": extra_guest_fee,
+        "deposit_due_date": deposit_due_date,
+        "payment_due_date": payment_due_date,
+        "snapshot": snapshot,
+    }
+
+
+def create_booking_record(db: Session, data: dict, calc: dict) -> Booking:
+    """Skapa bokning med fryst snapshot."""
+    booking = Booking(
+        booking_ref=generate_booking_ref(db),
+        guest_name=data["guest_name"],
+        guest_email=data["guest_email"],
+        guest_phone=data.get("guest_phone"),
+        guest_country=data.get("guest_country", "SE"),
+        lang=data.get("lang", "sv"),
+        guests_count=data.get("guests_count", 2),
+        date_from=data["date_from"],
+        date_to=data["date_to"],
+        nights=calc["nights"],
+        base_amount=calc["base_amount"],
+        articles_amount=calc["articles_amount"],
+        total_amount=calc["total_amount"],
+        deposit_amount=calc["deposit_amount"],
+        deposit_due_date=calc["deposit_due_date"],
+        payment_due_date=calc["payment_due_date"],
+        snapshot=calc["snapshot"],
+        status=BookingStatus.pending,
+    )
+    db.add(booking)
+    db.flush()
+
+    # Spara bokade tillägg
+    for art_data in calc["snapshot"]["articles"]:
+        ba = BookingArticle(
+            booking_id=booking.id,
+            article_id=art_data["article_id"],
+            name_sv=art_data["name_sv"],
+            name_en=art_data["name_en"],
+            name_de=art_data["name_de"],
+            price_snapshot=art_data["price"],
+            price_type=art_data["price_type"],
+            quantity=1,
+            line_total=art_data["line_total"],
+        )
+        db.add(ba)
+
+    db.commit()
+    db.refresh(booking)
+    return booking

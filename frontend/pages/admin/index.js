@@ -1,0 +1,400 @@
+import { useState, useEffect } from 'react';
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import Head from 'next/head';
+import AdminLayout from '../../components/admin/AdminLayout';
+import { adminApi } from '../../lib/api';
+import axios from 'axios';
+const API = process.env.NEXT_PUBLIC_API_URL || '/api';
+
+const STATUS_COLORS = {
+  pending: { bg: '#fef3cd', color: '#856404', label: 'Väntar' },
+  confirmed: { bg: '#d1ecf1', color: '#0c5460', label: 'Bekräftad' },
+  deposit_paid: { bg: '#d4edda', color: '#155724', label: 'Handp. betald' },
+  paid: { bg: '#d4edda', color: '#155724', label: 'Betald' },
+  cancelled: { bg: '#f8d7da', color: '#721c24', label: 'Avbokad' },
+  expired: { bg: '#e2e3e5', color: '#383d41', label: 'Förfallen' },
+};
+
+export default function AdminBookings() {
+  const [bookings, setBookings] = useState([]);
+  const [filter, setFilter] = useState('');
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [payMethod, setPayMethod] = useState('swish');
+  const [adminNote, setAdminNote] = useState('');
+  const [statusNote, setStatusNote] = useState('');
+  const [sortBy, setSortBy] = useState('booking_ref');
+  const [sortDir, setSortDir] = useState('desc');
+  const [hiddenIds, setHiddenIds] = useState(new Set());
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
+  };
+
+  const sortedBookings = [...bookings]
+    .filter(b => !hiddenIds.has(b.id))
+    .sort((a, b) => {
+      let av, bv;
+      if (sortBy === 'booking_ref') { av = a.booking_ref; bv = b.booking_ref; }
+      else if (sortBy === 'guest_name') { av = a.guest_name; bv = b.guest_name; }
+      else if (sortBy === 'date_from') { av = a.date_from; bv = b.date_from; }
+      else if (sortBy === 'nights') { av = a.nights; bv = b.nights; }
+      else if (sortBy === 'total_amount') { av = a.total_amount; bv = b.total_amount; }
+      else if (sortBy === 'status') { av = a.status; bv = b.status; }
+      else if (sortBy === 'payment_method') { av = a.payment_method || ''; bv = b.payment_method || ''; }
+      else { av = a[sortBy]; bv = b[sortBy]; }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+  const deleteBooking = async (id) => {
+    if (!window.confirm('Radera bokningen permanent? Detta går inte att ångra.')) return;
+    try {
+      await axios.delete(API + '/bookings/admin/' + id,
+        { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } }
+      );
+      load();
+      setSelected(null);
+    } catch(e) {
+      alert('Fel: ' + (e.response?.data?.detail || e.message));
+    }
+  };
+
+  const [showHidden, setShowHidden] = useState(false);
+
+  const hideBooking = async (id) => {
+    try {
+      await axios.patch(API + '/bookings/admin/' + id + '/hide',
+        {},
+        { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } }
+      );
+      load();
+      if (selected?.id === id) setSelected(null);
+    } catch(e) {
+      alert('Fel: ' + (e.response?.data?.detail || e.message));
+    }
+  };
+
+  const SortIcon = ({ col }) => {
+    if (sortBy !== col) return <span style={{opacity:0.3, marginLeft:3}}>↕</span>;
+    return <span style={{marginLeft:3}}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
+  };
+  const [payRef, setPayRef] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const changeStatus = async (id, status) => {
+    const labels = {
+      pending: 'Väntande', confirmed: 'Bekräftad', deposit_paid: 'Handpenning betald',
+      paid: 'Fullbetald', cancelled: 'Avbokad', expired: 'Förfallen',
+    };
+    if (!window.confirm('Ändra status till "' + (labels[status] || status) + '"?')) return;
+    try {
+      await axios.patch(API + '/bookings/admin/' + id + '/status',
+        { status, note: statusNote },
+        { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } }
+      );
+      setStatusNote('');
+      load();
+      setSelected(prev => prev ? { ...prev, status } : null);
+    } catch(e) {
+      alert('Fel: ' + (e.response?.data?.detail || e.message));
+    }
+  };
+
+  const load = () => {
+    setLoading(true);
+    adminApi.listBookings(filter || undefined, showHidden)
+      .then(r => setBookings(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, [filter, showHidden]);
+
+  const confirm = async (id) => {
+    setActionLoading(true);
+    try {
+      await adminApi.confirmBooking(id, { payment_method: payMethod, admin_note: adminNote });
+      setMsg('Bokning bekräftad — bekräftelsemejl skickat!');
+      load(); setSelected(null);
+    } catch (e) {
+      setMsg('Fel: ' + (e.response?.data?.detail || e.message));
+    } finally { setActionLoading(false); }
+  };
+
+  const reject = async (id) => {
+    if (!confirm('Neka denna bokning?')) return;
+    await adminApi.rejectBooking(id);
+    setMsg('Bokning nekad.'); load(); setSelected(null);
+  };
+
+  const registerPay = async (id, type) => {
+    setActionLoading(true);
+    try {
+      await adminApi.registerPayment(id, { payment_type: type, amount: 0, reference: payRef });
+      setMsg('Betalning registrerad!');
+      load();
+      const res = await adminApi.getBooking(id);
+      setSelected(res.data);
+    } catch (e) {
+      setMsg('Fel: ' + (e.response?.data?.detail || e.message));
+    } finally { setActionLoading(false); }
+  };
+
+  return (
+    <>
+      <Head><title>Bokningar — Admin Sjölyckan</title></Head>
+      <AdminLayout title="Bokningar">
+        {msg && (
+          <div style={{ background: 'var(--water-pale)', border: '1px solid var(--water)', borderRadius: 'var(--radius-md)', padding: '10px 16px', marginBottom: 16, fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
+            {msg} <button onClick={() => setMsg('')} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>×</button>
+          </div>
+        )}
+
+        {/* Filter */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {['', 'pending', 'confirmed', 'deposit_paid', 'paid', 'cancelled'].map(s => (
+              <button key={s} onClick={() => setFilter(s)} style={{
+                padding: '6px 14px', borderRadius: 20, border: '1px solid var(--sand-dark)',
+                background: filter === s ? 'var(--water)' : 'white',
+                color: filter === s ? 'white' : 'var(--ink-light)',
+                cursor: 'pointer', fontSize: 13,
+              }}>
+                {s === '' ? 'Alla' : STATUS_COLORS[s]?.label || s}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setShowHidden(h => !h)} style={{
+            padding: '6px 14px', fontSize: 12, border: '1px solid var(--sand-dark)',
+            borderRadius: 20, background: showHidden ? 'var(--ink)' : 'white',
+            color: showHidden ? 'white' : 'var(--ink-light)', cursor: 'pointer',
+          }}>
+            {showHidden ? '👁 Döljer dolda' : '👁 Visa dolda'}
+          </button>
+        </div>
+
+        {/* Tabell */}
+        <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--sand-dark)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--sand)', borderBottom: '1px solid var(--sand-dark)' }}>
+                {[
+                  { label: 'Ref', col: 'booking_ref' },
+                  { label: 'Gäst', col: 'guest_name' },
+                  { label: 'Datum', col: 'date_from' },
+                  { label: 'Nätter', col: 'nights' },
+                  { label: 'Belopp', col: 'total_amount' },
+                  { label: 'Status', col: 'status' },
+                  { label: 'Betals.', col: 'payment_method' },
+                  { label: '', col: null },
+                ].map(({ label, col }) => (
+                  <th key={label} onClick={col ? () => toggleSort(col) : undefined}
+                    style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500, color: col ? 'var(--ink)' : 'var(--ink-light)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.3px', cursor: col ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                    {label}{col && <SortIcon col={col} />}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: 'var(--ink-pale)' }}>Laddar...</td></tr>
+              ) : sortedBookings.length === 0 ? (
+                <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: 'var(--ink-pale)' }}>Inga bokningar hittades</td></tr>
+              ) : sortedBookings.map(b => {
+                const sc = STATUS_COLORS[b.status] || {};
+                return (
+                  <tr key={b.id} style={{ borderBottom: '1px solid var(--sand)', cursor: 'pointer' }}
+                    onClick={() => adminApi.getBooking(b.id).then(r => setSelected(r.data))}>
+                    <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--water)' }}>{b.booking_ref}</td>
+                    <td style={{ padding: '10px 14px' }}>{b.guest_name}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--ink-light)' }}>{b.date_from} – {b.date_to}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--ink-light)' }}>{b.nights}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 500 }}>{b.total_amount?.toLocaleString('sv-SE')} kr</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span style={{ background: sc.bg, color: sc.color, padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500 }}>
+                        {sc.label}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 14px', color: 'var(--ink-light)' }}>{b.payment_method || '–'}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        {b.status === 'pending' && (
+                          <span style={{ color: 'var(--water)', fontSize: 12, marginRight: 4 }}>Hantera →</span>
+                        )}
+                        <button onClick={e => { e.stopPropagation(); hideBooking(b.id); }} title="Dölj"
+                          style={{ padding: '2px 7px', fontSize: 11, border: '1px solid var(--sand-dark)', borderRadius: 4, background: 'white', cursor: 'pointer', color: 'var(--ink-pale)' }}>
+                          👁
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); deleteBooking(b.id); }} title="Radera"
+                          style={{ padding: '2px 7px', fontSize: 11, border: '1px solid #f5c6cb', borderRadius: 4, background: 'white', cursor: 'pointer', color: 'var(--red)' }}>
+                          🗑
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Detalj-modal */}
+        {selected && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+            onClick={e => { if (e.target === e.currentTarget) setSelected(null); }}>
+            <div style={{ background: 'white', borderRadius: 'var(--radius-xl)', padding: 28, maxWidth: 600, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20 }}>{selected.booking_ref}</h2>
+                <button onClick={() => setSelected(null)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--ink-pale)' }}>×</button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16, fontSize: 13 }}>
+                {[
+                  ['Gäst', selected.guest_name],
+                  ['E-post', selected.guest_email],
+                  ['Telefon', selected.guest_phone || '–'],
+                  ['Land', selected.guest_country],
+                  ['Ankomst', selected.date_from],
+                  ['Avresa', selected.date_to],
+                  ['Nätter', selected.nights],
+                  ['Gäster', selected.guests_count],
+                  ['Belopp', `${selected.total_amount?.toLocaleString('sv-SE')} kr`],
+                  ['Handpenning', `${selected.deposit_amount?.toLocaleString('sv-SE')} kr`],
+                  ['Handp. förfaller', selected.deposit_due_date],
+                  ['Slutbet. förfaller', selected.payment_due_date],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ background: 'var(--sand)', borderRadius: 'var(--radius-md)', padding: '8px 12px' }}>
+                    <div style={{ fontSize: 11, color: 'var(--ink-pale)', marginBottom: 2 }}>{k}</div>
+                    <div style={{ fontWeight: 500 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tillägg */}
+              {selected.articles?.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-pale)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Tillägg</div>
+                  {selected.articles.map((a, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' }}>
+                      <span>{a.name_sv}</span><span>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Ändra status fritt */}
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--sand-dark)' }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-pale)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>Ändra status</div>
+                <textarea value={statusNote} onChange={e => setStatusNote(e.target.value)}
+                  placeholder="Anledning till statusändring (valfritt)"
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, height: 60, marginBottom: 8, resize: 'none' }} />
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'pending', label: 'Väntande' },
+                    { value: 'confirmed', label: 'Bekräftad' },
+                    { value: 'deposit_paid', label: 'Handp. betald' },
+                    { value: 'paid', label: 'Fullbetald' },
+                    { value: 'cancelled', label: 'Avbokad' },
+                    { value: 'expired', label: 'Förfallen' },
+                  ].map(s => (
+                    <button key={s.value} onClick={() => changeStatus(selected.id, s.value)}
+                      disabled={selected.status === s.value}
+                      style={{
+                        padding: '5px 12px', fontSize: 12, border: '1px solid var(--sand-dark)',
+                        borderRadius: 'var(--radius-md)', cursor: selected.status === s.value ? 'default' : 'pointer',
+                        background: selected.status === s.value ? 'var(--sand-dark)' : 'white',
+                        color: selected.status === s.value ? 'var(--ink-pale)' : 'var(--ink)',
+                        opacity: selected.status === s.value ? 0.5 : 1,
+                      }}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+
+
+              {/* Åtgärder baserat på status */}
+              {selected.status === 'pending' && (
+                <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Betalningsmetod</div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    {['swish', 'stripe', 'manual'].map(m => (
+                      <button key={m} onClick={() => setPayMethod(m)} style={{
+                        padding: '6px 14px', borderRadius: 'var(--radius-md)',
+                        border: `1px solid ${payMethod === m ? 'var(--water)' : 'var(--sand-dark)'}`,
+                        background: payMethod === m ? 'var(--water-pale)' : 'white',
+                        color: payMethod === m ? 'var(--water)' : 'var(--ink-light)',
+                        cursor: 'pointer', fontSize: 13, fontWeight: payMethod === m ? 500 : 400,
+                      }}>
+                        {m === 'swish' ? 'Swish' : m === 'stripe' ? 'Stripe' : 'Manuell'}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea placeholder="Admin-notering (syns ej för gästen)" value={adminNote}
+                    onChange={e => setAdminNote(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, height: 60, marginBottom: 12, resize: 'none' }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => confirm(selected.id)} disabled={actionLoading}
+                      style={{ flex: 1, padding: 10, background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>
+                      ✓ Godkänn
+                    </button>
+                    <button onClick={() => reject(selected.id)}
+                      style={{ flex: 1, padding: 10, background: 'white', color: 'var(--red)', border: '1px solid var(--red)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>
+                      ✗ Neka
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Registrera betalning */}
+              {(selected.status === 'confirmed' || selected.status === 'deposit_paid') && (
+                <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Registrera betalning</div>
+                  <input placeholder="Referens (Swish-nr, kvittonr etc)" value={payRef}
+                    onChange={e => setPayRef(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginBottom: 8 }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {selected.status === 'confirmed' && (
+                      <button onClick={() => registerPay(selected.id, 'deposit')} disabled={actionLoading}
+                        style={{ flex: 1, padding: 9, background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                        Handpenning betald
+                      </button>
+                    )}
+                    {selected.status === 'deposit_paid' && (
+                      <button onClick={() => registerPay(selected.id, 'final')} disabled={actionLoading}
+                        style={{ flex: 1, padding: 9, background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                        Slutbetalning mottagen
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Betalningslogg */}
+              {selected.payments?.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 12, marginTop: 16 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 6 }}>BETALNINGSHISTORIK</div>
+                  {selected.payments.map((p, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0', color: p.status === 'paid' ? 'var(--forest)' : 'var(--ink-light)' }}>
+                      <span>{p.type} · {p.method}</span>
+                      <span>{p.status === 'paid' ? '✓' : '○'} {p.amount?.toLocaleString('sv-SE')} kr</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </AdminLayout>
+    </>
+  );
+}
+
+export async function getServerSideProps({ locale }) {
+  return { props: { ...(await serverSideTranslations(locale || 'sv', ['common'])) } };
+}

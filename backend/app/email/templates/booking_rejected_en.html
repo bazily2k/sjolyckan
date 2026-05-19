@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
+  .card{background:#fff;border-radius:8px;max-width:600px;margin:0 auto;padding:32px}
+  .header{background:#8b6f52;color:#fff;border-radius:6px;padding:24px;text-align:center;margin-bottom:24px}
+  h1{margin:0;font-size:20px}
+  table{width:100%;border-collapse:collapse;margin:16px 0}
+  td{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+  td:last-child{text-align:right;font-weight:500}
+  .box{background:#f8f8f8;border-radius:6px;padding:16px;margin:16px 0;font-size:14px}
+  p{font-size:14px;line-height:1.6;color:#333}
+  .footer{text-align:center;font-size:12px;color:#999;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>Sjölyckan, Rolsmo</h1>
+    <div style="font-size:14px;opacity:0.85;margin-top:4px">Booking request declined</div>
+  </div>
+  <p>Dear {{ booking.guest_name }},</p>
+  <p>Thank you for your interest in Sjölyckan at Rolsmosjön. Unfortunately, we are unable to confirm your booking request for the selected dates.</p>
+  <div class="box">
+    <strong>Your request was for:</strong>
+    <table>
+      <tr><td>Reference number</td><td>{{ booking.booking_ref }}</td></tr>
+      <tr><td>Check-in</td><td>{{ booking.date_from }}</td></tr>
+      <tr><td>Check-out</td><td>{{ booking.date_to }}</td></tr>
+      <tr><td>Nights</td><td>{{ booking.nights }}</td></tr>
+      <tr><td>Guests</td><td>{{ booking.guests_count }}</td></tr>
+    </table>
+  </div>
+  <p>We hope you find another opportunity to visit us. Please check our calendar for available dates.</p>
+  <p>If you have any questions, please contact us at <a href="mailto:{{ admin_email }}">{{ admin_email }}</a>.</p>
+  <div class="footer">Sjölyckan, Rolsmo · Linneryd, Kronobergs län<br>Reference: {{ booking.booking_ref }}</div>
+</div>
+</body>
+</html>

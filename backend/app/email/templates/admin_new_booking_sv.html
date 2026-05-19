@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head><meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
+  .card{background:#fff;border-radius:8px;max-width:600px;margin:0 auto;padding:32px}
+  .header{background:#922b21;color:#fff;border-radius:6px;padding:20px;text-align:center;margin-bottom:24px}
+  h1{margin:0;font-size:18px}
+  table{width:100%;border-collapse:collapse;margin:12px 0}
+  td{padding:7px 0;border-bottom:1px solid #eee;font-size:14px}
+  td:last-child{text-align:right;font-weight:500}
+  .total td{font-weight:700;border-bottom:none}
+  .btn{display:inline-block;background:#1a5276;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;margin:16px 8px 0 0}
+  .btn.red{background:#922b21}
+  p{font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header"><h1>🔔 Ny bokningsförfrågan inkommen</h1></div>
+
+  <p><strong>Referens:</strong> {{ booking.booking_ref }}<br>
+  <strong>Inkom:</strong> {{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+
+  <table>
+    <tr><td>Gäst</td><td>{{ booking.guest_name }}</td></tr>
+    <tr><td>E-post</td><td>{{ booking.guest_email }}</td></tr>
+    <tr><td>Telefon</td><td>{{ booking.guest_phone or '–' }}</td></tr>
+    <tr><td>Land</td><td>{{ booking.guest_country }}</td></tr>
+    <tr><td>Språk</td><td>{{ booking.lang }}</td></tr>
+    <tr><td>Gäster</td><td>{{ booking.guests_count }}</td></tr>
+    <tr><td>Ankomst</td><td>{{ booking.date_from }}</td></tr>
+    <tr><td>Avresa</td><td>{{ booking.date_to }}</td></tr>
+    <tr><td>Antal nätter</td><td>{{ booking.nights }}</td></tr>
+  </table>
+
+  <table>
+    <tr><td>Boende</td><td>{{ "{:,.0f}".format(booking.base_amount) }} kr</td></tr>
+    {% for art in snap.articles %}
+    <tr><td>{{ art.name_sv }}</td><td>{{ "{:,.0f}".format(art.line_total) }} kr</td></tr>
+    {% endfor %}
+    <tr class="total"><td>Totalt</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
+    <tr class="total"><td>Handpenning ({{ snap.deposit_pct }}%)</td><td>{{ "{:,.0f}".format(booking.deposit_amount) }} kr</td></tr>
+  </table>
+
+  <p>Gå till admin-panelen för att godkänna eller neka förfrågan och välja betalningsmetod:</p>
+
+  <a href="{{ frontend_url }}/admin" class="btn">Hantera bokning →</a>
+
+  <p style="margin-top:24px;font-size:12px;color:#999">
+    Betalfrist (slutbet.): {{ booking.payment_due_date }}<br>
+    Handpenning förfaller: {{ booking.deposit_due_date }}
+  </p>
+</div>
+</body>
+</html>

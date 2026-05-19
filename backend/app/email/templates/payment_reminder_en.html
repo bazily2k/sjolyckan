@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
+  .card{background:#fff;border-radius:8px;max-width:600px;margin:0 auto;padding:32px}
+  .header{background:#2d6a8f;color:#fff;border-radius:6px;padding:24px;text-align:center;margin-bottom:24px}
+  h1{margin:0;font-size:20px}
+  table{width:100%;border-collapse:collapse;margin:16px 0}
+  td{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+  td:last-child{text-align:right;font-weight:500}
+  .box{background:#e8f4f8;border-radius:6px;padding:16px;margin:16px 0;font-size:14px}
+  p{font-size:14px;line-height:1.6;color:#333}
+  .footer{text-align:center;font-size:12px;color:#999;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>Sjölyckan, Rolsmo</h1>
+    <div style="font-size:14px;opacity:0.85;margin-top:4px">Booking request received</div>
+  </div>
+  <p>Hi {{ booking.guest_name }},</p>
+  <p>Thank you for your booking request for Sjölyckan at Rolsmosjön!</p>
+  <p>We will review your request and get back to you shortly by email.</p>
+  <div class="box">
+    <strong>Your request:</strong>
+    <table>
+      <tr><td>Reference</td><td>{{ booking.booking_ref }}</td></tr>
+      <tr><td>Check-in</td><td>{{ booking.date_from }}</td></tr>
+      <tr><td>Check-out</td><td>{{ booking.date_to }}</td></tr>
+      <tr><td>Nights</td><td>{{ booking.nights }}</td></tr>
+      <tr><td>Guests</td><td>{{ booking.guests_count }}</td></tr>
+      <tr><td>Total amount</td><td>{{ "{:,.0f}".format(booking.total_amount) }} SEK</td></tr>
+    </table>
+  </div>
+  <p><strong>Please note:</strong> This is a request, not a confirmed booking. You will receive a new email once we have confirmed your booking.</p>
+  <p>Questions? Contact us at <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+  <div class="footer">Sjölyckan, Rolsmo · Linneryd, Kronobergs län, Sweden<br>Reference: {{ booking.booking_ref }}</div>
+</div>
+</body>
+</html>

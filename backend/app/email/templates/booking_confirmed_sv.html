@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
+  .card{background:#fff;border-radius:8px;max-width:600px;margin:0 auto;padding:32px}
+  .header{background:#1a5276;color:#fff;border-radius:6px;padding:24px;text-align:center;margin-bottom:24px}
+  h1{margin:0;font-size:22px}
+  .ref{font-size:14px;opacity:0.85;margin-top:4px}
+  table{width:100%;border-collapse:collapse;margin:16px 0}
+  td{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+  td:last-child{text-align:right;font-weight:500}
+  .total td{font-size:16px;font-weight:700;border-bottom:none;padding-top:12px}
+  .box{background:#eaf3de;border-radius:6px;padding:16px;margin:16px 0;font-size:14px}
+  .box.blue{background:#e6f1fb}
+  .box.yellow{background:#faeeda}
+  h3{font-size:15px;margin:0 0 8px}
+  p{font-size:14px;line-height:1.6;color:#333}
+  .footer{text-align:center;font-size:12px;color:#999;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>Sjölyckan, Rolsmo</h1>
+    <div class="ref">Bokningsbekräftelse · {{ booking.booking_ref }}</div>
+  </div>
+
+  <p>Hej {{ booking.guest_name }},</p>
+  <p>Vi är glada att bekräfta din bokning av Sjölyckan vid Rolsmosjön!</p>
+
+  <table>
+    <tr><td>Ankomst</td><td>{{ booking.date_from.strftime('%d %B %Y') }}</td></tr>
+    <tr><td>Avresa</td><td>{{ booking.date_to.strftime('%d %B %Y') }}</td></tr>
+    <tr><td>Antal nätter</td><td>{{ booking.nights }}</td></tr>
+    <tr><td>Antal gäster</td><td>{{ booking.guests_count }}</td></tr>
+  </table>
+
+  <table>
+    <tr><td>Boende ({{ booking.nights }} nätter)</td><td>{{ "{:,.0f}".format(booking.base_amount) }} kr</td></tr>
+    {% for art in snap.articles %}
+    <tr><td>{{ art.name_sv }}</td><td>{{ "{:,.0f}".format(art.line_total) }} kr</td></tr>
+    {% endfor %}
+    <tr class="total"><td>Totalt att betala</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
+  </table>
+
+  <div class="box yellow">
+    <h3>💳 Handpenning</h3>
+    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') }}</strong></p>
+    {% if booking.payment_method.value == 'swish' %}
+    <p>Swisha till: <strong>{{ swish_number }}</strong><br>Ange bokningsnummer <strong>{{ booking.booking_ref }}</strong> som meddelande.</p>
+    {% elif booking.payment_method.value == 'stripe' %}
+    <p>Betala med kort via länken du fick separat.</p>
+    {% else %}
+    <p>Vi kontaktar dig med betalningsinformation.</p>
+    {% endif %}
+  </div>
+
+  <div class="box blue">
+    <h3>📅 Slutbetalning</h3>
+    <p>Återstående belopp <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.payment_due_date.strftime('%d %B %Y') }}</strong></p>
+  </div>
+
+  <div class="box">
+    <h3>🏠 Incheckning</h3>
+    <p>Incheckning efter kl. 15:00 · Utcheckning senast kl. 12:00<br>
+    Smart lås — kod skickas dagen före ankomst.<br>
+    Ta med egna sängkläder (om du inte bokat det som tillägg).</p>
+  </div>
+
+  <p>Frågor? Kontakta oss på <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+
+  <div class="footer">
+    Sjölyckan, Rolsmo · Linneryd, Kronobergs län<br>
+    Bokningsnummer: {{ booking.booking_ref }}
+  </div>
+</div>
+</body>
+</html>

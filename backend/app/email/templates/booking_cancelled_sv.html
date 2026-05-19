@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head><meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
+  .card{background:#fff;border-radius:8px;max-width:600px;margin:0 auto;padding:32px}
+  .header{background:#c0392b;color:#fff;border-radius:6px;padding:24px;text-align:center;margin-bottom:24px}
+  h1{margin:0;font-size:20px}
+  table{width:100%;border-collapse:collapse;margin:16px 0}
+  td{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+  td:last-child{text-align:right;font-weight:500}
+  .box{background:#f8f8f8;border-radius:6px;padding:16px;margin:16px 0;font-size:14px}
+  p{font-size:14px;line-height:1.6;color:#333}
+  .footer{text-align:center;font-size:12px;color:#999;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>Sjölyckan, Rolsmo</h1>
+    <div style="font-size:14px;opacity:0.85;margin-top:4px">Bokning avbokad</div>
+  </div>
+  <p>Hej {{ booking.guest_name }},</p>
+  <p>Vi bekräftar att din bokning på Sjölyckan vid Rolsmosjön har avbokats.</p>
+  <div class="box">
+    <strong>Avbokad bokning:</strong>
+    <table>
+      <tr><td>Referensnummer</td><td>{{ booking.booking_ref }}</td></tr>
+      <tr><td>Ankomst</td><td>{{ booking.date_from }}</td></tr>
+      <tr><td>Avresa</td><td>{{ booking.date_to }}</td></tr>
+      <tr><td>Antal nätter</td><td>{{ booking.nights }}</td></tr>
+      <tr><td>Antal gäster</td><td>{{ booking.guests_count }}</td></tr>
+      <tr><td>Totalt belopp</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
+    </table>
+  </div>
+  <p>Vi beklagar att du inte kan komma. Vi hoppas att vi ses vid ett annat tillfälle!</p>
+  <p>Har du frågor kring avbokningen? Kontakta oss på <a href="mailto:{{ admin_email }}">{{ admin_email }}</a>.</p>
+  <div class="footer">Sjölyckan, Rolsmo · Linneryd, Kronobergs län<br>Referensnummer: {{ booking.booking_ref }}</div>
+</div>
+</body>
+</html>
