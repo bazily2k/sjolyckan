@@ -135,23 +135,31 @@ def create_staff(
 # ─── Admin: Lista alla användare ────────────────────────
 @router.get("/admin/users")
 def list_users(
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db),
     _: User = Depends(require_superadmin),
 ):
-    users = db.query(User).order_by(User.created_at.desc()).all()
-    return [
-        {
-            "id": u.id,
-            "email": u.email,
-            "first_name": u.first_name,
-            "last_name": u.last_name,
-            "role": u.role.value,
-            "is_active": u.is_active,
-            "created_at": str(u.created_at),
-            "last_login": str(u.last_login) if u.last_login else None,
-        }
-        for u in users
-    ]
+    total = db.query(User).count()
+    users = db.query(User).order_by(User.created_at.desc()).offset(skip).limit(limit).all()
+    return {
+        'items': [
+            {
+                "id": u.id,
+                "email": u.email,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "role": u.role.value,
+                "is_active": u.is_active,
+                "created_at": str(u.created_at),
+                "last_login": str(u.last_login) if u.last_login else None,
+            }
+            for u in users
+        ],
+        'total': total,
+        'skip': skip,
+        'limit': limit,
+    }
 
 
 # ─── Uppdatera profil ────────────────────────────────────

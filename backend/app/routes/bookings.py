@@ -144,6 +144,8 @@ async def create_booking_request(
 def admin_list_bookings(
     status: Optional[str] = None,
     show_hidden: bool = False,
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
@@ -152,8 +154,14 @@ def admin_list_bookings(
         q = q.filter(Booking.hidden == False)
     if status:
         q = q.filter(Booking.status == status)
-    bookings = q.order_by(Booking.created_at.desc()).all()
-    return [_booking_summary(b) for b in bookings]
+    total = q.count()
+    bookings = q.order_by(Booking.created_at.desc()).offset(skip).limit(limit).all()
+    return {
+        'items': [_booking_summary(b) for b in bookings],
+        'total': total,
+        'skip': skip,
+        'limit': limit,
+    }
 
 
 # ─── Admin: Hämta enskild bokning ───────────────────────
