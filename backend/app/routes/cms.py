@@ -78,6 +78,37 @@ def public_content(lang: str = "sv", db: Session = Depends(get_db)):
     return {b.key: getattr(b, f"value_{lang}", b.value_sv) or "" for b in blocks}
 
 
+
+@router.get("/public/page")
+def public_page(lang: str = "sv", db: Session = Depends(get_db)):
+    """Returnerar allt innehåll för startsidan i ett enda anrop."""
+    hero_images = db.query(GalleryImage).filter(
+        GalleryImage.visible == True,
+        GalleryImage.use_in_hero == True,
+    ).order_by(GalleryImage.sort_order).all()
+    
+    gallery_images = db.query(GalleryImage).filter(
+        GalleryImage.visible == True,
+        GalleryImage.use_in_gallery == True,
+    ).order_by(GalleryImage.sort_order).all()
+    
+    rooms = db.query(Room).filter(Room.visible == True).order_by(Room.sort_order).all()
+    
+    blocks = db.query(ContentBlock).all()
+    
+    return {
+        "hero": [{"id": i.id, "image_path": i.image_path} for i in hero_images],
+        "gallery": [
+            {
+                "id": i.id,
+                "image_path": i.image_path,
+                "alt": getattr(i, f"alt_{lang}", i.alt_sv) or "",
+                "use_in_hero": i.use_in_hero
+            } for i in gallery_images
+        ],
+        "rooms": [room_to_dict(r, lang) for r in rooms],
+        "content": {b.key: getattr(b, f"value_{lang}", b.value_sv) or "" for b in blocks},
+    }
 # ── ADMIN: RUM ───────────────────────────────────────────
 @router.get("/admin/rooms")
 def admin_list_rooms(db: Session = Depends(get_db), _: User = Depends(require_admin)):
