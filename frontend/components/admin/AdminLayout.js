@@ -12,7 +12,8 @@ export default function AdminLayout({ children, title = 'Admin' }) {
     }
   }, [user, loading]);
 
-  if (loading || !user) return null;
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", fontFamily: "var(--font-body)", color: "var(--ink-light)" }}>Laddar admin-panelen...</div>;
+  if (!user) return null;
 
   const navItems = [
     { href: '/admin', label: '📋 Bokningar' },

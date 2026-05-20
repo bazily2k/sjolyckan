@@ -43,7 +43,7 @@ def room_to_dict(r: Room, lang: str = "sv") -> dict:
         "beds": getattr(r, f"beds_{lang}", r.beds_sv) or "",
         "image_path": r.image_path,
         "sort_order": r.sort_order,
-        "images": [{"id": i.id, "image_path": i.image_path, "caption": i.caption_sv, "sort_order": i.sort_order} for i in r.images],
+        "images": [{"id": i.id, "image_path": i.image_path, "caption": getattr(i, f"caption_{lang}", i.caption_sv) or "", "sort_order": i.sort_order} for i in r.images],
     }
 
 
@@ -136,6 +136,8 @@ async def admin_update_room(
 async def admin_add_room_image(
     room_id: int,
     caption_sv: str = Form(""),
+    caption_en: str = Form(""),
+    caption_de: str = Form(""),
     sort_order: int = Form(0),
     image: UploadFile = File(...),
     db: Session = Depends(get_db), _: User = Depends(require_admin),
@@ -144,7 +146,7 @@ async def admin_add_room_image(
     if not room:
         raise HTTPException(status_code=404, detail="Rum hittades inte")
     image_path = save_upload(image, "rooms")
-    img = RoomImage(room_id=room_id, image_path=image_path, caption_sv=caption_sv, sort_order=sort_order)
+    img = RoomImage(room_id=room_id, image_path=image_path, caption_sv=caption_sv, caption_en=caption_en, caption_de=caption_de, sort_order=sort_order)
     db.add(img)
     # Sätt som huvudbild om det är den första
     if not room.image_path:

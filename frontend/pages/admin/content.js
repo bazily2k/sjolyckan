@@ -97,6 +97,8 @@ export default function AdminCMS() {
     const fd = new FormData();
     fd.append('image', roomExtraImage);
     fd.append('caption_sv', '');
+    fd.append('caption_en', '');
+    fd.append('caption_de', '');
     try {
       await axios.post(`${API}/cms/admin/rooms/${roomId}/images`, fd, { headers: getHeaders() });
       setMsg('Bild tillagd!');

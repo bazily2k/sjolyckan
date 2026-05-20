@@ -29,8 +29,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 # Serva uppladdade bilder statiskt
@@ -136,6 +136,9 @@ async def startup_event():
             ("linen_rule", "Egna sängkläder medbringas (eller boka som tillägg)", "Bring your own bed linen (or book as add-on)", "Eigene Bettwäsche mitbringen (oder als Extra buchen)", "Sängklädesregel"),
             ("pets_rule", "Inga husdjur i sängar eller soffor", "No pets on beds or sofas", "Keine Haustiere auf Betten oder Sofas", "Husdjursregel"),
             ("cleaning_rule", "Gästen städar vid utcheckning", "Guests clean before checkout", "Gäste reinigen bei Abreise", "Städregel"),
+            ("amenities_title", "Bekvämligheter", "Amenities", "Ausstattung", "Bekvämligheter-rubrik"),
+            ("sleep_title", "Var du sover", "Where you sleep", "Schlafbereiche", "Sovrubrik"),
+            ("rules_title", "Husregler", "House rules", "Hausregeln", "Husregler-rubrik"),
         ]
         for key, sv, en, de, desc in default_content:
             if not db.query(ContentBlock).filter(ContentBlock.key == key).first():

@@ -38,6 +38,8 @@ class RoomImage(Base):
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
     image_path = Column(String(500), nullable=False)
     caption_sv = Column(String(300))
+    caption_en = Column(String(300))
+    caption_de = Column(String(300))
     sort_order = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

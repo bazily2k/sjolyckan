@@ -56,17 +56,17 @@ export default function Home({ locale }) {
   useEffect(() => {
     Promise.all([
       publicApi.articles(lang),
-      axios.get(`${API}/cms/public/hero`).catch(() => ({ data: [] })),
-      axios.get(`${API}/cms/public/gallery?lang=${lang}`).catch(() => ({ data: [] })),
-      axios.get(`${API}/cms/public/rooms?lang=${lang}`).catch(() => ({ data: [] })),
-      axios.get(`${API}/cms/public/content?lang=${lang}`).catch(() => ({ data: {} })),
+      axios.get(`${API}/cms/public/hero`).catch(err => { console.error('Hero API-fel:', err.message); return { data: [] }; }),
+      axios.get(`${API}/cms/public/gallery?lang=${lang}`).catch(err => { console.error('Gallery API-fel:', err.message); return { data: [] }; }),
+      axios.get(`${API}/cms/public/rooms?lang=${lang}`).catch(err => { console.error('Rooms API-fel:', err.message); return { data: [] }; }),
+      axios.get(`${API}/cms/public/content?lang=${lang}`).catch(err => { console.error('Content API-fel:', err.message); return { data: {} }; }),
     ]).then(([arts, hero, gallery, roomsRes, contentRes]) => {
       setArticles(arts.data);
       if (hero.data.length > 0) setHeroImages(hero.data.map(i => i.image_path));
       if (gallery.data.length > 0) setGalleryImages(gallery.data);
       if (roomsRes.data.length > 0) setRooms(roomsRes.data);
       setContent(contentRes.data);
-    }).catch(() => {});
+    }).catch(err => { console.error('Kunde inte ladda sidinnehåll:', err); });
 
     const interval = setInterval(() => setHeroImg(i => (i + 1) % heroImages.length), 5000);
     return () => clearInterval(interval);
