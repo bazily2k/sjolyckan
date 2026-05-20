@@ -53,6 +53,7 @@ def calculate_booking_price(
     date_to: date,
     guests_count: int,
     article_ids: list[int],
+    discount_pct: Decimal = Decimal('0'),
 ) -> dict:
     """
     Beräkna fullständigt pris och samla ihop snapshot-data.
@@ -114,6 +115,12 @@ def calculate_booking_price(
             extra_guest_fee = Decimal(str(dominant_season.extra_guest_fee)) * extra_guests * nights
 
     total_amount = base_amount + articles_amount + extra_guest_fee
+
+    # Applicera rabatt om användaren har discount_pct > 0
+    discount_amount = Decimal('0')
+    if discount_pct and discount_pct > 0:
+        discount_amount = (total_amount * discount_pct / 100).quantize(Decimal('1'))
+        total_amount = total_amount - discount_amount
 
     # Säsongsvillkor (använder dominant säsong eller standardvärden)
     deposit_pct = Decimal(str(dominant_season.deposit_pct)) if dominant_season else Decimal("10")

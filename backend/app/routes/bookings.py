@@ -58,15 +58,25 @@ class AdminPaymentRequest(BaseModel):
 @router.post("/price-check")
 def price_check(req: PriceCheckRequest, db: Session = Depends(get_db)):
     try:
+        # Hämta användarens rabatt om e-post finns i systemet
+        discount_pct = Decimal('0')
+        if hasattr(req, 'guest_email') and req.guest_email:
+            user = db.query(User).filter(User.email == req.guest_email).first()
+            if user and user.discount_pct:
+                discount_pct = Decimal(str(user.discount_pct))
+        
         calc = calculate_booking_price(
             db, req.date_from, req.date_to,
-            req.guests_count, req.article_ids
+            req.guests_count, req.article_ids,
+            discount_pct=discount_pct
         )
         return {
             "nights": calc["nights"],
             "base_amount": float(calc["base_amount"]),
             "articles_amount": float(calc["articles_amount"]),
             "total_amount": float(calc["total_amount"]),
+            "discount_amount": float(calc["discount_amount"]),
+            "discount_pct": float(calc["snapshot"]["discount_pct"]),
             "deposit_amount": float(calc["deposit_amount"]),
             "deposit_pct": calc["snapshot"]["deposit_pct"],
             "deposit_due_date": str(calc["deposit_due_date"]),

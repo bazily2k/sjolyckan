@@ -60,6 +60,7 @@ class User(Base):
     city = Column(String(200))
     lang = Column(String(5), default="sv")
     role = Column(Enum(UserRole), default=UserRole.guest)
+    discount_pct = Column(Numeric(5, 2), default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True))
