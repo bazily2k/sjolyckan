@@ -9,8 +9,31 @@ export default function AdminUsers() {
   const [form, setForm] = useState({ email:'', password:'', first_name:'', last_name:'', role:'staff' });
   const [msg, setMsg] = useState('');
 
-  const load = () => adminApi.listUsers().then(r => setUsers(r.data)).catch(() => {});
+  const load = () => adminApi.listUsers()
+    .then(r => setUsers(Array.isArray(r.data) ? r.data : (r.data.items || [])))
+    .catch(() => {});
+
   useEffect(() => { load(); }, []);
+
+  const updateRole = async (userId, role) => {
+    try {
+      await adminApi.updateUserRole(userId, { role });
+      setMsg('Roll uppdaterad!');
+      load();
+    } catch (e) {
+      setMsg('Fel: ' + (e.response?.data?.detail || e.message));
+    }
+  };
+
+  const updateDiscount = async (userId, discountPct) => {
+    try {
+      await adminApi.updateUserDiscount(userId, { discount_pct: parseFloat(discountPct) });
+      setMsg('Rabatt uppdaterad!');
+      load();
+    } catch (e) {
+      setMsg('Fel: ' + (e.response?.data?.detail || e.message));
+    }
+  };
 
   const create = async (e) => {
     e.preventDefault();
@@ -29,14 +52,13 @@ export default function AdminUsers() {
       <Head><title>Användare — Admin Sjölyckan</title></Head>
       <AdminLayout title="Användare">
         {msg && <div style={msgBox}>{msg} <button onClick={() => setMsg('')} style={{ border:'none', background:'none', cursor:'pointer' }}>×</button></div>}
-
         <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:24, alignItems:'start' }}>
           {/* Lista */}
           <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
                 <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
-                  {['Namn','E-post','Roll','Senast inloggad','Status'].map(h => (
+                  {['Namn','E-post','Roll','Rabatt %','Senast inloggad','Status'].map(h => (
                     <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase' }}>{h}</th>
                   ))}
                 </tr>
@@ -47,10 +69,26 @@ export default function AdminUsers() {
                     <td style={{ padding:'10px 14px', fontWeight:500 }}>{u.first_name} {u.last_name}</td>
                     <td style={{ padding:'10px 14px', color:'var(--ink-light)' }}>{u.email}</td>
                     <td style={{ padding:'10px 14px' }}>
-                      <span style={{ padding:'2px 8px', borderRadius:20, fontSize:11, fontWeight:500,
-                        background: u.role === 'admin' ? '#faeeda' : u.role === 'staff' ? '#d1ecf1' : '#e2e3e5',
-                        color: u.role === 'admin' ? '#854F0B' : u.role === 'staff' ? '#0c5460' : '#383d41',
-                      }}>{u.role}</span>
+                      <select value={u.role} onChange={e => updateRole(u.id, e.target.value)}
+                        style={{ padding:'3px 8px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12,
+                          background: u.role === 'admin' ? '#faeeda' : u.role === 'staff' ? '#d1ecf1' : u.role === 'friend' ? '#d4edda' : '#e2e3e5',
+                          color: u.role === 'admin' ? '#854F0B' : u.role === 'staff' ? '#0c5460' : u.role === 'friend' ? '#155724' : '#383d41',
+                        }}>
+                        <option value="guest">Gäst</option>
+                        <option value="friend">Vän/Bekant</option>
+                        <option value="staff">Personal</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </td>
+                    <td style={{ padding:'10px 14px' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                        <input type='number' min='0' max='100'
+                          defaultValue={u.discount_pct || 0}
+                          onBlur={e => updateDiscount(u.id, e.target.value)}
+                          style={{ width:50, padding:'4px 6px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12, textAlign:'center' }}
+                        />
+                        <span style={{ fontSize:11, color:'var(--ink-pale)' }}>%</span>
+                      </div>
                     </td>
                     <td style={{ padding:'10px 14px', color:'var(--ink-pale)', fontSize:12 }}>
                       {u.last_login ? new Date(u.last_login).toLocaleDateString('sv-SE') : '–'}
@@ -68,7 +106,7 @@ export default function AdminUsers() {
 
           {/* Skapa personal */}
           <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', padding:20 }}>
-            <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, marginBottom:16 }}>Skapa personal/admin</h3>
+            <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, marginBottom:16 }}>Skapa användare</h3>
             <form onSubmit={create}>
               {[
                 { label:'Förnamn', field:'first_name' },
@@ -86,6 +124,8 @@ export default function AdminUsers() {
               <div style={{ marginBottom:16 }}>
                 <label style={lbl}>Roll</label>
                 <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} style={inp}>
+                  <option value="guest">Gäst</option>
+                  <option value="friend">Vän/Bekant</option>
                   <option value="staff">Personal (staff)</option>
                   <option value="admin">Admin</option>
                 </select>

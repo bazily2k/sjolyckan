@@ -58,5 +58,9 @@ export const adminApi = {
   updateSetting: (key, value) => api.put(`/admin/settings/${key}?value=${encodeURIComponent(value)}`),
   listUsers: () => api.get('/auth/admin/users'),
   createStaff: (data) => api.post('/auth/admin/create-staff', data),
+  updateUserDiscount: (userId, data) => api.patch(`/auth/admin/users/${userId}/discount`, data),
+  updateUserRole: (userId, data) => api.patch(`/auth/admin/users/${userId}/role`, data),
+  deleteEmailLog: (id) => api.delete(`/admin/email-logs/${id}`),
+  deleteAllEmailLogs: () => api.delete('/admin/email-logs'),
 };
 export default api;

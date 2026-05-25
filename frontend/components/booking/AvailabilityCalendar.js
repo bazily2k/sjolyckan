@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { publicApi } from '../../lib/api';
 
 const MONTHS_SV = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
@@ -8,50 +8,55 @@ const DAYS_SV = ['Mån','Tis','Ons','Tor','Fre','Lör','Sön'];
 const DAYS_EN = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const DAYS_DE = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 
+const LABELS = {
+  sv: { title:'Tillgänglighet', available:'Ledigt', booked:'Bokat', pending:'Preliminärt bokad', selected:'Vald period', selectInfo:'Klicka på ett ledigt datum för att påbörja bokning', perNight:'/natt' },
+  en: { title:'Availability', available:'Available', booked:'Booked', pending:'Provisionally booked', selected:'Selected period', selectInfo:'Click a free date to start booking', perNight:'/night' },
+  de: { title:'Verfügbarkeit', available:'Verfügbar', booked:'Gebucht', pending:'Vorläufig gebucht', selected:'Gewählter Zeitraum', selectInfo:'Klicken Sie auf ein freies Datum, um die Buchung zu beginnen', perNight:'/Nacht' },
+};
+
 export default function AvailabilityCalendar({ lang = 'sv', onSelectDates }) {
   const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
-  const [nextYear, setNextYear] = useState(today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear());
-  const [nextMonth, setNextMonth] = useState(today.getMonth() === 11 ? 1 : today.getMonth() + 2);
-  const [data1, setData1] = useState([]);
-  const [data2, setData2] = useState([]);
+  const [startMonth, setStartMonth] = useState({ year: today.getFullYear(), month: today.getMonth() + 1 });
+  const [monthsData, setMonthsData] = useState([[], [], []]);
   const [loading, setLoading] = useState(false);
   const [checkIn, setCheckIn] = useState(null);
   const [checkOut, setCheckOut] = useState(null);
   const [hovering, setHovering] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const MONTHS = lang === 'en' ? MONTHS_EN : lang === 'de' ? MONTHS_DE : MONTHS_SV;
   const DAYS = lang === 'en' ? DAYS_EN : lang === 'de' ? DAYS_DE : DAYS_SV;
+  const L = LABELS[lang] || LABELS.sv;
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const getMonthOffset = (offset) => {
+    const d = new Date(startMonth.year, startMonth.month - 1 + offset, 1);
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  };
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      publicApi.availability(year, month),
-      publicApi.availability(nextYear, nextMonth),
-    ]).then(([r1, r2]) => {
-      setData1(r1.data.days);
-      setData2(r2.data.days);
-    }).finally(() => setLoading(false));
-  }, [year, month, nextYear, nextMonth]);
+    const months = [0, 1, 2].map(i => getMonthOffset(i));
+    Promise.all(months.map(m => publicApi.availability(m.year, m.month)))
+      .then(results => setMonthsData(results.map(r => r.data.days)))
+      .finally(() => setLoading(false));
+  }, [startMonth]);
 
   const prevMonth = () => {
-    const d = new Date(year, month - 2, 1);
+    const d = new Date(startMonth.year, startMonth.month - 2, 1);
     if (d < new Date(today.getFullYear(), today.getMonth(), 1)) return;
-    setYear(d.getFullYear());
-    setMonth(d.getMonth() + 1);
-    const d2 = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-    setNextYear(d2.getFullYear());
-    setNextMonth(d2.getMonth() + 1);
+    setStartMonth({ year: d.getFullYear(), month: d.getMonth() + 1 });
   };
 
   const goNextMonth = () => {
-    const d = new Date(year, month, 1);
-    setYear(d.getFullYear());
-    setMonth(d.getMonth() + 1);
-    const d2 = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-    setNextYear(d2.getFullYear());
-    setNextMonth(d2.getMonth() + 1);
+    const d = new Date(startMonth.year, startMonth.month, 1);
+    setStartMonth({ year: d.getFullYear(), month: d.getMonth() + 1 });
   };
 
   const handleDay = (day) => {
@@ -95,7 +100,7 @@ export default function AvailabilityCalendar({ lang = 'sv', onSelectDates }) {
   };
 
   const renderMonth = (days, yr, mo) => (
-    <div>
+    <div key={`${yr}-${mo}`}>
       <div style={{ textAlign:'center', fontFamily:'var(--font-display)', fontSize:16, fontWeight:500, marginBottom:12 }}>
         {MONTHS[mo - 1]} {yr}
       </div>
@@ -115,31 +120,37 @@ export default function AvailabilityCalendar({ lang = 'sv', onSelectDates }) {
             const isPending = day.status === 'pending';
             const isBooked = !day.available && !day.past && day.status !== 'pending';
             const num = new Date(day.date).getDate();
+            const price = day.price ? Math.round(day.price).toLocaleString('sv-SE') : null;
             return (
               <div key={di}
                 onClick={() => handleDay(day)}
                 onMouseEnter={() => checkIn && !checkOut && day.available && setHovering(new Date(day.date))}
                 onMouseLeave={() => setHovering(null)}
                 style={{
-                  textAlign:'center', padding:'3px 1px',
+                  textAlign:'center', padding:'2px 1px',
                   cursor: day.available && !day.past ? 'pointer' : 'default',
                   background: start || end ? 'var(--water)' : inRange ? 'var(--water-pale)' : 'transparent',
                   borderRadius: start ? '50% 0 0 50%' : end ? '0 50% 50% 0' : 'none',
                 }}>
                 <div style={{
-                  width:30, height:30, margin:'0 auto',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  borderRadius:'50%',
+                  width:'100%', minHeight:38, margin:'0 auto',
+                  display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                  borderRadius:'var(--radius-md)',
                   background: start || end ? 'var(--water)' : isPending ? 'rgba(255,165,0,0.15)' : 'transparent',
                   border: isToday && !start && !end ? '1.5px solid var(--water)' : isPending ? '1.5px solid orange' : 'none',
-                  position:'relative',
+                  position:'relative', padding:'2px 0',
                 }}>
                   <span style={{
-                    fontSize:13,
+                    fontSize:13, lineHeight:1.2,
                     fontWeight: start || end ? 600 : 400,
                     color: start || end ? 'white' : day.past ? 'var(--sand-dark)' : isBooked ? 'var(--red)' : isPending ? 'darkorange' : 'var(--ink)',
                     textDecoration: isBooked ? 'line-through' : 'none',
                   }}>{num}</span>
+                  {price && !day.past && !isBooked && !isPending && (
+                    <span style={{ fontSize:9, fontWeight:600, color: start || end ? 'rgba(255,255,255,0.9)' : 'var(--water)', lineHeight:1, marginTop:1 }}>
+                      {price}
+                    </span>
+                  )}
                   {(isBooked || isPending) && (
                     <div style={{ position:'absolute', bottom:2, left:'50%', transform:'translateX(-50%)', width:4, height:4, borderRadius:'50%', background: isPending ? 'orange' : 'var(--red)', opacity:0.7 }} />
                   )}
@@ -152,12 +163,8 @@ export default function AvailabilityCalendar({ lang = 'sv', onSelectDates }) {
     </div>
   );
 
-  const labels = {
-    sv: { title:'Tillgänglighet', available:'Ledigt', booked:'Bokat', pending:'Preliminärt bokad', selected:'Vald period', selectInfo:'Klicka på ett ledigt datum för att påbörja bokning' },
-    en: { title:'Availability', available:'Available', booked:'Booked', pending:'Provisionally booked', selected:'Selected period', selectInfo:'Click a free date to start booking' },
-    de: { title:'Verfügbarkeit', available:'Verfügbar', booked:'Gebucht', pending:'Vorläufig gebucht', selected:'Gewählter Zeitraum', selectInfo:'Klicken Sie auf ein freies Datum, um die Buchung zu beginnen' },
-  };
-  const L = labels[lang] || labels.sv;
+  const visibleMonths = isMobile ? 1 : 3;
+  const cols = isMobile ? '1fr' : 'repeat(3, 1fr)';
 
   return (
     <div style={{ background:'white', borderRadius:'var(--radius-xl)', border:'1px solid var(--sand-dark)', padding:'24px', boxShadow:'var(--shadow-sm)' }}>
@@ -172,13 +179,14 @@ export default function AvailabilityCalendar({ lang = 'sv', onSelectDates }) {
       {loading ? (
         <div style={{ textAlign:'center', padding:40, color:'var(--ink-pale)' }}>Laddar...</div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:32 }}>
-          {renderMonth(data1, year, month)}
-          {renderMonth(data2, nextYear, nextMonth)}
+        <div style={{ display:'grid', gridTemplateColumns: cols, gap: isMobile ? 0 : 32 }}>
+          {[0, 1, 2].slice(0, visibleMonths).map(i => {
+            const m = getMonthOffset(i);
+            return renderMonth(monthsData[i] || [], m.year, m.month);
+          })}
         </div>
       )}
 
-      {/* Förklaring */}
       <div style={{ display:'flex', gap:16, marginTop:16, paddingTop:16, borderTop:'1px solid var(--sand)', flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--ink-light)' }}>
           <div style={{ width:12, height:12, borderRadius:'50%', background:'var(--ink)' }} />
@@ -199,24 +207,18 @@ export default function AvailabilityCalendar({ lang = 'sv', onSelectDates }) {
           </div>
         )}
       </div>
-
       {!checkIn && (
         <p style={{ fontSize:12, color:'var(--ink-pale)', marginTop:8, textAlign:'center' }}>{L.selectInfo}</p>
       )}
       {checkIn && !checkOut && (
         <p style={{ fontSize:12, color:'var(--water)', marginTop:8, textAlign:'center' }}>
-          {lang === 'sv' ? `Incheckning: ${checkIn.toLocaleDateString('sv-SE')} — välj utcheckningsdatum` :
-           lang === 'en' ? `Check-in: ${checkIn.toLocaleDateString('en-GB')} — select check-out date` :
-           `Anreise: ${checkIn.toLocaleDateString('de-DE')} — Abreisedatum wählen`}
+          {lang==='de' ? `Anreise: ${checkIn.toLocaleDateString('de-DE')} — Abreisedatum wählen` :
+           lang==='en' ? `Check-in: ${checkIn.toLocaleDateString('en-GB')} — select check-out date` :
+           `Incheckning: ${checkIn.toLocaleDateString('sv-SE')} — välj utcheckningsdatum`}
         </p>
       )}
     </div>
   );
 }
 
-const navBtn = {
-  width:32, height:32, border:'1px solid var(--sand-dark)',
-  background:'white', borderRadius:'50%',
-  cursor:'pointer', fontSize:18, color:'var(--ink)',
-  display:'flex', alignItems:'center', justifyContent:'center',
-};
+const navBtn = { width:32, height:32, border:'1px solid var(--sand-dark)', background:'white', borderRadius:'50%', cursor:'pointer', fontSize:18, color:'var(--ink)', display:'flex', alignItems:'center', justifyContent:'center' };

@@ -107,7 +107,7 @@ export default function AdminBookings() {
   const load = () => {
     setLoading(true);
     adminApi.listBookings(filter || undefined, showHidden)
-      .then(r => setBookings(r.data))
+      .then(r => setBookings(Array.isArray(r.data) ? r.data : (r.data.items || [])))
       .catch(() => {})
       .finally(() => setLoading(false));
   };

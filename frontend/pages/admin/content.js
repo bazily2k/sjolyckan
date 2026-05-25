@@ -144,8 +144,9 @@ export default function AdminCMS() {
   };
 
   const toggleGalleryImg = async (id, field, val) => {
-    await axios.patch(`${API}/cms/admin/gallery/${id}`, null, { headers: getHeaders(), params: { [field]: !val } });
-    load();
+    const newVal = field === 'sort_order' ? val : !val;
+    await axios.patch(`${API}/cms/admin/gallery/${id}`, null, { headers: getHeaders(), params: { [field]: newVal } });
+    if (field !== 'sort_order') load();
   };
 
   return (
@@ -324,6 +325,12 @@ export default function AdminCMS() {
                       <button onClick={() => toggleGalleryImg(img.id,'use_in_gallery',img.use_in_gallery)} style={{ ...togBtn, background:img.use_in_gallery?'#d4edda':'#f8d7da', color:img.use_in_gallery?'#155724':'#721c24' }}>
                         {img.use_in_gallery?'✓ Gall.':'✗ Gall.'}
                       </button>
+                    </div>
+                    <div style={{ display:'flex', gap:4, alignItems:'center', marginBottom:6 }}>
+                      <span style={{ fontSize:10, color:'var(--ink-pale)' }}>Ordning:</span>
+                      <input type="number" defaultValue={img.sort_order||0}
+                        onBlur={e => toggleGalleryImg(img.id, 'sort_order', parseInt(e.target.value))}
+                        style={{ width:50, padding:'2px 4px', border:'1px solid var(--sand-dark)', borderRadius:4, fontSize:11, textAlign:'center' }} />
                     </div>
                     <button onClick={() => deleteGalleryImage(img.id)} style={{ width:'100%', padding:'4px 0', background:'white', border:'1px solid #f5c6cb', color:'var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:11 }}>Ta bort</button>
                   </div>

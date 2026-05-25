@@ -241,3 +241,114 @@ def get_email_logs(
         "error": log.error,
         "sent_at": str(log.sent_at),
     } for log, booking in logs]
+
+# ─── Radera e-postlogg ───────────────────────────────
+@router.delete("/email-logs/{log_id}")
+def delete_email_log(
+    log_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import EmailLog
+    log = db.query(EmailLog).filter(EmailLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Logg hittades inte")
+    db.delete(log)
+    db.commit()
+    return {"ok": True}
+
+
+# ─── Radera alla e-postloggar ────────────────────────
+@router.delete("/email-logs")
+def delete_all_email_logs(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import EmailLog
+    db.query(EmailLog).delete()
+    db.commit()
+    return {"ok": True}
+
+# ─── Blockerade datum ─────────────────────────────────
+@router.get("/blocked-dates")
+def list_blocked_dates(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate
+    blocks = db.query(BlockedDate).order_by(BlockedDate.date_from).all()
+    return [{"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason} for b in blocks]
+
+@router.post("/blocked-dates")
+def create_blocked_date(
+    data: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate
+    from datetime import date
+    b = BlockedDate(
+        date_from=date.fromisoformat(data["date_from"]),
+        date_to=date.fromisoformat(data["date_to"]),
+        reason=data.get("reason", ""),
+    )
+    db.add(b)
+    db.commit()
+    db.refresh(b)
+    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
+
+@router.delete("/blocked-dates/{block_id}")
+def delete_blocked_date(
+    block_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate
+    b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Hittades inte")
+    db.delete(b)
+    db.commit()
+    return {"ok": True}
+
+# ─── Blockerade datum ─────────────────────────────────
+@router.get("/blocked-dates")
+def list_blocked_dates(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate
+    blocks = db.query(BlockedDate).order_by(BlockedDate.date_from).all()
+    return [{"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason} for b in blocks]
+
+@router.post("/blocked-dates")
+def create_blocked_date(
+    data: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate
+    from datetime import date
+    b = BlockedDate(
+        date_from=date.fromisoformat(data["date_from"]),
+        date_to=date.fromisoformat(data["date_to"]),
+        reason=data.get("reason", ""),
+    )
+    db.add(b)
+    db.commit()
+    db.refresh(b)
+    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
+
+@router.delete("/blocked-dates/{block_id}")
+def delete_blocked_date(
+    block_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate
+    b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Hittades inte")
+    db.delete(b)
+    db.commit()
+    return {"ok": True}

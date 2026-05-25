@@ -61,6 +61,8 @@ def calculate_booking_price(
     nights = (date_to - date_from).days
     if nights <= 0:
         raise ValueError("Utcheckning måste vara efter incheckning")
+    if nights < 1:
+        raise ValueError("Minst 1 natt krävs")
 
     # Beräkna nätterpris dag för dag (stöder varierade priser)
     base_amount = Decimal("0")
@@ -129,6 +131,8 @@ def calculate_booking_price(
     reminder_1_days = dominant_season.reminder_1_days if dominant_season else 14
     reminder_2_days = dominant_season.reminder_2_days if dominant_season else 3
     min_nights = dominant_season.min_nights if dominant_season else 2
+    if min_nights > 0 and nights < min_nights:
+        raise ValueError(f"Minst {min_nights} nätter krävs för denna period")
 
     deposit_amount = (total_amount * deposit_pct / 100).quantize(Decimal("1"))
     deposit_due_date = date.today() + timedelta(days=deposit_days)
@@ -155,6 +159,7 @@ def calculate_booking_price(
         "extra_guest_fee": float(extra_guest_fee),
         "extra_guest_threshold": dominant_season.extra_guest_threshold if dominant_season else 4,
         "terms_version": "1.0",
+        "discount_pct": float(discount_pct),
     }
 
     return {
@@ -162,6 +167,7 @@ def calculate_booking_price(
         "base_amount": base_amount,
         "articles_amount": articles_amount,
         "total_amount": total_amount,
+        "discount_amount": discount_amount,
         "deposit_amount": deposit_amount,
         "extra_guest_fee": extra_guest_fee,
         "deposit_due_date": deposit_due_date,

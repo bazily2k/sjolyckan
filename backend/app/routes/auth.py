@@ -153,6 +153,7 @@ def list_users(
                 "is_active": u.is_active,
                 "created_at": str(u.created_at),
                 "last_login": str(u.last_login) if u.last_login else None,
+                "discount_pct": float(u.discount_pct) if u.discount_pct else 0,
             }
             for u in users
         ],
@@ -254,3 +255,77 @@ def change_password(
     user.password_hash = hash_password(new_pass)
     db.commit()
     return {"ok": True}
+
+
+# ─── Admin: Uppdatera användarroll ───────────────────
+@router.patch("/admin/users/{user_id}/role")
+def admin_update_user_role(
+    user_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Användare hittades inte")
+    new_role = data.get("role")
+    try:
+        user.role = UserRole(new_role)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Ogiltig roll: {new_role}")
+    db.commit()
+    return {"ok": True, "role": new_role}
+
+
+# ─── Admin: Uppdatera användarrabatt ───────────────────
+@router.patch("/admin/users/{user_id}/discount")
+def admin_update_user_discount(
+    user_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Användare hittades inte")
+    if "discount_pct" in data:
+        user.discount_pct = data["discount_pct"]
+    db.commit()
+    return {"ok": True, "discount_pct": float(user.discount_pct) if user.discount_pct else 0}
+
+
+# ─── Admin: Uppdatera användarroll ───────────────────
+@router.patch("/admin/users/{user_id}/role")
+def admin_update_user_role(
+    user_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Användare hittades inte")
+    new_role = data.get("role")
+    try:
+        user.role = UserRole(new_role)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Ogiltig roll: {new_role}")
+    db.commit()
+    return {"ok": True, "role": new_role}
+
+
+# ─── Admin: Uppdatera användarrabatt ───────────────────
+@router.patch("/admin/users/{user_id}/discount")
+def admin_update_user_discount(
+    user_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Användare hittades inte")
+    if "discount_pct" in data:
+        user.discount_pct = data["discount_pct"]
+    db.commit()
+    return {"ok": True, "discount_pct": float(user.discount_pct) if user.discount_pct else 0}

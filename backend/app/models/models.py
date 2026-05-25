@@ -13,6 +13,7 @@ class UserRole(str, enum.Enum):
     admin = "admin"
     staff = "staff"
     guest = "guest"
+    friend = "friend"
 
 
 class BookingStatus(str, enum.Enum):
@@ -285,3 +286,12 @@ class EmailLog(Base):
     error = Column(Text)
 
     booking = relationship("Booking", back_populates="email_logs")
+
+
+class BlockedDate(Base):
+    __tablename__ = "blocked_dates"
+    id = Column(Integer, primary_key=True)
+    date_from = Column(Date, nullable=False)
+    date_to = Column(Date, nullable=False)
+    reason = Column(String(500))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -15,6 +15,21 @@ jinja_env = Environment(
 )
 
 async def send_email(to: str, subject: str, html: str) -> bool:
+    # Välj leverantör baserat på inställning i DB eller .env
+    provider = settings.EMAIL_PROVIDER
+    logger.info(f"send_email anropad, provider={provider}, to={to}")
+    try:
+        from app.models.database import SessionLocal
+        from app.models.models import Setting
+        db = SessionLocal()
+        s = db.query(Setting).filter(Setting.key == 'email_provider').first()
+        if s and s.value:
+            provider = s.value
+        db.close()
+    except Exception:
+        pass
+    if provider == 'brevo':
+        return await send_via_brevo(to, subject, html)
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -141,6 +156,31 @@ async def send_booking_email(
     ok = await send_email(recipient, subject, html)
     log_email(db, booking.id, email_type, recipient, lang, subject, "sent" if ok else "failed")
     return ok
+
+
+async def send_via_brevo(to_email: str, subject: str, html: str) -> bool:
+    """Skicka via Brevo SMTP."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    logger.info(f"Skickar via Brevo till {to_email}")
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        from_email = settings.BREVO_FROM if settings.BREVO_FROM else settings.MAIL_FROM
+        msg['From'] = f"{settings.MAIL_FROM_NAME} <{from_email}>"
+        msg['To'] = to_email
+        msg.attach(MIMEText(html, 'html', 'utf-8'))
+        with smtplib.SMTP(settings.BREVO_SMTP_SERVER, settings.BREVO_SMTP_PORT) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(settings.BREVO_LOGIN, settings.BREVO_PASSWORD)
+            server.sendmail(settings.MAIL_FROM, to_email, msg.as_string())
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Brevo SMTP fel: {e}")
+        return False
 
 
 async def send_booking_email_by_id(booking_id: int, email_type: str):

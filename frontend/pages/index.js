@@ -12,13 +12,7 @@ import axios from 'axios';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-const FALLBACK_IMAGES = [
-  'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/f36497a2-2a7d-481c-b2ef-2cc619fe8407.jpeg?im_w=1200',
-  'https://a0.muscache.com/im/pictures/miso/Hosting-910083123289876327/original/424d78fc-388e-4e55-8d70-6dba566f9fd3.jpeg?im_w=720',
-  'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/10dcfd46-f418-4a75-ba92-5f11911b94ff.jpeg?im_w=720',
-  'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/91f1b5fe-dc2c-4250-9973-cf761f2f3773.jpeg?im_w=720',
-  'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/2b95eccd-fd17-4f6f-b19c-316556314cb9.jpeg?im_w=720',
-];
+const FALLBACK_IMAGES = [];
 
 const FALLBACK_ROOMS = [
   { id:1, name:'Sovrum 1', beds:'1 dubbelsäng', image_path:'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/91f1b5fe-dc2c-4250-9973-cf761f2f3773.jpeg?im_w=720', images:[] },
@@ -66,9 +60,14 @@ export default function Home({ locale }) {
       if (page.content) setContent(page.content);
     }).catch(err => { console.error('Kunde inte ladda sidinnehåll:', err); });
 
-    const interval = setInterval(() => setHeroImg(i => (i + 1) % heroImages.length), 5000);
-    return () => clearInterval(interval);
   }, [lang]);
+
+  useEffect(() => {
+    if (heroImages.length > 1) {
+      const interval = setInterval(() => setHeroImg(i => (i + 1) % heroImages.length), 5000);
+      return () => clearInterval(interval);
+    }
+  }, [heroImages]);
 
   const handleSelectDates = ({ checkIn, checkOut }) => {
     setBookingDates({ checkIn, checkOut });
@@ -102,6 +101,9 @@ export default function Home({ locale }) {
 
       {/* Hero bildspel */}
       <section style={{ position:'relative', height:'100vh', minHeight:600, overflow:'hidden' }}>
+        {heroImages.length === 0 && (
+          <div style={{ position:'absolute', inset:0, background:'var(--ink)', opacity:0.8 }} />
+        )}
         {heroImages.map((img, i) => (
           <div key={i} style={{
             position:'absolute', inset:0,

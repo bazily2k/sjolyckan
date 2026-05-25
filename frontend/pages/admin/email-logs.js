@@ -3,6 +3,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
 import axios from 'axios';
+import { adminApi } from '../../lib/api';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -25,6 +26,20 @@ export default function EmailLogsPage() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+
+  const deleteLog = async (id) => {
+    try {
+      await adminApi.deleteEmailLog(id);
+      setLogs(l => l.filter(x => x.id !== id));
+    } catch(e) { alert('Fel: ' + e.message); }
+  };
+
+  const deleteAll = async () => {
+    try {
+      await adminApi.deleteAllEmailLogs();
+      setLogs([]);
+    } catch(e) { alert('Fel: ' + e.message); }
+  };
 
   useEffect(() => {
     axios.get(`${API}/admin/email-logs`, {
@@ -55,7 +70,12 @@ export default function EmailLogsPage() {
               </button>
             ))}
           </div>
-          <span style={{ fontSize: 13, color: 'var(--ink-pale)' }}>{filtered.length} poster</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--ink-pale)' }}>{filtered.length} poster</span>
+            <button onClick={deleteAll} style={{ padding: '5px 12px', fontSize: 12, border: '1px solid #f5c6cb', borderRadius: 20, background: 'white', color: 'var(--red)', cursor: 'pointer' }}>
+              🗑 Rensa alla
+            </button>
+          </div>
         </div>
         <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--sand-dark)', overflow: 'hidden' }}>
           {loading ? (
@@ -95,6 +115,9 @@ export default function EmailLogsPage() {
                           {log.status === 'sent' ? '✓ Skickat' : '✗ Fel'}
                         </span>
                         {log.error && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>{log.error}</div>}
+                      <button onClick={() => deleteLog(log.id)} style={{ marginTop: 4, padding: '1px 6px', fontSize: 10, border: '1px solid #f5c6cb', borderRadius: 4, background: 'white', color: 'var(--red)', cursor: 'pointer' }}>
+                        🗑
+                      </button>
                       </td>
                     </tr>
                   );

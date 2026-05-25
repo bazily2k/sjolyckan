@@ -58,6 +58,17 @@ def public_availability(
     # Hämta bekräftade bokningar som överlappar månaden
     booked_dates = set()
     pending_dates = set()
+    # Hämta blockerade datum
+    from app.models.models import BlockedDate
+    blocked = db.query(BlockedDate).filter(
+        BlockedDate.date_from < end,
+        BlockedDate.date_to > start,
+    ).all()
+    for b in blocked:
+        d = b.date_from
+        while d < b.date_to:
+            booked_dates.add(d)
+            d += timedelta(days=1)
     bookings = db.query(Booking).filter(
         Booking.status.in_([
             BookingStatus.confirmed,

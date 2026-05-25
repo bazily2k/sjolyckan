@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import date
+from decimal import Decimal
 from app.models.database import get_db
 from app.models.models import (
     Booking, BookingStatus, PaymentMethod, Payment,
@@ -40,6 +41,7 @@ class PriceCheckRequest(BaseModel):
     date_to: date
     guests_count: int = 2
     article_ids: List[int] = []
+    guest_email: Optional[str] = None
 
 
 class AdminConfirmRequest(BaseModel):
@@ -77,6 +79,7 @@ def price_check(req: PriceCheckRequest, db: Session = Depends(get_db)):
             "total_amount": float(calc["total_amount"]),
             "discount_amount": float(calc["discount_amount"]),
             "discount_pct": float(calc["snapshot"]["discount_pct"]),
+            "extra_guest_fee": float(calc["extra_guest_fee"]) if calc.get("extra_guest_fee") else 0,
             "deposit_amount": float(calc["deposit_amount"]),
             "deposit_pct": calc["snapshot"]["deposit_pct"],
             "deposit_due_date": str(calc["deposit_due_date"]),
@@ -95,9 +98,15 @@ async def create_booking_request(
     db: Session = Depends(get_db),
 ):
     try:
+        discount_pct = Decimal('0')
+        if req.guest_email:
+            user = db.query(User).filter(User.email == req.guest_email).first()
+            if user and user.discount_pct:
+                discount_pct = Decimal(str(user.discount_pct))
         calc = calculate_booking_price(
             db, req.date_from, req.date_to,
-            req.guests_count, req.article_ids
+            req.guests_count, req.article_ids,
+            discount_pct=discount_pct
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -106,7 +115,6 @@ async def create_booking_request(
 
     # Uppdatera användarprofil om e-post matchar befintligt konto
     try:
-        from app.models.models import User
         existing_user = db.query(User).filter(User.email == req.guest_email).first()
         if existing_user:
             if req.guest_phone:

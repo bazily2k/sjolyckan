@@ -196,8 +196,13 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   useEffect(() => {
     if (!checkIn || !checkOut) { setPrice(null); return; }
     const timer = setTimeout(() => {
-      bookingApi.priceCheck({ date_from:checkIn, date_to:checkOut, guests_count:guests, article_ids:selectedArticles })
-        .then(r => setPrice(r.data)).catch(() => setPrice(null));
+      bookingApi.priceCheck({ date_from:checkIn, date_to:checkOut, guests_count:guests, article_ids:selectedArticles, guest_email:form.guest_email||user?.email||undefined })
+        .then(r => { setPrice(r.data); setDateError(''); })
+        .catch(e => {
+          setPrice(null);
+          const msg = e.response?.data?.detail;
+          if (msg) setDateError(msg);
+        });
     }, 400);
     return () => clearTimeout(timer);
   }, [checkIn, checkOut, guests, selectedArticles]);
@@ -354,8 +359,20 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
             <span>{Math.round(price.base_amount/price.nights).toLocaleString('sv-SE')} kr × {price.nights} {price.nights===1?t('booking.night'):t('booking.nights')}</span>
             <span>{price.base_amount?.toLocaleString('sv-SE')} kr</span>
           </div>
+          {price.extra_guest_fee > 0 && (
+            <div style={priceRow}>
+              <span>{lang==='de'?'Zusatzgäste':lang==='en'?'Extra guests':'Extra gäster'}</span>
+              <span>{price.extra_guest_fee?.toLocaleString('sv-SE')} kr</span>
+            </div>
+          )}
           {price.articles_amount > 0 && (
             <div style={priceRow}><span>{t('booking.addons')}</span><span>{price.articles_amount?.toLocaleString('sv-SE')} kr</span></div>
+          )}
+          {price.discount_amount > 0 && (
+            <div style={{ ...priceRow, color:'var(--forest)' }}>
+              <span>{lang==='de'?'Rabatt':lang==='en'?'Discount':'Rabatt'} ({price.discount_pct}%)</span>
+              <span>−{price.discount_amount?.toLocaleString('sv-SE')} kr</span>
+            </div>
           )}
           <div style={{ ...priceRow, fontWeight:600, borderTop:'1px solid var(--sand-dark)', paddingTop:6, marginTop:4 }}>
             <span>{t('booking.total')}</span><span>{price.total_amount?.toLocaleString('sv-SE')} kr</span>

@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     NEXT_PUBLIC_API_URL: str = ""
     ADMIN_EMAIL: str
     SWISH_NUMBER: str = ""
+    BREVO_SMTP_SERVER: str = "smtp-relay.brevo.com"
+    BREVO_SMTP_PORT: int = 587
+    BREVO_LOGIN: str = ""
+    BREVO_PASSWORD: str = ""
+    BREVO_FROM: str = ""
+    EMAIL_PROVIDER: str = "mailersend"
 
     class Config:
         env_file = ".env"

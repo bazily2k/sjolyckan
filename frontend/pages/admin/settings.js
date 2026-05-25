@@ -11,18 +11,7 @@ const SETTING_LABELS = {
   checkout_time: 'Utcheckningstid',
   max_guests: 'Max antal gäster',
   swish_number: 'Swish-nummer',
-  about_title_sv: 'Om-rubrik (svenska)',
-  about_title_en: 'Om-rubrik (engelska)',
-  about_title_de: 'Om-rubrik (tyska)',
-  amenities_title_sv: 'Bekvämligheter-rubrik (svenska)',
-  amenities_title_en: 'Bekvämligheter-rubrik (engelska)',
-  amenities_title_de: 'Bekvämligheter-rubrik (tyska)',
-  sleep_title_sv: 'Sovrum-rubrik (svenska)',
-  sleep_title_en: 'Sovrum-rubrik (engelska)',
-  sleep_title_de: 'Sovrum-rubrik (tyska)',
-  rules_title_sv: 'Husregler-rubrik (svenska)',
-  rules_title_en: 'Husregler-rubrik (engelska)',
-  rules_title_de: 'Husregler-rubrik (tyska)',
+  email_provider: 'E-postleverantör (mailersend eller brevo)',
 };
 
 export default function AdminSettings() {
