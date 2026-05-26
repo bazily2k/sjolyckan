@@ -6,6 +6,7 @@ from app.models.database import engine
 from app.models.models import Base
 from app.models.cms_models import Room, GalleryImage, ContentBlock
 from app.routes import bookings, admin, auth, public
+from app.routes.payments import router as payments_router
 from app.routes.cms import router as cms_router
 from app.core.config import settings
 
@@ -41,6 +42,7 @@ app.include_router(public.router)
 app.include_router(bookings.router)
 app.include_router(admin.router)
 app.include_router(cms_router)
+app.include_router(payments_router)
 
 
 @app.get("/api/health")

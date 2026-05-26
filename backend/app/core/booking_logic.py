@@ -54,6 +54,7 @@ def calculate_booking_price(
     guests_count: int,
     article_ids: list[int],
     discount_pct: Decimal = Decimal('0'),
+    article_quantities: dict = None,
 ) -> dict:
     """
     Beräkna fullständigt pris och samla ihop snapshot-data.
@@ -91,10 +92,16 @@ def calculate_booking_price(
         ).first()
         if not art:
             continue
+        qty = 1
+        if art.price_type == "per_occasion" and article_quantities:
+            qty = int(article_quantities.get(str(aid), article_quantities.get(aid, 1)))
+            qty = max(1, qty)
         if art.price_type == "per_night":
             line_total = art.price * nights
         elif art.price_type == "per_guest":
             line_total = art.price * guests_count
+        elif art.price_type == "per_occasion":
+            line_total = art.price * qty
         else:  # fixed
             line_total = art.price
         articles_amount += line_total
@@ -105,6 +112,7 @@ def calculate_booking_price(
             "name_de": art.name_de,
             "price": float(art.price),
             "price_type": art.price_type,
+            "quantity": qty,
             "line_total": float(line_total),
         })
 
@@ -138,9 +146,12 @@ def calculate_booking_price(
     deposit_due_date = date.today() + timedelta(days=deposit_days)
     payment_due_date = date_from - timedelta(days=payment_days_before)
 
-    # Om betalfrist är i det förflutna, sätt till imorgon
+    # Om betalfrist är i det förflutna eller innan handpenning, justera
     if payment_due_date <= date.today():
         payment_due_date = date.today() + timedelta(days=1)
+    # Slutbetalning måste alltid vara EFTER handpenning
+    if payment_due_date <= deposit_due_date:
+        payment_due_date = deposit_due_date + timedelta(days=7)
 
     snapshot = {
         "season_id": dominant_season.id if dominant_season else None,

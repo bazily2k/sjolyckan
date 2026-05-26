@@ -21,6 +21,14 @@ export default function AdminBookings() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payMethod, setPayMethod] = useState('swish');
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [removedArticles, setRemovedArticles] = useState(new Set());
+  const [adjustLoading, setAdjustLoading] = useState(false);
+  const [adjustedTotals, setAdjustedTotals] = useState(null);
+  const [availableArticles, setAvailableArticles] = useState([]);
+  const [selectedArticleId, setSelectedArticleId] = useState('');
+  const [addArticleLoading, setAddArticleLoading] = useState(false);
+  const [addArticleQty, setAddArticleQty] = useState(1);
   const [adminNote, setAdminNote] = useState('');
   const [statusNote, setStatusNote] = useState('');
   const [sortBy, setSortBy] = useState('booking_ref');
@@ -113,6 +121,68 @@ export default function AdminBookings() {
   };
 
   useEffect(() => { load(); }, [filter, showHidden]);
+
+  useEffect(() => {
+    adminApi.listArticles().then(r => setAvailableArticles(r.data)).catch(() => {});
+  }, []);
+
+  const addArticle = async () => {
+    if (!selectedArticleId || !selected) return;
+    setAddArticleLoading(true);
+    try {
+      const r = await adminApi.addArticle(selected.id, { article_id: parseInt(selectedArticleId), quantity: addArticleQty });
+      setAdjustedTotals(r.data);
+      setSelected(prev => ({
+        ...prev,
+        total_amount: r.data.total_amount,
+        deposit_amount: r.data.deposit_amount,
+        articles_amount: r.data.articles_amount,
+        articles: [...(prev.articles || []), r.data.article],
+      }));
+      setSelectedArticleId('');
+      setAddArticleQty(1);
+      setMsg('Tillägg lagt till!');
+    } catch(e) {
+      setMsg('Fel: ' + (e.response?.data?.detail || e.message));
+    } finally {
+      setAddArticleLoading(false);
+    }
+  };
+
+  const toggleRemoveArticle = (articleId) => {
+    setRemovedArticles(prev => {
+      const next = new Set(prev);
+      if (next.has(articleId)) next.delete(articleId);
+      else next.add(articleId);
+      return next;
+    });
+  };
+
+  const applyAdjustment = async () => {
+    if (!selected) return;
+    setAdjustLoading(true);
+    try {
+      const r = await adminApi.adjustBooking(selected.id, {
+        discount_amount: parseFloat(discountAmount) || 0,
+        remove_article_ids: Array.from(removedArticles),
+      });
+      setAdjustedTotals(r.data);
+      setSelected(prev => ({
+        ...prev,
+        total_amount: r.data.total_amount,
+        deposit_amount: r.data.deposit_amount,
+        articles_amount: r.data.articles_amount,
+        articles: (prev.articles || []).filter(a => !removedArticles.has(a.article_id)),
+      }));
+      setRemovedArticles(new Set());
+      setDiscountAmount('');
+      setMsg('Justering sparad!');
+    } catch(e) {
+      setMsg('Fel: ' + (e.response?.data?.detail || e.message));
+    } finally {
+      setAdjustLoading(false);
+    }
+  };
 
   const confirm = async (id) => {
     setActionLoading(true);
@@ -274,17 +344,34 @@ export default function AdminBookings() {
                 ))}
               </div>
 
-              {/* Tillägg */}
-              {selected.articles?.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-pale)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Tillägg</div>
-                  {selected.articles.map((a, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' }}>
-                      <span>{a.name_sv}</span><span>{a.line_total?.toLocaleString('sv-SE')} kr</span>
-                    </div>
-                  ))}
+              {/* Prisspecifikation */}
+              <div style={{ marginBottom: 16, borderTop: '1px solid var(--sand-dark)', paddingTop: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-pale)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.3px' }}>Prisspecifikation</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--ink-light)' }}>
+                  <span>Boende ({selected.nights} nätter)</span>
+                  <span>{selected.base_amount?.toLocaleString('sv-SE')} kr</span>
                 </div>
-              )}
+                {selected.articles?.map((a, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--ink-light)' }}>
+                    <span>{a.name_sv}{a.quantity > 1 ? ` × ${a.quantity}` : ''}</span>
+                    <span>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+                  </div>
+                ))}
+                {selected.snapshot?.discount_amount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--forest)' }}>
+                    <span>Rabatt</span>
+                    <span>−{selected.snapshot.discount_amount?.toLocaleString('sv-SE')} kr</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, padding: '8px 0 4px', borderTop: '1px solid var(--sand-dark)', marginTop: 4 }}>
+                  <span>Totalt</span>
+                  <span>{selected.total_amount?.toLocaleString('sv-SE')} kr</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '2px 0', color: 'var(--water)' }}>
+                  <span>Handpenning (10%)</span>
+                  <span>{selected.deposit_amount?.toLocaleString('sv-SE')} kr</span>
+                </div>
+              </div>
 
               {/* Ändra status fritt */}
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--sand-dark)' }}>
@@ -321,6 +408,72 @@ export default function AdminBookings() {
               {/* Åtgärder baserat på status */}
               {selected.status === 'pending' && (
                 <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 16 }}>
+                  {/* Prisjustering */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Justera pris</div>
+                    {selected.articles?.length > 0 && (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 6 }}>Ta bort tillägg:</div>
+                        {selected.articles.map((a) => (
+                          <label key={a.article_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 4, cursor: 'pointer' }}>
+                            <input type="checkbox"
+                              checked={removedArticles.has(a.article_id)}
+                              onChange={() => toggleRemoveArticle(a.article_id)}
+                            />
+                            <span>{a.name_sv}</span>
+                            <span style={{ color: 'var(--ink-pale)', marginLeft: 'auto' }}>−{a.line_total?.toLocaleString('sv-SE')} kr</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 4 }}>Rabatt (kr):</div>
+                        <input type="number" min="0" value={discountAmount}
+                          onChange={e => setDiscountAmount(e.target.value)}
+                          placeholder="0"
+                          style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13 }}
+                        />
+                      </div>
+                      <button onClick={applyAdjustment} disabled={adjustLoading || (!discountAmount && removedArticles.size === 0)}
+                        style={{ marginTop: 18, padding: '8px 14px', background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, fontWeight: 500, opacity: (!discountAmount && removedArticles.size === 0) ? 0.5 : 1 }}>
+                        {adjustLoading ? '...' : 'Tillämpa'}
+                      </button>
+                    </div>
+                    {adjustedTotals && (
+                      <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--sand)', borderRadius: 'var(--radius-md)', fontSize: 13 }}>
+                        ✓ Nytt totalt: <strong>{adjustedTotals.total_amount?.toLocaleString('sv-SE')} kr</strong> · Handpenning: <strong>{adjustedTotals.deposit_amount?.toLocaleString('sv-SE')} kr</strong>
+                      </div>
+                    )}
+                  </div>
+                  {/* Lägg till tillägg */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 6 }}>Lägg till tillägg:</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <select value={selectedArticleId} onChange={e => setSelectedArticleId(e.target.value)}
+                        style={{ flex: 1, padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, background: 'white' }}>
+                        <option value="">Välj tillägg...</option>
+                        {availableArticles
+                          .filter(a => a.active && !selected.articles?.some(sa => sa.article_id === a.id))
+                          .map(a => (
+                            <option key={a.id} value={a.id}>
+                              {a.name_sv} ({a.price_type === 'per_night' ? a.price + ' kr/natt' : a.price_type === 'per_guest' ? a.price + ' kr/gäst' : a.price + ' kr'})
+                            </option>
+                          ))}
+                      </select>
+                      {selectedArticleId && availableArticles.find(a => a.id === parseInt(selectedArticleId))?.price_type === 'per_occasion' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <button onClick={() => setAddArticleQty(q => Math.max(1, q-1))} style={{ width: 24, height: 32, border: '1px solid var(--sand-dark)', borderRadius: 4, background: 'white', cursor: 'pointer' }}>−</button>
+                          <span style={{ fontSize: 13, fontWeight: 600, minWidth: 20, textAlign: 'center' }}>{addArticleQty}</span>
+                          <button onClick={() => setAddArticleQty(q => q+1)} style={{ width: 24, height: 32, border: '1px solid var(--sand-dark)', borderRadius: 4, background: 'white', cursor: 'pointer' }}>+</button>
+                        </div>
+                      )}
+                      <button onClick={addArticle} disabled={addArticleLoading || !selectedArticleId}
+                        style={{ padding: '7px 14px', background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, fontWeight: 500, opacity: !selectedArticleId ? 0.5 : 1 }}>
+                        {addArticleLoading ? '...' : '+ Lägg till'}
+                      </button>
+                    </div>
+                  </div>
                   <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Betalningsmetod</div>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                     {['swish', 'stripe', 'manual'].map(m => (
@@ -358,7 +511,7 @@ export default function AdminBookings() {
                   <input placeholder="Referens (Swish-nr, kvittonr etc)" value={payRef}
                     onChange={e => setPayRef(e.target.value)}
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginBottom: 8 }} />
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {selected.status === 'confirmed' && (
                       <button onClick={() => registerPay(selected.id, 'deposit')} disabled={actionLoading}
                         style={{ flex: 1, padding: 9, background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
@@ -371,6 +524,34 @@ export default function AdminBookings() {
                         Slutbetalning mottagen
                       </button>
                     )}
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 6 }}>Skicka betalningslänk via PayPal:</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {selected.status === 'confirmed' && (
+                        <button onClick={async () => {
+                          try {
+                            const r = await adminApi.createPaypalOrder(selected.id, { amount: selected.deposit_amount, payment_type: 'deposit' });
+                            window.open(r.data.approve_url, '_blank');
+                            setMsg('PayPal-betalningssida öppnad i nytt fönster. Kopiera länken: ' + r.data.approve_url);
+                          } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+                        }} style={{ flex: 1, padding: 9, background: '#003087', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                          🔵 PayPal handpenning ({selected.deposit_amount?.toLocaleString('sv-SE')} kr)
+                        </button>
+                      )}
+                      {selected.status === 'deposit_paid' && (
+                        <button onClick={async () => {
+                          const finalAmount = selected.total_amount - selected.deposit_amount;
+                          try {
+                            const r = await adminApi.createPaypalOrder(selected.id, { amount: finalAmount, payment_type: 'final' });
+                            window.open(r.data.approve_url, '_blank');
+                            setMsg('PayPal-betalningssida öppnad i nytt fönster. Kopiera länken: ' + r.data.approve_url);
+                          } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+                        }} style={{ flex: 1, padding: 9, background: '#003087', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                          🔵 PayPal slutbetalning ({(selected.total_amount - selected.deposit_amount)?.toLocaleString('sv-SE')} kr)
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

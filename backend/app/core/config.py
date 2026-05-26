@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     BREVO_LOGIN: str = ""
     BREVO_PASSWORD: str = ""
     BREVO_FROM: str = ""
+    PAYPAL_CLIENT_ID: str = ""
+    PAYPAL_SECRET: str = ""
+    PAYPAL_MODE: str = "live"
     EMAIL_PROVIDER: str = "mailersend"
 
     class Config:

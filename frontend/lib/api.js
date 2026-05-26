@@ -61,6 +61,9 @@ export const adminApi = {
   updateUserDiscount: (userId, data) => api.patch(`/auth/admin/users/${userId}/discount`, data),
   updateUserRole: (userId, data) => api.patch(`/auth/admin/users/${userId}/role`, data),
   deleteEmailLog: (id) => api.delete(`/admin/email-logs/${id}`),
+  createPaypalOrder: (bookingId, data) => api.post(`/bookings/admin/${bookingId}/paypal-create`, data),
+  adjustBooking: (bookingId, data) => api.patch(`/bookings/admin/${bookingId}/adjust`, data),
+  addArticle: (bookingId, data) => api.post(`/bookings/admin/${bookingId}/add-article`, data),
   deleteAllEmailLogs: () => api.delete('/admin/email-logs'),
 };
 export default api;

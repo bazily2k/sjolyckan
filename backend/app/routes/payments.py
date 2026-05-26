@@ -1,0 +1,188 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.models.database import get_db
+from app.models.models import (
+    Booking, Payment, BookingStatus,
+    PaymentMethod, PaymentStatus, PaymentType
+)
+from app.core.config import settings
+import httpx, base64
+from datetime import datetime, timezone
+
+router = APIRouter(prefix="/api/pay", tags=["payments"])
+
+DESC = {
+    "deposit": {"sv": "Handpenning", "en": "Deposit", "de": "Anzahlung"},
+    "final":   {"sv": "Slutbetalning", "en": "Final payment", "de": "Restzahlung"},
+}
+LOCALE = {"sv": "sv-SE", "en": "en-US", "de": "de-DE"}
+
+
+async def _paypal_token(base_url: str, client: httpx.AsyncClient) -> str:
+    credentials = base64.b64encode(
+        f"{settings.PAYPAL_CLIENT_ID}:{settings.PAYPAL_SECRET}".encode()
+    ).decode()
+    r = await client.post(
+        f"{base_url}/v1/oauth2/token",
+        headers={"Authorization": f"Basic {credentials}",
+                 "Content-Type": "application/x-www-form-urlencoded"},
+        data="grant_type=client_credentials",
+    )
+    if r.status_code != 200:
+        raise HTTPException(status_code=500, detail="PayPal autentisering misslyckades")
+    return r.json()["access_token"]
+
+
+def _paypal_base():
+    return "https://api-m.paypal.com" if settings.PAYPAL_MODE == "live" \
+           else "https://api-m.sandbox.paypal.com"
+
+
+def _booking_due(booking: Booking):
+    if booking.status == BookingStatus.confirmed:
+        return float(booking.deposit_amount), "deposit", booking.deposit_due_date
+    if booking.status == BookingStatus.deposit_paid:
+        return (float(booking.total_amount) - float(booking.deposit_amount),
+                "final", booking.payment_due_date)
+    return None, None, None
+
+
+@router.get("/{ref}")
+async def get_payment_info(ref: str, db: Session = Depends(get_db)):
+    booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    due_amount, payment_type, due_date = _booking_due(booking)
+    if not payment_type:
+        raise HTTPException(status_code=400, detail="Inga betalningar väntar")
+    return {
+        "booking_ref":      booking.booking_ref,
+        "guest_first_name": booking.guest_name.split()[0],
+        "date_from":        str(booking.date_from),
+        "date_to":          str(booking.date_to),
+        "nights":           booking.nights,
+        "total_amount":     float(booking.total_amount),
+        "deposit_amount":   float(booking.deposit_amount),
+        "due_amount":       due_amount,
+        "payment_type":     payment_type,
+        "due_date":         str(due_date) if due_date else None,
+        "status":           booking.status.value,
+        "lang":             booking.lang or "en",
+    }
+
+
+@router.post("/{ref}/paypal-create")
+async def create_paypal_order(ref: str, db: Session = Depends(get_db)):
+    booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    due_amount, payment_type, _ = _booking_due(booking)
+    if not payment_type:
+        raise HTTPException(status_code=400, detail="Inga betalningar väntar")
+    lang = booking.lang or "en"
+    description = DESC[payment_type].get(lang, DESC[payment_type]["en"])
+    base_url = _paypal_base()
+    async with httpx.AsyncClient() as client:
+        token = await _paypal_token(base_url, client)
+        r = await client.post(
+            f"{base_url}/v2/checkout/orders",
+            headers={"Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+            json={
+                "intent": "CAPTURE",
+                "purchase_units": [{
+                    "reference_id": booking.booking_ref,
+                    "description":  f"Sjolyckan - {booking.booking_ref} - {description}",
+                    "amount": {
+                        "currency_code": "SEK",
+                        "value": str(round(due_amount, 2)),
+                    },
+                }],
+                "application_context": {
+                    "return_url":   f"{settings.FRONTEND_URL}/pay/success?ref={booking.booking_ref}",
+                    "cancel_url":   f"{settings.FRONTEND_URL}/pay/cancel?ref={booking.booking_ref}",
+                    "brand_name":   "Sjolyckan",
+                    "locale":       LOCALE.get(lang, "en-US"),
+                    "user_action":  "PAY_NOW",
+                    "landing_page": "BILLING",
+                },
+            },
+        )
+        if r.status_code != 201:
+            raise HTTPException(status_code=500,
+                                detail=f"Kunde inte skapa PayPal-order: {r.text}")
+        order = r.json()
+        approve_url = next(
+            (l["href"] for l in order["links"] if l["rel"] == "approve"), None
+        )
+    return {"order_id": order["id"], "approve_url": approve_url,
+            "amount": due_amount, "payment_type": payment_type}
+
+
+@router.post("/paypal-capture")
+async def capture_paypal_order(data: dict, db: Session = Depends(get_db)):
+    order_id = data.get("order_id")
+    ref      = data.get("ref")
+    if not order_id or not ref:
+        raise HTTPException(status_code=400, detail="order_id och ref krävs")
+    booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+
+    # Undvik dubbel-capture
+    existing = db.query(Payment).filter(
+        Payment.paypal_order_id == order_id
+    ).first()
+    if existing:
+        return {
+            "success":      True,
+            "booking_ref":  booking.booking_ref,
+            "payment_type": existing.type.value,
+            "amount":       float(existing.amount),
+            "status":       booking.status.value,
+            "lang":         booking.lang or "en",
+        }
+
+    due_amount, payment_type, _ = _booking_due(booking)
+    if not payment_type:
+        raise HTTPException(status_code=400, detail="Inga betalningar väntar")
+
+    base_url = _paypal_base()
+    async with httpx.AsyncClient() as client:
+        token = await _paypal_token(base_url, client)
+        r = await client.post(
+            f"{base_url}/v2/checkout/orders/{order_id}/capture",
+            headers={"Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+        )
+        if r.status_code not in (200, 201):
+            details = r.json().get("details", [{}])
+            if not (details and details[0].get("issue") == "ORDER_ALREADY_CAPTURED"):
+                raise HTTPException(status_code=500,
+                                    detail=f"PayPal capture misslyckades: {r.text}")
+
+    p_type     = PaymentType.deposit if payment_type == "deposit" else PaymentType.final
+    new_status = BookingStatus.deposit_paid if payment_type == "deposit" else BookingStatus.paid
+
+    payment = Payment(
+        booking_id=booking.id,
+        type=p_type,
+        method=PaymentMethod.paypal,
+        amount=due_amount,
+        status=PaymentStatus.paid,
+        paid_at=datetime.now(timezone.utc),
+        paypal_order_id=order_id,
+    )
+    db.add(payment)
+    booking.status = new_status
+    booking.payment_method = PaymentMethod.paypal
+    db.commit()
+
+    return {
+        "success":      True,
+        "booking_ref":  booking.booking_ref,
+        "payment_type": p_type.value,
+        "amount":       due_amount,
+        "status":       new_status.value,
+        "lang":         booking.lang or "en",
+    }

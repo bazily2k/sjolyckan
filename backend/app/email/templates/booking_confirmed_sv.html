@@ -39,8 +39,11 @@
   <table>
     <tr><td>Boende ({{ booking.nights }} nätter)</td><td>{{ "{:,.0f}".format(booking.base_amount) }} kr</td></tr>
     {% for art in snap.articles %}
-    <tr><td>{{ art.name_sv }}</td><td>{{ "{:,.0f}".format(art.line_total) }} kr</td></tr>
+    <tr><td>{{ art.name_sv }}{% if art.price_type == 'per_occasion' and art.quantity is defined and art.quantity > 1 %} × {{ art.quantity }}{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total) }} kr</td></tr>
     {% endfor %}
+    {% if snap.discount_amount is defined and snap.discount_amount > 0 %}
+    <tr><td style="color:#27ae60">Rabatt</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount) }} kr</td></tr>
+    {% endif %}
     <tr class="total"><td>Totalt att betala</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
   </table>
 
@@ -49,6 +52,11 @@
     <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') }}</strong></p>
     {% if booking.payment_method.value == 'swish' %}
     <p>Swisha till: <strong>{{ swish_number }}</strong><br>Ange bokningsnummer <strong>{{ booking.booking_ref }}</strong> som meddelande.</p>
+    {% elif booking.payment_method.value == 'paypal' %}
+    <p style="text-align:center;margin-top:12px">
+      <a href="{{ frontend_url }}/pay/{{ booking.booking_ref }}" style="display:inline-block;background:#003087;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:15px;font-weight:600">&#x1F535; Betala med PayPal</a>
+    </p>
+    <p style="font-size:12px;color:#777;text-align:center">Eller kopiera länk: {{ frontend_url }}/pay/{{ booking.booking_ref }}</p>
     {% elif booking.payment_method.value == 'stripe' %}
     <p>Betala med kort via länken du fick separat.</p>
     {% else %}

@@ -41,17 +41,24 @@
     {% for art in snap.articles %}
     <tr><td>{{ art.name_en }}</td><td>{{ "{:,.0f}".format(art.line_total) }} SEK</td></tr>
     {% endfor %}
+    {% if snap.discount_amount is defined and snap.discount_amount > 0 %}
+    <tr><td style="color:#27ae60">Rabatt</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount) }} kr</td></tr>
+    {% endif %}
     <tr class="total"><td>Gesamt</td><td>{{ "{:,.0f}".format(booking.total_amount) }} SEK</td></tr>
   </table>
 
   <div class="box yellow">
     <h3>💳 Anzahlung</h3>
     <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') }}</strong></p>
-    {% if booking.payment_method and booking.payment_method.value == 'stripe' %}
-    <p>Please pay by card using the link sent separately.</p>
-    {% else %}
-    <p>We will contact you with payment details.</p>
-    {% endif %}
+    <p style="text-align:center;margin-top:16px">
+      <a href="{{ frontend_url }}/pay/{{ booking.booking_ref }}"
+         style="display:inline-block;background:#003087;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:15px;font-weight:600">
+        &#x1F535; Jetzt mit PayPal bezahlen
+      </a>
+    </p>
+    <p style="font-size:12px;color:#777;text-align:center;margin-top:6px">
+      Oder Link kopieren: {{ frontend_url }}/pay/{{ booking.booking_ref }}
+    </p>
   </div>
 
   <div class="box blue">

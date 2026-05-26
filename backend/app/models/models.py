@@ -28,6 +28,7 @@ class BookingStatus(str, enum.Enum):
 class PaymentMethod(str, enum.Enum):
     stripe = "stripe"
     swish = "swish"
+    paypal = "paypal"
     manual = "manual"
 
 
@@ -260,6 +261,9 @@ class Payment(Base):
     # Stripe
     stripe_payment_intent_id = Column(String(255))
     stripe_session_id = Column(String(255))
+
+    # PayPal
+    paypal_order_id = Column(String(255))
 
     # Swish / Manuell
     reference = Column(String(255))                        # Swish-ref eller manuell notering

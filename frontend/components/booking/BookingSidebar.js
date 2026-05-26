@@ -87,6 +87,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [guests, setGuests] = useState(2);
   const [selectedArticles, setSelectedArticles] = useState([]);
+  const [articleQuantities, setArticleQuantities] = useState({});
   const [price, setPrice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('dates');
@@ -196,7 +197,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   useEffect(() => {
     if (!checkIn || !checkOut) { setPrice(null); return; }
     const timer = setTimeout(() => {
-      bookingApi.priceCheck({ date_from:checkIn, date_to:checkOut, guests_count:guests, article_ids:selectedArticles, guest_email:form.guest_email||user?.email||undefined })
+      bookingApi.priceCheck({ date_from:checkIn, date_to:checkOut, guests_count:guests, article_ids:selectedArticles, article_quantities:articleQuantities, guest_email:form.guest_email||user?.email||undefined })
         .then(r => { setPrice(r.data); setDateError(''); })
         .catch(e => {
           setPrice(null);
@@ -205,10 +206,24 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
         });
     }, 400);
     return () => clearTimeout(timer);
-  }, [checkIn, checkOut, guests, selectedArticles]);
+  }, [checkIn, checkOut, guests, selectedArticles, articleQuantities]);
 
-  const toggleArticle = (id) =>
-    setSelectedArticles(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev,id]);
+  const toggleArticle = (id, priceType) => {
+    setSelectedArticles(prev => {
+      if (prev.includes(id)) {
+        setArticleQuantities(q => { const n = {...q}; delete n[id]; return n; });
+        return prev.filter(x => x !== id);
+      }
+      if (priceType === 'per_occasion') {
+        setArticleQuantities(q => ({ ...q, [id]: 1 }));
+      }
+      return [...prev, id];
+    });
+  };
+  const setQty = (id, qty) => {
+    const n = Math.max(1, parseInt(qty) || 1);
+    setArticleQuantities(q => ({ ...q, [id]: n }));
+  };
 
   const addChild = () => setChildren(c => [...c, '']);
   const removeChild = (i) => setChildren(c => c.filter((_,idx) => idx !== i));
@@ -269,6 +284,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
         date_to: checkOut,
         guests_count: guests,
         article_ids: selectedArticles,
+        article_quantities: articleQuantities,
         lang,
       });
       setBooking(res.data);
@@ -334,20 +350,31 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
             {t('booking.addons')}
           </div>
           {articles.map(a => (
-            <div key={a.id} onClick={() => a.bookable && toggleArticle(a.id)} style={{
-              display:'flex', justifyContent:'space-between', alignItems:'center',
-              padding:'7px 10px', marginBottom:4,
-              border:`1px solid ${selectedArticles.includes(a.id)?'var(--water)':'var(--sand-dark)'}`,
-              borderRadius:'var(--radius-md)', cursor:a.bookable?'pointer':'default',
-              background:selectedArticles.includes(a.id)?'var(--water-pale)':'white',
-            }}>
-              <div>
-                <div style={{ fontSize:13, fontWeight:500 }}>{a.name}</div>
-                <div style={{ fontSize:11, color:'var(--ink-pale)' }}>{a.desc}</div>
+            <div key={a.id} style={{ marginBottom:4 }}>
+              <div onClick={() => a.bookable && toggleArticle(a.id, a.price_type)} style={{
+                display:'flex', justifyContent:'space-between', alignItems:'center',
+                padding:'7px 10px',
+                border:`1px solid ${selectedArticles.includes(a.id)?'var(--water)':'var(--sand-dark)'}`,
+                borderRadius:'var(--radius-md)', cursor:a.bookable?'pointer':'default',
+                background:selectedArticles.includes(a.id)?'var(--water-pale)':'white',
+              }}>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:500 }}>{a.name}</div>
+                  <div style={{ fontSize:11, color:'var(--ink-pale)' }}>{a.desc}</div>
+                </div>
+                <div style={{ fontSize:12, fontWeight:500, color:'var(--water)', whiteSpace:'nowrap', marginLeft:8 }}>
+                  {a.price} kr {a.price_type==='per_night'?t('booking.per_night'):a.price_type==='per_guest'?t('booking.per_guest'):a.price_type==='per_occasion'?(lang==='de'?'/ Mal':lang==='en'?'/ occasion':'/ tillfälle'):''}
+                </div>
               </div>
-              <div style={{ fontSize:12, fontWeight:500, color:'var(--water)', whiteSpace:'nowrap', marginLeft:8 }}>
-                {a.price} kr {a.price_type==='per_night'?t('booking.per_night'):a.price_type==='per_guest'?t('booking.per_guest'):''}
-              </div>
+              {a.price_type === 'per_occasion' && selectedArticles.includes(a.id) && (
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', background:'var(--water-pale)', borderRadius:'0 0 var(--radius-md) var(--radius-md)', borderTop:'none' }}>
+                  <span style={{ fontSize:12, color:'var(--ink-pale)' }}>{lang==='de'?'Anzahl':lang==='en'?'Occasions':lang==='sv'?'Antal tillfällen':''}: </span>
+                  <button onClick={e => { e.stopPropagation(); setQty(a.id, (articleQuantities[a.id]||1)-1); }} style={{ width:24, height:24, border:'1px solid var(--water)', borderRadius:4, background:'white', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
+                  <span style={{ fontSize:13, fontWeight:600, minWidth:20, textAlign:'center' }}>{articleQuantities[a.id]||1}</span>
+                  <button onClick={e => { e.stopPropagation(); setQty(a.id, (articleQuantities[a.id]||1)+1); }} style={{ width:24, height:24, border:'1px solid var(--water)', borderRadius:4, background:'white', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
+                  <span style={{ fontSize:12, color:'var(--ink-pale)', marginLeft:4 }}>{((articleQuantities[a.id]||1) * a.price).toLocaleString('sv-SE')} kr</span>
+                </div>
+              )}
             </div>
           ))}
         </div>

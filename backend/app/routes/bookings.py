@@ -33,6 +33,7 @@ class BookingRequest(BaseModel):
     date_from: date
     date_to: date
     article_ids: List[int] = []
+    article_quantities: dict = {}
     message: Optional[str] = None
 
 
@@ -41,6 +42,7 @@ class PriceCheckRequest(BaseModel):
     date_to: date
     guests_count: int = 2
     article_ids: List[int] = []
+    article_quantities: dict = {}
     guest_email: Optional[str] = None
 
 
@@ -57,6 +59,89 @@ class AdminPaymentRequest(BaseModel):
 
 
 # ─── Publik: Priskalkyl ─────────────────────────────────
+
+
+# ─── Admin: Justera pris innan godkännande ──────────────
+class AdminAdjustRequest(BaseModel):
+    discount_amount: Optional[float] = 0
+    remove_article_ids: Optional[list[int]] = []
+    admin_note: Optional[str] = None
+
+@router.patch("/admin/{booking_id}/adjust")
+def admin_adjust_booking(
+    booking_id: int,
+    req: AdminAdjustRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from decimal import Decimal
+    b = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    if b.status != BookingStatus.pending:
+        raise HTTPException(status_code=400, detail="Kan bara justera väntande bokningar")
+
+    # Ta bort valda tillägg
+    if req.remove_article_ids:
+        from app.models.models import BookingArticle
+        for aid in req.remove_article_ids:
+            ba = db.query(BookingArticle).filter(
+                BookingArticle.booking_id == b.id,
+                BookingArticle.article_id == aid,
+            ).first()
+            if ba:
+                db.delete(ba)
+        db.flush()
+
+    # Räkna om articles_amount från kvarvarande tillägg
+    from app.models.models import BookingArticle
+    remaining = db.query(BookingArticle).filter(BookingArticle.booking_id == b.id).all()
+    articles_amount = sum(Decimal(str(a.line_total)) for a in remaining)
+
+    # Ny total
+    discount = Decimal(str(req.discount_amount or 0))
+    new_total = b.base_amount + articles_amount - discount
+    if new_total < 0:
+        raise HTTPException(status_code=400, detail="Rabatten kan inte överstiga totalt belopp")
+
+    # Ny handpenning (samma procentsats som i snapshot)
+    deposit_pct = Decimal(str(b.snapshot.get("deposit_pct", 10)))
+    new_deposit = (new_total * deposit_pct / 100).quantize(Decimal("1"))
+
+    # Uppdatera bokning
+    b.articles_amount = articles_amount
+    b.total_amount = new_total
+    b.deposit_amount = new_deposit
+    if req.admin_note:
+        b.admin_note = req.admin_note
+
+    # Uppdatera snapshot
+    snap = dict(b.snapshot)
+    snap["articles"] = [
+        {
+            "article_id": a.article_id,
+            "name_sv": a.name_sv,
+            "name_en": a.name_en,
+            "name_de": a.name_de,
+            "price": float(a.price_snapshot),
+            "price_type": a.price_type,
+            "line_total": float(a.line_total),
+        }
+        for a in remaining
+    ]
+    snap["discount_amount"] = float(discount)
+    b.snapshot = snap
+
+    db.commit()
+    db.refresh(b)
+
+    return {
+        "total_amount": float(b.total_amount),
+        "deposit_amount": float(b.deposit_amount),
+        "articles_amount": float(b.articles_amount),
+        "discount_amount": float(discount),
+    }
+
 @router.post("/price-check")
 def price_check(req: PriceCheckRequest, db: Session = Depends(get_db)):
     try:
@@ -70,7 +155,8 @@ def price_check(req: PriceCheckRequest, db: Session = Depends(get_db)):
         calc = calculate_booking_price(
             db, req.date_from, req.date_to,
             req.guests_count, req.article_ids,
-            discount_pct=discount_pct
+            discount_pct=discount_pct,
+            article_quantities=req.article_quantities,
         )
         return {
             "nights": calc["nights"],
@@ -106,7 +192,8 @@ async def create_booking_request(
         calc = calculate_booking_price(
             db, req.date_from, req.date_to,
             req.guests_count, req.article_ids,
-            discount_pct=discount_pct
+            discount_pct=discount_pct,
+            article_quantities=req.article_quantities,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -366,9 +453,11 @@ def _booking_detail(b: Booking) -> dict:
         "snapshot": b.snapshot,
         "articles": [
             {
+                "article_id": a.article_id,
                 "name_sv": a.name_sv,
                 "name_en": a.name_en,
                 "price_snapshot": float(a.price_snapshot),
+                "price_type": a.price_type,
                 "line_total": float(a.line_total),
             } for a in b.articles
         ],
@@ -476,3 +565,161 @@ def admin_hide_booking(
     booking.hidden = not booking.hidden
     db.commit()
     return {"ok": True, "hidden": booking.hidden}
+
+
+
+
+# ─── Admin: Lägg till tillägg på bokning ────────────────
+class AdminAddArticleRequest(BaseModel):
+    article_id: int
+    quantity: int = 1
+
+@router.post("/admin/{booking_id}/add-article")
+def admin_add_article(
+    booking_id: int,
+    req: AdminAddArticleRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from decimal import Decimal
+    from app.models.models import Article, BookingArticle
+    b = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+
+    art = db.query(Article).filter(Article.id == req.article_id, Article.active == True).first()
+    if not art:
+        raise HTTPException(status_code=404, detail="Tillägg hittades inte")
+
+    # Kolla om redan tillagd
+    existing = db.query(BookingArticle).filter(
+        BookingArticle.booking_id == b.id,
+        BookingArticle.article_id == req.article_id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Tillägget finns redan på bokningen")
+
+    # Beräkna line_total
+    qty = max(1, int(req.quantity or 1))
+    if art.price_type == "per_night":
+        line_total = Decimal(str(art.price)) * b.nights
+    elif art.price_type == "per_guest":
+        line_total = Decimal(str(art.price)) * b.guests_count
+    elif art.price_type == "per_occasion":
+        line_total = Decimal(str(art.price)) * qty
+    else:
+        line_total = Decimal(str(art.price))
+
+    ba = BookingArticle(
+        booking_id=b.id,
+        article_id=art.id,
+        name_sv=art.name_sv,
+        name_en=art.name_en,
+        name_de=art.name_de,
+        price_snapshot=art.price,
+        price_type=art.price_type,
+        quantity=1,
+        line_total=line_total,
+    )
+    db.add(ba)
+
+    # Uppdatera belopp
+    new_articles_amount = b.articles_amount + line_total
+    b.articles_amount = new_articles_amount
+    b.total_amount = b.base_amount + new_articles_amount
+    deposit_pct = Decimal(str(b.snapshot.get("deposit_pct", 10)))
+    b.deposit_amount = (b.total_amount * deposit_pct / 100).quantize(Decimal("1"))
+
+    # Uppdatera snapshot
+    snap = dict(b.snapshot)
+    snap["articles"] = snap.get("articles", []) + [{
+        "article_id": art.id,
+        "name_sv": art.name_sv,
+        "name_en": art.name_en,
+        "name_de": art.name_de,
+        "price": float(art.price),
+        "price_type": art.price_type,
+        "line_total": float(line_total),
+    }]
+    b.snapshot = snap
+    db.commit()
+    db.refresh(b)
+
+    return {
+        "total_amount": float(b.total_amount),
+        "deposit_amount": float(b.deposit_amount),
+        "articles_amount": float(b.articles_amount),
+        "article": {
+            "article_id": art.id,
+            "name_sv": art.name_sv,
+            "name_en": art.name_en,
+            "price_snapshot": float(art.price),
+            "price_type": art.price_type,
+            "line_total": float(line_total),
+        }
+    }
+
+# ─── PayPal: Skapa betalning ─────────────────────────
+@router.post("/admin/{booking_id}/paypal-create")
+async def create_paypal_order(
+    booking_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    import httpx, base64
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    
+    amount = data.get("amount", float(booking.deposit_amount))
+    payment_type = data.get("payment_type", "deposit")
+    
+    # Hämta PayPal access token
+    base_url = "https://api-m.paypal.com" if settings.PAYPAL_MODE == "live" else "https://api-m.sandbox.paypal.com"
+    credentials = base64.b64encode(f"{settings.PAYPAL_CLIENT_ID}:{settings.PAYPAL_SECRET}".encode()).decode()
+    
+    async with httpx.AsyncClient() as client:
+        token_res = await client.post(
+            f"{base_url}/v1/oauth2/token",
+            headers={"Authorization": f"Basic {credentials}", "Content-Type": "application/x-www-form-urlencoded"},
+            data="grant_type=client_credentials"
+        )
+        if token_res.status_code != 200:
+            raise HTTPException(status_code=500, detail="PayPal autentisering misslyckades")
+        access_token = token_res.json()["access_token"]
+        
+        # Skapa order
+        order_res = await client.post(
+            f"{base_url}/v2/checkout/orders",
+            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+            json={
+                "intent": "CAPTURE",
+                "purchase_units": [{
+                    "reference_id": booking.booking_ref,
+                    "description": f"Sjölyckan - {booking.booking_ref} - {'Handpenning' if payment_type == 'deposit' else 'Slutbetalning'}",
+                    "amount": {
+                        "currency_code": "SEK",
+                        "value": str(round(amount, 2))
+                    }
+                }],
+                "application_context": {
+                    "return_url": f"{settings.FRONTEND_URL}/pay/success?ref={booking.booking_ref}",
+                    "cancel_url": f"{settings.FRONTEND_URL}/pay/cancel?ref={booking.booking_ref}",
+                    "brand_name": "Sjölyckan",
+                    "locale": "sv-SE",
+                    "user_action": "PAY_NOW"
+                }
+            }
+        )
+        if order_res.status_code != 201:
+            raise HTTPException(status_code=500, detail="Kunde inte skapa PayPal-order")
+        
+        order = order_res.json()
+        approve_url = next((l["href"] for l in order["links"] if l["rel"] == "approve"), None)
+        
+        return {
+            "order_id": order["id"],
+            "approve_url": approve_url,
+            "amount": amount,
+        }
