@@ -67,6 +67,7 @@ async def startup_event():
             ("checkout_time", "12:00"),
             ("max_guests", "8"),
             ("swish_number", settings.SWISH_NUMBER),
+            ("booking_ref_style", "sequential"),
         ]
         for key, value in defaults:
             if not db.query(Setting).filter(Setting.key == key).first():

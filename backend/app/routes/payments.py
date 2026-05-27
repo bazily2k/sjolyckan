@@ -178,6 +178,125 @@ async def capture_paypal_order(data: dict, db: Session = Depends(get_db)):
     booking.payment_method = PaymentMethod.paypal
     db.commit()
 
+    if new_status == BookingStatus.deposit_paid:
+        from app.email.service import send_booking_email_by_id
+        import asyncio
+        asyncio.create_task(send_booking_email_by_id(booking.id, "payment_reminder"))
+
+    return {
+        "success":      True,
+        "booking_ref":  booking.booking_ref,
+        "payment_type": p_type.value,
+        "amount":       due_amount,
+        "status":       new_status.value,
+        "lang":         booking.lang or "en",
+    }
+
+
+# ── POST /pay/{ref}/stripe-create ── skapa Stripe checkout ────────────────
+@router.post("/{ref}/stripe-create")
+async def create_stripe_session(ref: str, db: Session = Depends(get_db)):
+    import stripe as stripe_lib
+    stripe_lib.api_key = settings.STRIPE_SECRET_KEY
+    if not settings.STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Stripe ej konfigurerat")
+
+    booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+
+    due_amount, payment_type, _ = _booking_due(booking)
+    if not payment_type:
+        raise HTTPException(status_code=400, detail="Inga betalningar väntar")
+
+    lang = booking.lang or "en"
+    desc = DESC[payment_type].get(lang, DESC[payment_type]["en"])
+
+    session = stripe_lib.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": "sek",
+                "product_data": {"name": f"Sjölyckan – {booking.booking_ref} – {desc}"},
+                "unit_amount": int(due_amount * 100),
+            },
+            "quantity": 1,
+        }],
+        mode="payment",
+        success_url=f"{settings.FRONTEND_URL}/pay/success?ref={booking.booking_ref}&session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{settings.FRONTEND_URL}/pay/cancel?ref={booking.booking_ref}",
+        metadata={
+            "booking_ref": booking.booking_ref,
+            "payment_type": payment_type,
+        },
+    )
+    return {"session_id": session.id, "url": session.url,
+            "amount": due_amount, "payment_type": payment_type}
+
+
+# ── POST /pay/stripe-capture ── bekräfta Stripe-betalning ─────────────────
+@router.post("/stripe-capture")
+async def capture_stripe_payment(data: dict, db: Session = Depends(get_db)):
+    import stripe as stripe_lib
+    stripe_lib.api_key = settings.STRIPE_SECRET_KEY
+
+    session_id = data.get("session_id")
+    ref        = data.get("ref")
+    if not session_id or not ref:
+        raise HTTPException(status_code=400, detail="session_id och ref krävs")
+
+    booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+
+    # Undvik dubbel-registrering
+    existing = db.query(Payment).filter(
+        Payment.stripe_session_id == session_id
+    ).first()
+    if existing:
+        return {
+            "success":      True,
+            "booking_ref":  booking.booking_ref,
+            "payment_type": existing.type.value,
+            "amount":       float(existing.amount),
+            "status":       booking.status.value,
+            "lang":         booking.lang or "en",
+        }
+
+    due_amount, payment_type, _ = _booking_due(booking)
+    if not payment_type:
+        raise HTTPException(status_code=400, detail="Inga betalningar väntar")
+
+    # Verifiera betalning hos Stripe
+    try:
+        session = stripe_lib.checkout.Session.retrieve(session_id)
+        if session.payment_status != "paid":
+            raise HTTPException(status_code=400, detail="Betalningen ej genomförd")
+    except stripe_lib.error.StripeError as e:
+        raise HTTPException(status_code=500, detail=f"Stripe-fel: {str(e)}")
+
+    p_type     = PaymentType.deposit if payment_type == "deposit" else PaymentType.final
+    new_status = BookingStatus.deposit_paid if payment_type == "deposit" else BookingStatus.paid
+
+    payment = Payment(
+        booking_id=booking.id,
+        type=p_type,
+        method=PaymentMethod.stripe,
+        amount=due_amount,
+        status=PaymentStatus.paid,
+        paid_at=datetime.now(timezone.utc),
+        stripe_session_id=session_id,
+    )
+    db.add(payment)
+    booking.status = new_status
+    booking.payment_method = PaymentMethod.stripe
+    db.commit()
+
+    if new_status == BookingStatus.deposit_paid:
+        from app.email.service import send_booking_email_by_id
+        import asyncio
+        asyncio.create_task(send_booking_email_by_id(booking.id, "payment_reminder"))
+
     return {
         "success":      True,
         "booking_ref":  booking.booking_ref,

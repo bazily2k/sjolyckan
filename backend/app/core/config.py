@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
 
     FRONTEND_URL: str = "https://booking.rolsmo23.com"
     NEXT_PUBLIC_API_URL: str = ""

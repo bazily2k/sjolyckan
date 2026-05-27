@@ -4,18 +4,39 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from app.models.models import Season, PriceOverride, Article, Booking, BookingArticle, Payment
 from app.models.models import BookingStatus, PaymentMethod, PaymentType, PaymentStatus
-import random
-import string
 
 
 def generate_booking_ref(db: Session) -> str:
+    import random, string as string_mod
     year = date.today().year
-    while True:
-        suffix = "".join(random.choices(string.digits, k=4))
-        ref = f"SJO-{year}-{suffix}"
-        exists = db.query(Booking).filter(Booking.booking_ref == ref).first()
-        if not exists:
-            return ref
+    # Kolla inställning
+    try:
+        from app.models.models import Setting
+        s = db.query(Setting).filter(Setting.key == "booking_ref_style").first()
+        style = s.value if s else "sequential"
+    except Exception:
+        style = "sequential"
+
+    if style == "random":
+        while True:
+            suffix = "".join(random.choices(string_mod.digits, k=4))
+            ref = f"SJO-{year}-{suffix}"
+            exists = db.query(Booking).filter(Booking.booking_ref == ref).first()
+            if not exists:
+                return ref
+    else:
+        from sqlalchemy import func
+        last = db.query(func.max(Booking.booking_ref)).filter(
+            Booking.booking_ref.like(f"SJO-{year}-%")
+        ).scalar()
+        if last:
+            try:
+                last_num = int(last.split("-")[-1])
+            except ValueError:
+                last_num = 0
+        else:
+            last_num = 0
+        return f"SJO-{year}-{last_num + 1:04d}"
 
 
 def get_season_for_date(db: Session, d: date) -> Optional[Season]:

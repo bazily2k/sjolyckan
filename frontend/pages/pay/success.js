@@ -34,17 +34,34 @@ const fmtSEK = (n) =>
 
 export default function PaySuccess() {
   const router = useRouter();
-  const { ref, token } = router.query;
+  const { ref, token, session_id } = router.query;
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!ref || !token) return;
-    axios.post('/api/pay/paypal-capture', { order_id: token, ref })
-      .then(r => { setResult(r.data); setLoading(false); })
-      .catch(e => { setError(e.response?.data?.detail || 'error'); setLoading(false); });
-  }, [ref, token]);
+    if (!ref) return;
+    if (!token && !session_id) return;
+
+    const capture = async () => {
+      try {
+        let r;
+        if (session_id) {
+          // Stripe
+          r = await axios.post('/api/pay/stripe-capture', { session_id, ref });
+        } else {
+          // PayPal
+          r = await axios.post('/api/pay/paypal-capture', { order_id: token, ref });
+        }
+        setResult(r.data);
+      } catch (e) {
+        setError(e.response?.data?.detail || 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    capture();
+  }, [ref, token, session_id]);
 
   const lang = result?.lang || 'en';
   const t = T[lang] || T.en;

@@ -9,7 +9,7 @@ const T = {
     greeting: 'Hej', stay: 'Din vistelse', nights: 'nätter',
     deposit_label: 'Handpenning att betala', final_label: 'Slutbetalning att betala',
     due: 'Förfaller', pay_btn: 'Betala med PayPal', processing: 'Öppnar PayPal...',
-    error: 'Något gick fel. Försök igen.', secure: 'Säker betalning via PayPal',
+    error: 'Något gick fel. Försök igen.', stripe_btn: 'Betala med kort', stripe_processing: 'Öppnar betalning...', secure: 'Säker betalning via PayPal eller kort',
   },
   en: {
     title: 'Pay your booking', loading: 'Loading booking information...',
@@ -17,7 +17,7 @@ const T = {
     greeting: 'Hello', stay: 'Your stay', nights: 'nights',
     deposit_label: 'Deposit to pay', final_label: 'Final payment to pay',
     due: 'Due by', pay_btn: 'Pay with PayPal', processing: 'Opening PayPal...',
-    error: 'Something went wrong. Please try again.', secure: 'Secure payment via PayPal',
+    error: 'Something went wrong. Please try again.', stripe_btn: 'Pay by card', stripe_processing: 'Opening payment...', secure: 'Secure payment via PayPal or card',
   },
   de: {
     title: 'Buchung bezahlen', loading: 'Buchungsinformationen werden geladen...',
@@ -25,7 +25,7 @@ const T = {
     greeting: 'Hallo', stay: 'Ihr Aufenthalt', nights: 'Nächte',
     deposit_label: 'Anzahlung zu bezahlen', final_label: 'Restzahlung zu bezahlen',
     due: 'Fällig bis', pay_btn: 'Mit PayPal bezahlen', processing: 'PayPal wird geöffnet...',
-    error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.', secure: 'Sichere Zahlung über PayPal',
+    error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.', stripe_btn: 'Mit Karte bezahlen', stripe_processing: 'Zahlung wird geöffnet...', secure: 'Sichere Zahlung über PayPal oder Karte',
   },
 };
 
@@ -46,6 +46,7 @@ export default function PayPage() {
   const [loading, setLoading] = useState(true);
   const [errKey, setErrKey] = useState('');
   const [paying, setPaying] = useState(false);
+  const [payingStripe, setPayingStripe] = useState(false);
 
   useEffect(() => {
     if (!ref) return;
@@ -59,6 +60,17 @@ export default function PayPage() {
 
   const lang = booking?.lang || 'en';
   const t = T[lang] || T.en;
+
+  const handleStripe = async () => {
+    setPayingStripe(true);
+    try {
+      const r = await axios.post(`/api/pay/${ref}/stripe-create`);
+      window.location.href = r.data.url;
+    } catch (e) {
+      setErrKey('error');
+      setPayingStripe(false);
+    }
+  };
 
   const handlePayPal = async () => {
     setPaying(true);
@@ -110,6 +122,10 @@ export default function PayPage() {
         <button onClick={handlePayPal} disabled={paying} style={{ ...s.btn, opacity: paying ? 0.7 : 1 }}>
           {paying ? t.processing : <><span style={{ marginRight: 8 }}>🔵</span>{t.pay_btn}</>}
         </button>
+        <div style={s.divider}><span>{lang === 'de' ? 'oder' : lang === 'sv' ? 'eller' : 'or'}</span></div>
+        <button onClick={handleStripe} disabled={paying || payingStripe} style={{ ...s.stripeBtn, opacity: payingStripe ? 0.7 : 1 }}>
+          {payingStripe ? t.stripe_processing : <><span style={{ marginRight: 8 }}>💳</span>{t.stripe_btn}</>}
+        </button>
         <p style={s.secure}>🔒 {t.secure}</p>
       </div>
     </div>
@@ -131,5 +147,7 @@ const s = {
   amt:     { fontSize: 32, fontWeight: 700, color: '#1a5276' },
   due:     { fontSize: 13, color: '#777', marginTop: 6 },
   btn:     { width: '100%', padding: 14, background: '#003087', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  secure:  { textAlign: 'center', fontSize: 12, color: '#aaa', marginTop: 12 },
+  secure:    { textAlign: 'center', fontSize: 12, color: '#aaa', marginTop: 12 },
+  stripeBtn: { width: '100%', padding: 14, background: '#635bff', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  divider:   { display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0', color: '#ccc', fontSize: 12, textAlign: 'center' },
 };

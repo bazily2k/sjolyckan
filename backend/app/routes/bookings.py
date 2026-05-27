@@ -416,6 +416,14 @@ def admin_register_payment(
         b.status = BookingStatus.deposit_paid
 
     db.commit()
+    db.refresh(b)
+
+    # Skicka mail vid handpenning — informera om slutbetalning
+    from app.email.service import send_booking_email_by_id
+    import asyncio
+    if b.status == BookingStatus.deposit_paid:
+        asyncio.create_task(send_booking_email_by_id(b.id, "payment_reminder"))
+
     return {"status": "payment_registered", "booking_status": b.status.value}
 
 

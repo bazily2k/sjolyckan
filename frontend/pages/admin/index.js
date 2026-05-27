@@ -526,31 +526,50 @@ export default function AdminBookings() {
                     )}
                   </div>
                   <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 6 }}>Skicka betalningslänk via PayPal:</div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {selected.status === 'confirmed' && (
-                        <button onClick={async () => {
-                          try {
-                            const r = await adminApi.createPaypalOrder(selected.id, { amount: selected.deposit_amount, payment_type: 'deposit' });
-                            window.open(r.data.approve_url, '_blank');
-                            setMsg('PayPal-betalningssida öppnad i nytt fönster. Kopiera länken: ' + r.data.approve_url);
-                          } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
-                        }} style={{ flex: 1, padding: 9, background: '#003087', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
-                          🔵 PayPal handpenning ({selected.deposit_amount?.toLocaleString('sv-SE')} kr)
-                        </button>
-                      )}
-                      {selected.status === 'deposit_paid' && (
-                        <button onClick={async () => {
-                          const finalAmount = selected.total_amount - selected.deposit_amount;
-                          try {
-                            const r = await adminApi.createPaypalOrder(selected.id, { amount: finalAmount, payment_type: 'final' });
-                            window.open(r.data.approve_url, '_blank');
-                            setMsg('PayPal-betalningssida öppnad i nytt fönster. Kopiera länken: ' + r.data.approve_url);
-                          } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
-                        }} style={{ flex: 1, padding: 9, background: '#003087', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
-                          🔵 PayPal slutbetalning ({(selected.total_amount - selected.deposit_amount)?.toLocaleString('sv-SE')} kr)
-                        </button>
-                      )}
+                    <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 6 }}>Skicka betalningslänk till gäst:</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ fontSize: 11, color: 'var(--ink-pale)' }}>🔵 PayPal</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {selected.status === 'confirmed' && (
+                          <button onClick={async () => {
+                            const link = `${window.location.origin}/pay/${selected.booking_ref}`;
+                            navigator.clipboard.writeText(link);
+                            setMsg('Betalningslänk kopierad: ' + link);
+                          }} style={{ flex: 1, padding: 9, background: '#003087', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                            🔵 Kopiera länk – handpenning ({selected.deposit_amount?.toLocaleString('sv-SE')} kr)
+                          </button>
+                        )}
+                        {selected.status === 'deposit_paid' && (
+                          <button onClick={async () => {
+                            const link = `${window.location.origin}/pay/${selected.booking_ref}`;
+                            navigator.clipboard.writeText(link);
+                            setMsg('Betalningslänk kopierad: ' + link);
+                          }} style={{ flex: 1, padding: 9, background: '#003087', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                            🔵 Kopiera länk – slutbetalning ({(selected.total_amount - selected.deposit_amount)?.toLocaleString('sv-SE')} kr)
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-pale)', marginTop: 4 }}>💳 Stripe</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {selected.status === 'confirmed' && (
+                          <button onClick={async () => {
+                            const link = `${window.location.origin}/pay/${selected.booking_ref}`;
+                            navigator.clipboard.writeText(link);
+                            setMsg('Betalningslänk kopierad: ' + link);
+                          }} style={{ flex: 1, padding: 9, background: '#635bff', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                            💳 Kopiera länk – handpenning ({selected.deposit_amount?.toLocaleString('sv-SE')} kr)
+                          </button>
+                        )}
+                        {selected.status === 'deposit_paid' && (
+                          <button onClick={async () => {
+                            const link = `${window.location.origin}/pay/${selected.booking_ref}`;
+                            navigator.clipboard.writeText(link);
+                            setMsg('Betalningslänk kopierad: ' + link);
+                          }} style={{ flex: 1, padding: 9, background: '#635bff', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                            💳 Kopiera länk – slutbetalning ({(selected.total_amount - selected.deposit_amount)?.toLocaleString('sv-SE')} kr)
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
