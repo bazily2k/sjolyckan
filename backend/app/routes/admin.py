@@ -352,3 +352,32 @@ def delete_blocked_date(
     db.delete(b)
     db.commit()
     return {"ok": True}
+
+# ─── Skicka om e-post ───────────────────────────────────
+@router.post("/email-logs/{log_id}/resend")
+async def resend_email(
+    log_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import EmailLog, Booking
+    from app.email.service import send_booking_email
+
+    log = db.query(EmailLog).filter(EmailLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Loggpost hittades inte")
+
+    booking = db.query(Booking).filter(Booking.id == log.booking_id).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+
+    to_admin = log.recipient != booking.guest_email
+    ok = await send_booking_email(db, booking, log.email_type, to_admin=to_admin)
+    if ok:
+        from datetime import datetime
+        log.status = "sent"
+        log.error = None
+        log.sent_at = datetime.utcnow()
+        db.commit()
+        return {"status": "sent"}
+    raise HTTPException(status_code=500, detail="Misslyckades skicka mail")

@@ -27,6 +27,23 @@ export default function EmailLogsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
 
+  const [resending, setResending] = useState(null);
+
+  const resendLog = async (log) => {
+    setResending(log.id);
+    try {
+      await axios.post(`${API}/admin/email-logs/${log.id}/resend`, {}, {
+        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
+      });
+      setLogs(prev => prev.map(l => l.id === log.id ? { ...l, status: 'sent', error: null } : l));
+      alert('Mail skickat om till ' + log.recipient);
+    } catch(e) {
+      alert('Fel: ' + (e.response?.data?.detail || e.message));
+    } finally {
+      setResending(null);
+    }
+  };
+
   const deleteLog = async (id) => {
     try {
       await adminApi.deleteEmailLog(id);
@@ -115,9 +132,15 @@ export default function EmailLogsPage() {
                           {log.status === 'sent' ? '✓ Skickat' : '✗ Fel'}
                         </span>
                         {log.error && <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>{log.error}</div>}
-                      <button onClick={() => deleteLog(log.id)} style={{ marginTop: 4, padding: '1px 6px', fontSize: 10, border: '1px solid #f5c6cb', borderRadius: 4, background: 'white', color: 'var(--red)', cursor: 'pointer' }}>
-                        🗑
-                      </button>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                        <button onClick={() => resendLog(log)} disabled={resending === log.id}
+                          style={{ padding: '1px 6px', fontSize: 10, border: '1px solid var(--water)', borderRadius: 4, background: 'white', color: 'var(--water)', cursor: 'pointer' }}>
+                          {resending === log.id ? '...' : '↩ Skicka om'}
+                        </button>
+                        <button onClick={() => deleteLog(log.id)} style={{ padding: '1px 6px', fontSize: 10, border: '1px solid #f5c6cb', borderRadius: 4, background: 'white', color: 'var(--red)', cursor: 'pointer' }}>
+                          🗑
+                        </button>
+                      </div>
                       </td>
                     </tr>
                   );
