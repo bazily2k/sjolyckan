@@ -47,6 +47,26 @@ def room_to_dict(r: Room, lang: str = "sv") -> dict:
     }
 
 
+def admin_room_to_dict(r: Room) -> dict:
+    return {
+        "id": r.id,
+        "name_sv": r.name_sv or "",
+        "name_en": r.name_en or "",
+        "name_de": r.name_de or "",
+        "desc_sv": r.desc_sv or "",
+        "desc_en": r.desc_en or "",
+        "desc_de": r.desc_de or "",
+        "beds_sv": r.beds_sv or "",
+        "beds_en": r.beds_en or "",
+        "beds_de": r.beds_de or "",
+        "image_path": r.image_path,
+        "sort_order": r.sort_order,
+        "images": [{"id": i.id, "image_path": i.image_path,
+                    "caption_sv": i.caption_sv or "", "caption_en": i.caption_en or "",
+                    "caption_de": i.caption_de or "", "sort_order": i.sort_order}
+                   for i in r.images],
+    }
+
 # ── PUBLIK ──────────────────────────────────────────────
 @router.get("/public/rooms")
 def public_rooms(lang: str = "sv", db: Session = Depends(get_db)):
@@ -113,7 +133,7 @@ def public_page(lang: str = "sv", db: Session = Depends(get_db)):
 @router.get("/admin/rooms")
 def admin_list_rooms(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     rooms = db.query(Room).order_by(Room.sort_order).all()
-    return [room_to_dict(r) for r in rooms]
+    return [admin_room_to_dict(r) for r in rooms]
 
 
 @router.post("/admin/rooms")

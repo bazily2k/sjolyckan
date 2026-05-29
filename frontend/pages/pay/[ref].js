@@ -9,7 +9,7 @@ const T = {
     greeting: 'Hej', stay: 'Din vistelse', nights: 'nätter',
     deposit_label: 'Handpenning att betala', final_label: 'Slutbetalning att betala',
     due: 'Förfaller', pay_btn: 'Betala med PayPal', processing: 'Öppnar PayPal...',
-    error: 'Något gick fel. Försök igen.', stripe_btn: 'Betala med kort', stripe_processing: 'Öppnar betalning...', secure: 'Säker betalning via PayPal eller kort',
+    error: 'Något gick fel. Försök igen.', stripe_btn: 'Betala med kort', stripe_processing: 'Öppnar betalning...', swish_title: 'Betala med Swish', swish_ref: 'Ange bokningsnummer', secure: 'Säker betalning via PayPal eller kort',
   },
   en: {
     title: 'Pay your booking', loading: 'Loading booking information...',
@@ -119,13 +119,29 @@ export default function PayPage() {
             <div style={s.due}>{t.due} {fmtDate(booking.due_date, lang)}</div>
           )}
         </div>
-        <button onClick={handlePayPal} disabled={paying} style={{ ...s.btn, opacity: paying ? 0.7 : 1 }}>
-          {paying ? t.processing : <><span style={{ marginRight: 8 }}>🔵</span>{t.pay_btn}</>}
-        </button>
-        <div style={s.divider}><span>{lang === 'de' ? 'oder' : lang === 'sv' ? 'eller' : 'or'}</span></div>
-        <button onClick={handleStripe} disabled={paying || payingStripe} style={{ ...s.stripeBtn, opacity: payingStripe ? 0.7 : 1 }}>
-          {payingStripe ? t.stripe_processing : <><span style={{ marginRight: 8 }}>💳</span>{t.stripe_btn}</>}
-        </button>
+        {(() => {
+          const methods = (booking.payment_methods || 'paypal,stripe').split(',');
+          const or = <div style={s.divider}><span>{lang === 'de' ? 'oder' : lang === 'sv' ? 'eller' : 'or'}</span></div>;
+          const btns = [];
+          if (methods.includes('paypal')) btns.push(
+            <button key="pp" onClick={handlePayPal} disabled={paying || payingStripe} style={{ ...s.btn, opacity: paying ? 0.7 : 1 }}>
+              {paying ? t.processing : <><span style={{ marginRight: 8 }}>🔵</span>{t.pay_btn}</>}
+            </button>
+          );
+          if (methods.includes('stripe')) btns.push(
+            <button key="st" onClick={handleStripe} disabled={paying || payingStripe} style={{ ...s.stripeBtn, opacity: payingStripe ? 0.7 : 1 }}>
+              {payingStripe ? t.stripe_processing : <><span style={{ marginRight: 8 }}>💳</span>{t.stripe_btn}</>}
+            </button>
+          );
+          if (methods.includes('swish') && booking.swish_number) btns.push(
+            <div key="sw" style={s.swishBox}>
+              <div style={s.swishTitle}>📱 {t.swish_title}</div>
+              <div style={s.swishNum}>{booking.swish_number}</div>
+              <div style={s.swishRef}>{t.swish_ref}: <strong>{booking.booking_ref}</strong></div>
+            </div>
+          );
+          return btns.reduce((acc, btn, i) => i === 0 ? [btn] : [...acc, or, btn], []);
+        })()}
         <p style={s.secure}>🔒 {t.secure}</p>
       </div>
     </div>
@@ -150,4 +166,8 @@ const s = {
   secure:    { textAlign: 'center', fontSize: 12, color: '#aaa', marginTop: 12 },
   stripeBtn: { width: '100%', padding: 14, background: '#635bff', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   divider:   { display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0', color: '#ccc', fontSize: 12, textAlign: 'center' },
+  swishBox:  { background: '#f0faf0', border: '1px solid #a8d8a8', borderRadius: 8, padding: 16, textAlign: 'center', marginTop: 8 },
+  swishTitle:{ fontSize: 14, fontWeight: 600, color: '#2d6a2d', marginBottom: 8 },
+  swishNum:  { fontSize: 24, fontWeight: 700, color: '#1a5276', marginBottom: 6 },
+  swishRef:  { fontSize: 13, color: '#555' },
 };

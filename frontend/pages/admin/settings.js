@@ -17,6 +17,12 @@ const SETTINGS = [
       { value: 'brevo',      label: 'Brevo SMTP (backup)' },
     ]
   },
+  { key: 'attach_terms_pdf', label: 'Bifoga villkor som PDF i bekräftelsemail', type: 'select',
+    options: [
+      { value: 'false', label: 'Nej' },
+      { value: 'true',  label: 'Ja' },
+    ]
+  },
   { key: 'booking_ref_style', label: 'Bokningsreferens-stil', type: 'select',
     options: [
       { value: 'sequential', label: 'Löpnummer (0001, 0002...)' },

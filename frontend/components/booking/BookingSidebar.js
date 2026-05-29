@@ -553,14 +553,47 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           {t('booking.book_now')}
         </button>
       ) : (
-        <div style={{ display:'flex', gap:8 }}>
-          <button onClick={() => setStep('dates')} style={{ ...bookBtn, background:'var(--sand)', color:'var(--ink)', flex:1 }}>
-            {L.back}
-          </button>
-          <button onClick={submit} disabled={loading} style={{ ...bookBtn, flex:3, opacity:loading?0.7:1 }}>
-            {loading?'...':L.submit}
-          </button>
-        </div>
+        <>
+          {/* Villkor och GDPR */}
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display:'flex', alignItems:'flex-start', gap:8, fontSize:12, color:'var(--ink)', marginBottom:8, cursor:'pointer' }}>
+              <input type="checkbox" checked={termsAccepted} onChange={e => setTermsAccepted(e.target.checked)} style={{ marginTop:2, flexShrink:0 }} />
+              <span>
+                {lang==='sv'?'Jag godkänner ':lang==='de'?'Ich akzeptiere die ':'I accept the '}
+                <button type="button" onClick={() => setShowTerms(!showTerms)} style={{ background:'none', border:'none', color:'var(--water)', cursor:'pointer', fontSize:12, padding:0, textDecoration:'underline' }}>
+                  {lang==='sv'?'bokningsvillkoren':lang==='de'?'Buchungsbedingungen':'booking terms'}
+                </button>
+              </span>
+            </label>
+            {showTerms && termsText && (
+              <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', fontSize:11, color:'var(--ink-light)', whiteSpace:'pre-wrap', marginBottom:8, maxHeight:150, overflowY:'auto' }}>
+                {termsText}
+              </div>
+            )}
+            <label style={{ display:'flex', alignItems:'flex-start', gap:8, fontSize:12, color:'var(--ink)', cursor:'pointer' }}>
+              <input type="checkbox" checked={gdprAccepted} onChange={e => setGdprAccepted(e.target.checked)} style={{ marginTop:2, flexShrink:0 }} />
+              <span>
+                {lang==='sv'?'Jag godkänner ':lang==='de'?'Ich stimme der ':'I accept the '}
+                <button type="button" onClick={() => setShowGdpr(!showGdpr)} style={{ background:'none', border:'none', color:'var(--water)', cursor:'pointer', fontSize:12, padding:0, textDecoration:'underline' }}>
+                  {lang==='sv'?'hanteringen av personuppgifter':lang==='de'?'Datenschutzerklärung zu':'privacy policy'}
+                </button>
+              </span>
+            </label>
+            {showGdpr && gdprText && (
+              <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', fontSize:11, color:'var(--ink-light)', whiteSpace:'pre-wrap', marginTop:8, maxHeight:150, overflowY:'auto' }}>
+                {gdprText}
+              </div>
+            )}
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={() => setStep('dates')} style={{ ...bookBtn, background:'var(--sand)', color:'var(--ink)', flex:1 }}>
+              {L.back}
+            </button>
+            <button onClick={submit} disabled={loading || !termsAccepted || !gdprAccepted} style={{ ...bookBtn, flex:3, opacity:(loading||!termsAccepted||!gdprAccepted)?0.7:1 }}>
+              {loading?'...':L.submit}
+            </button>
+          </div>
+        </>
       )}
 
       {!checkIn && !checkOut && (

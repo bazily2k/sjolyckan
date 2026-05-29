@@ -55,6 +55,11 @@ async def get_payment_info(ref: str, db: Session = Depends(get_db)):
     due_amount, payment_type, due_date = _booking_due(booking)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
+    # Hämta swish-nummer från inställningar
+    from app.models.models import Setting
+    swish_setting = db.query(Setting).filter(Setting.key == "swish_number").first()
+    swish_number = swish_setting.value if swish_setting else None
+
     return {
         "booking_ref":      booking.booking_ref,
         "guest_first_name": booking.guest_name.split()[0],
@@ -68,6 +73,8 @@ async def get_payment_info(ref: str, db: Session = Depends(get_db)):
         "due_date":         str(due_date) if due_date else None,
         "status":           booking.status.value,
         "lang":             booking.lang or "en",
+        "swish_number":     swish_number,
+        "payment_methods":  booking.payment_methods or "swish,paypal,stripe",
     }
 
 

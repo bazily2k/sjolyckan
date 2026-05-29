@@ -134,3 +134,22 @@ def public_seasons(lang: str = "sv", db: Session = Depends(get_db)):
         }
         for s in seasons
     ]
+
+
+@router.get("/terms")
+def get_terms(lang: str = "sv", db: Session = Depends(get_db)):
+    from app.models.cms_models import ContentBlock
+    from app.models.models import Setting
+    from app.core.config import settings as app_settings
+
+    terms = db.query(ContentBlock).filter(ContentBlock.key == "terms_text").first()
+    gdpr  = db.query(ContentBlock).filter(ContentBlock.key == "gdpr_text").first()
+
+    lang_map = {"sv": "value_sv", "en": "value_en", "de": "value_de"}
+    field = lang_map.get(lang, "value_sv")
+
+    return {
+        "terms_text": getattr(terms, field, "") if terms else "",
+        "gdpr_text":  getattr(gdpr,  field, "") if gdpr  else "",
+        "admin_email": app_settings.ADMIN_EMAIL,
+    }

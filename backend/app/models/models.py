@@ -201,6 +201,7 @@ class Booking(Base):
 
     # Betalning
     payment_method = Column(Enum(PaymentMethod), nullable=True)  # sätts av admin
+    payment_methods = Column(String(100), nullable=True)  # kommaseparerad: swish,paypal,stripe
     hidden = Column(Boolean, default=False)
     status = Column(Enum(BookingStatus), default=BookingStatus.pending)
 

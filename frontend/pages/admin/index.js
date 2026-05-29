@@ -21,6 +21,7 @@ export default function AdminBookings() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payMethod, setPayMethod] = useState('swish');
+  const [payMethods, setPayMethods] = useState(['swish']);
   const [discountAmount, setDiscountAmount] = useState('');
   const [removedArticles, setRemovedArticles] = useState(new Set());
   const [adjustLoading, setAdjustLoading] = useState(false);
@@ -149,6 +150,12 @@ export default function AdminBookings() {
     }
   };
 
+  const togglePayMethod = (m) => {
+    setPayMethods(prev =>
+      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
+    );
+  };
+
   const toggleRemoveArticle = (articleId) => {
     setRemovedArticles(prev => {
       const next = new Set(prev);
@@ -187,7 +194,7 @@ export default function AdminBookings() {
   const confirm = async (id) => {
     setActionLoading(true);
     try {
-      await adminApi.confirmBooking(id, { payment_method: payMethod, admin_note: adminNote });
+      await adminApi.confirmBooking(id, { payment_method: payMethods[0] || payMethod, payment_methods: payMethods.join(','), admin_note: adminNote });
       setMsg('Bokning bekräftad — bekräftelsemejl skickat!');
       load(); setSelected(null);
     } catch (e) {
@@ -474,18 +481,16 @@ export default function AdminBookings() {
                       </button>
                     </div>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Betalningsmetod</div>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                    {['swish', 'stripe', 'manual'].map(m => (
-                      <button key={m} onClick={() => setPayMethod(m)} style={{
-                        padding: '6px 14px', borderRadius: 'var(--radius-md)',
-                        border: `1px solid ${payMethod === m ? 'var(--water)' : 'var(--sand-dark)'}`,
-                        background: payMethod === m ? 'var(--water-pale)' : 'white',
-                        color: payMethod === m ? 'var(--water)' : 'var(--ink-light)',
-                        cursor: 'pointer', fontSize: 13, fontWeight: payMethod === m ? 500 : 400,
-                      }}>
-                        {m === 'swish' ? 'Swish' : m === 'stripe' ? 'Stripe' : 'Manuell'}
-                      </button>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Betalningsmetod(er)</div>
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                    {[{v:'swish',l:'Swish'},{v:'paypal',l:'PayPal'},{v:'stripe',l:'Stripe'},{v:'manual',l:'Manuell'}].map(m => (
+                      <label key={m.v} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                        <input type="checkbox"
+                          checked={payMethods.includes(m.v)}
+                          onChange={() => togglePayMethod(m.v)}
+                        />
+                        {m.l}
+                      </label>
                     ))}
                   </div>
                   <textarea placeholder="Admin-notering (syns ej för gästen)" value={adminNote}

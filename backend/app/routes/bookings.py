@@ -35,6 +35,8 @@ class BookingRequest(BaseModel):
     article_ids: List[int] = []
     article_quantities: dict = {}
     message: Optional[str] = None
+    terms_accepted: bool = False
+    gdpr_accepted: bool = False
 
 
 class PriceCheckRequest(BaseModel):
@@ -48,6 +50,7 @@ class PriceCheckRequest(BaseModel):
 
 class AdminConfirmRequest(BaseModel):
     payment_method: PaymentMethod
+    payment_methods: Optional[str] = None  # kommaseparerad: swish,paypal,stripe
     admin_note: Optional[str] = None
 
 
@@ -183,6 +186,10 @@ async def create_booking_request(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    if not req.terms_accepted:
+        raise HTTPException(status_code=400, detail="Du måste godkänna bokningsvillkoren")
+    if not req.gdpr_accepted:
+        raise HTTPException(status_code=400, detail="Du måste godkänna hanteringen av personuppgifter")
     try:
         discount_pct = Decimal('0')
         if req.guest_email:
@@ -300,6 +307,7 @@ async def admin_confirm_booking(
     from datetime import datetime
     b.status = BookingStatus.confirmed
     b.payment_method = req.payment_method
+    b.payment_methods = req.payment_methods or req.payment_method.value
     b.admin_note = req.admin_note
     b.confirmed_at = datetime.utcnow()
 
@@ -442,6 +450,7 @@ def _booking_summary(b: Booking) -> dict:
         "deposit_amount": float(b.deposit_amount),
         "status": b.status.value,
         "payment_method": b.payment_method.value if b.payment_method else None,
+        "payment_methods": b.payment_methods,
         "created_at": str(b.created_at),
         "payment_due_date": str(b.payment_due_date),
         "deposit_due_date": str(b.deposit_due_date),

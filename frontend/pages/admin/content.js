@@ -16,6 +16,8 @@ const CONTENT_LABELS = {
   amenities_title: 'Bekvämligheter-rubrik',
   sleep_title: 'Var du sover-rubrik',
   rules_title: 'Husregler-rubrik',
+  terms_text: 'Bokningsvillkor (stöder variabler: {{ snap.deposit_pct|int }}, {{ snap.deposit_days }}, {{ snap.payment_days_before }})',
+  gdpr_text: 'GDPR / Personuppgiftshantering (stöder variabel: {{ admin_email }})',
   checkin_rule: 'Husregel: Incheckning',
   checkout_rule: 'Husregel: Utcheckning',
   max_guests_rule: 'Husregel: Max gäster',
@@ -216,7 +218,7 @@ export default function AdminCMS() {
                       <button onClick={() => setExpandedRoom(expandedRoom === r.id ? null : r.id)} style={actionBtn}>
                         {expandedRoom === r.id ? '▲ Bilder' : '▼ Bilder'}
                       </button>
-                      <button onClick={() => { setEditingRoom(r.id); setRoomForm({ name_sv:r.name_sv||r.name, name_en:r.name_en||r.name, name_de:r.name_de||r.name, desc_sv:r.desc_sv||'', desc_en:r.desc_en||'', desc_de:r.desc_de||'', beds_sv:r.beds_sv||r.beds||'', beds_en:r.beds_en||r.beds||'', beds_de:r.beds_de||r.beds||'', sort_order:r.sort_order }); }} style={actionBtn}>Redigera</button>
+                      <button onClick={() => { setEditingRoom(r.id); setRoomForm({ name_sv:r.name_sv||'', name_en:r.name_en||'', name_de:r.name_de||'', desc_sv:r.desc_sv||'', desc_en:r.desc_en||'', desc_de:r.desc_de||'', beds_sv:r.beds_sv||'', beds_en:r.beds_en||'', beds_de:r.beds_de||'', sort_order:r.sort_order }); }} style={actionBtn}>Redigera</button>
                       <button onClick={() => deleteRoom(r.id)} style={{ ...actionBtn, color:'var(--red)' }}>Ta bort</button>
                     </div>
                   </div>
