@@ -137,19 +137,37 @@ def public_seasons(lang: str = "sv", db: Session = Depends(get_db)):
 
 
 @router.get("/terms")
-def get_terms(lang: str = "sv", db: Session = Depends(get_db)):
+def get_terms(
+    lang: str = "sv",
+    deposit_pct: float = 10,
+    deposit_days: int = 7,
+    payment_days_before: int = 60,
+    db: Session = Depends(get_db)
+):
     from app.models.cms_models import ContentBlock
-    from app.models.models import Setting
     from app.core.config import settings as app_settings
-
+    from jinja2 import Environment
     terms = db.query(ContentBlock).filter(ContentBlock.key == "terms_text").first()
     gdpr  = db.query(ContentBlock).filter(ContentBlock.key == "gdpr_text").first()
-
     lang_map = {"sv": "value_sv", "en": "value_en", "de": "value_de"}
     field = lang_map.get(lang, "value_sv")
-
+    ctx = {
+        "snap": {
+            "deposit_pct": deposit_pct,
+            "deposit_days": deposit_days,
+            "payment_days_before": payment_days_before,
+        },
+        "admin_email": app_settings.ADMIN_EMAIL,
+    }
+    def render(text):
+        if not text:
+            return ""
+        try:
+            return Environment().from_string(text).render(**ctx)
+        except Exception:
+            return text
     return {
-        "terms_text": getattr(terms, field, "") if terms else "",
-        "gdpr_text":  getattr(gdpr,  field, "") if gdpr  else "",
+        "terms_text": render(getattr(terms, field, "") if terms else ""),
+        "gdpr_text":  render(getattr(gdpr,  field, "") if gdpr  else ""),
         "admin_email": app_settings.ADMIN_EMAIL,
     }

@@ -88,6 +88,12 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   const [guests, setGuests] = useState(2);
   const [selectedArticles, setSelectedArticles] = useState([]);
   const [articleQuantities, setArticleQuantities] = useState({});
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [gdprAccepted, setGdprAccepted] = useState(false);
+  const [termsText, setTermsText] = useState('');
+  const [gdprText, setGdprText] = useState('');
+  const [showTerms, setShowTerms] = useState(false);
+  const [showGdpr, setShowGdpr] = useState(false);
   const [price, setPrice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('dates');
@@ -208,6 +214,22 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
     return () => clearTimeout(timer);
   }, [checkIn, checkOut, guests, selectedArticles, articleQuantities]);
 
+  useEffect(() => {
+    if (!lang) return;
+    const params = new URLSearchParams({ lang });
+    if (price) {
+      if (price.deposit_pct) params.set('deposit_pct', price.deposit_pct);
+      if (price.deposit_days) params.set('deposit_days', price.deposit_days);
+      if (price.payment_days_before) params.set('payment_days_before', price.payment_days_before);
+    }
+    fetch(`/api/public/terms?${params}`)
+      .then(r => r.json())
+      .then(d => {
+        setTermsText(d.terms_text || '');
+        setGdprText(d.gdpr_text || '');
+      }).catch(() => {});
+  }, [lang, price]);
+
   const toggleArticle = (id, priceType) => {
     setSelectedArticles(prev => {
       if (prev.includes(id)) {
@@ -285,6 +307,8 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
         guests_count: guests,
         article_ids: selectedArticles,
         article_quantities: articleQuantities,
+        terms_accepted: termsAccepted,
+        gdpr_accepted: gdprAccepted,
         lang,
       });
       setBooking(res.data);

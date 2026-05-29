@@ -171,6 +171,8 @@ def price_check(req: PriceCheckRequest, db: Session = Depends(get_db)):
             "extra_guest_fee": float(calc["extra_guest_fee"]) if calc.get("extra_guest_fee") else 0,
             "deposit_amount": float(calc["deposit_amount"]),
             "deposit_pct": calc["snapshot"]["deposit_pct"],
+            "deposit_days": calc["snapshot"]["deposit_days"],
+            "payment_days_before": calc["snapshot"]["payment_days_before"],
             "deposit_due_date": str(calc["deposit_due_date"]),
             "payment_due_date": str(calc["payment_due_date"]),
             "daily_prices": calc["snapshot"]["daily_prices"],
