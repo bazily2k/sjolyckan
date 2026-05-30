@@ -159,6 +159,8 @@ def calculate_booking_price(
     payment_days_before = dominant_season.payment_days_before if dominant_season else 60
     reminder_1_days = dominant_season.reminder_1_days if dominant_season else 14
     reminder_2_days = dominant_season.reminder_2_days if dominant_season else 3
+    cancellation_deposit_days = dominant_season.cancellation_deposit_days if dominant_season else 30
+    cancellation_full_days = dominant_season.cancellation_full_days if dominant_season else 14
     min_nights = dominant_season.min_nights if dominant_season else 2
     if min_nights > 0 and nights < min_nights:
         raise ValueError(f"Minst {min_nights} nätter krävs för denna period")
@@ -185,6 +187,8 @@ def calculate_booking_price(
         "payment_days_before": payment_days_before,
         "reminder_1_days": reminder_1_days,
         "reminder_2_days": reminder_2_days,
+        "cancellation_deposit_days": cancellation_deposit_days,
+        "cancellation_full_days": cancellation_full_days,
         "min_nights": min_nights,
         "daily_prices": daily_prices,
         "articles": articles_data,

@@ -222,6 +222,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
       if (price.deposit_days) params.set('deposit_days', price.deposit_days);
       if (price.payment_days_before) params.set('payment_days_before', price.payment_days_before);
     }
+    if (checkIn) params.set('date_from', checkIn);
     fetch(`/api/public/terms?${params}`)
       .then(r => r.json())
       .then(d => {
@@ -590,9 +591,9 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
               </span>
             </label>
             {showTerms && termsText && (
-              <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', fontSize:11, color:'var(--ink-light)', whiteSpace:'pre-wrap', marginBottom:8, maxHeight:150, overflowY:'auto' }}>
-                {termsText}
-              </div>
+              <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', fontSize:11, color:'var(--ink-light)', marginBottom:8, maxHeight:150, overflowY:'auto' }}
+                className="ql-content"
+                dangerouslySetInnerHTML={{ __html: termsText }} />
             )}
             <label style={{ display:'flex', alignItems:'flex-start', gap:8, fontSize:12, color:'var(--ink)', cursor:'pointer' }}>
               <input type="checkbox" checked={gdprAccepted} onChange={e => setGdprAccepted(e.target.checked)} style={{ marginTop:2, flexShrink:0 }} />
@@ -604,9 +605,9 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
               </span>
             </label>
             {showGdpr && gdprText && (
-              <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', fontSize:11, color:'var(--ink-light)', whiteSpace:'pre-wrap', marginTop:8, maxHeight:150, overflowY:'auto' }}>
-                {gdprText}
-              </div>
+              <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', fontSize:11, color:'var(--ink-light)', marginTop:8, maxHeight:150, overflowY:'auto' }}
+                className="ql-content"
+                dangerouslySetInnerHTML={{ __html: gdprText }} />
             )}
           </div>
           <div style={{ display:'flex', gap:8 }}>

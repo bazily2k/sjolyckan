@@ -1,7 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
+const QuillEditor = dynamic(() => import('react-quill-new'), { ssr: false });
+const QUILL_MODULES = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['clean'],
+  ],
+};
+const WYSIWYG_KEYS = ['terms_text', 'gdpr_text', 'about_text', 'about_title',
+  'checkin_rule', 'checkout_rule', 'max_guests_rule', 'linen_rule', 'pets_rule', 'cleaning_rule'];
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
+import 'react-quill-new/dist/quill.snow.css';
 import axios from 'axios';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -16,14 +29,14 @@ const CONTENT_LABELS = {
   amenities_title: 'Bekvämligheter-rubrik',
   sleep_title: 'Var du sover-rubrik',
   rules_title: 'Husregler-rubrik',
-  terms_text: 'Bokningsvillkor (stöder variabler: {{ snap.deposit_pct|int }}, {{ snap.deposit_days }}, {{ snap.payment_days_before }})',
-  gdpr_text: 'GDPR / Personuppgiftshantering (stöder variabel: {{ admin_email }})',
   checkin_rule: 'Husregel: Incheckning',
   checkout_rule: 'Husregel: Utcheckning',
   max_guests_rule: 'Husregel: Max gäster',
   linen_rule: 'Husregel: Sängkläder',
   pets_rule: 'Husregel: Husdjur',
   cleaning_rule: 'Husregel: Städning',
+  terms_text: 'Bokningsvillkor (stöder variabler: {{ snap.deposit_pct|int }}, {{ snap.deposit_days }}, {{ snap.payment_days_before }})',
+  gdpr_text: 'GDPR / Personuppgiftshantering (stöder variabler: {{ admin_email }}, {{ snap.deposit_pct|int }}, {{ snap.cancellation_deposit_days }}, {{ snap.cancellation_full_days }})',
 };
 
 export default function AdminCMS() {
@@ -53,7 +66,17 @@ export default function AdminCMS() {
         axios.get(`${API}/cms/admin/rooms`, { headers: getHeaders() }),
         axios.get(`${API}/cms/admin/gallery`, { headers: getHeaders() }),
       ]);
-      setContent(c.data);
+      // Sortera content enligt CONTENT_LABELS-ordningen
+      const keyOrder = Object.keys(CONTENT_LABELS);
+      const sorted = [...c.data].sort((a, b) => {
+        const ai = keyOrder.indexOf(a.key);
+        const bi = keyOrder.indexOf(b.key);
+        if (ai === -1 && bi === -1) return 0;
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+      setContent(sorted);
       setRooms(r.data);
       setGallery(g.data);
     } catch (e) {
@@ -183,7 +206,17 @@ export default function AdminCMS() {
                     <div style={{ fontSize:11, color:'var(--ink-pale)', marginBottom:3 }}>
                       {lang==='sv'?'🇸🇪 Svenska':lang==='en'?'🇬🇧 English':'🇩🇪 Deutsch'}
                     </div>
-                    {(block[`value_${lang}`]||'').length > 60 ? (
+                    {WYSIWYG_KEYS.includes(block.key) ? (
+                      <div style={{ border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', overflow:'hidden' }}>
+                        <QuillEditor
+                          value={block[`value_${lang}`]||''}
+                          onChange={val => setContent(c => c.map(b => b.key===block.key ? {...b,[`value_${lang}`]:val} : b))}
+                          modules={QUILL_MODULES}
+                          theme="snow"
+                          style={{ fontSize:13 }}
+                        />
+                      </div>
+                    ) : (block[`value_${lang}`]||'').length > 60 ? (
                       <textarea value={block[`value_${lang}`]||''} onChange={e => setContent(c => c.map(b => b.key===block.key ? {...b,[`value_${lang}`]:e.target.value} : b))}
                         style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13, resize:'vertical', height:80, outline:'none' }} />
                     ) : (

@@ -48,6 +48,7 @@ export const adminApi = {
   updateSeason: (id, data) => api.put(`/admin/seasons/${id}`, data),
   toggleSeason: (id) => api.patch(`/admin/seasons/${id}/toggle`),
   deleteSeason: (id) => api.delete(`/admin/seasons/${id}`),
+  copySeason: (id) => api.post(`/admin/seasons/${id}/copy`),
   listArticles: () => api.get('/admin/articles'),
   createArticle: (data) => api.post('/admin/articles', data),
   updateArticle: (id, data) => api.put(`/admin/articles/${id}`, data),

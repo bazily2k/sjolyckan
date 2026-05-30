@@ -104,6 +104,8 @@ class Season(Base):
     # Påminnelser
     reminder_1_days = Column(Integer, default=14)          # dagar före betalfrist
     reminder_2_days = Column(Integer, default=3)
+    cancellation_deposit_days = Column(Integer, default=30)
+    cancellation_full_days = Column(Integer, default=14)
 
     # Synlighet
     visible = Column(Boolean, default=True)                # visas på bokningssidan

@@ -163,20 +163,20 @@ export default function Home({ locale }) {
             {/* Om */}
             <div style={{ borderBottom:'1px solid var(--sand-dark)', paddingBottom:24, marginBottom:24 }}>
               <h2 style={{ fontFamily:'var(--font-display)', fontSize:28, marginBottom:8 }}>
-                {content.about_title || 'Om Sjölyckan'}
+                <span dangerouslySetInnerHTML={{ __html: content.about_title || 'Om Sjölyckan' }} />
               </h2>
               <p style={{ fontSize:14, color:'var(--ink-pale)', marginBottom:12 }}>
                 {content.capacity || '8 gäster · 4 sovrum · 4 sängar · 1,5 badrum'}
               </p>
               <p style={{ fontSize:15, color:'var(--ink-light)', lineHeight:1.8, maxWidth:560 }}>
-                {content.about_text || ''}
+                <span dangerouslySetInnerHTML={{ __html: content.about_text || '' }} />
               </p>
             </div>
 
             {/* Bekvämligheter */}
             <div style={{ borderBottom:'1px solid var(--sand-dark)', paddingBottom:24, marginBottom:24 }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:16 }}>
-                {content.amenities_title || 'Bekvämligheter'}
+                <span dangerouslySetInnerHTML={{ __html: content.amenities_title || 'Bekvämligheter' }} />
               </h3>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 {AMENITIES.map((a, i) => (
@@ -190,7 +190,7 @@ export default function Home({ locale }) {
             {/* Rum — klickbara */}
             <div style={{ borderBottom:'1px solid var(--sand-dark)', paddingBottom:24, marginBottom:24 }}>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:16 }}>
-                {content.sleep_title || 'Var du sover'}
+                <span dangerouslySetInnerHTML={{ __html: content.sleep_title || 'Var du sover' }} />
               </h3>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 {rooms.map(r => (
@@ -225,12 +225,12 @@ export default function Home({ locale }) {
             {/* Husregler */}
             <div>
               <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:16 }}>
-                {content.rules_title || 'Husregler'}
+                <span dangerouslySetInnerHTML={{ __html: content.rules_title || 'Husregler' }} />
               </h3>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {rules.map((r, i) => (
                   <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, fontSize:14, color:'var(--ink-light)' }}>
-                    <span style={{ color:'var(--water)', fontSize:16, marginTop:1 }}>✓</span>{r}
+                    <span style={{ color:'var(--water)', fontSize:16, marginTop:1 }}>✓</span><span dangerouslySetInnerHTML={{ __html: r }} />
                   </div>
                 ))}
               </div>

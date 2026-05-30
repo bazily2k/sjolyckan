@@ -381,3 +381,115 @@ async def resend_email(
         db.commit()
         return {"status": "sent"}
     raise HTTPException(status_code=500, detail="Misslyckades skicka mail")
+
+
+# ─── Generera PDF för villkor/GDPR ──────────────────────
+@router.get("/pdf/{doc_type}")
+async def generate_pdf(
+    doc_type: str,
+    lang: str = "sv",
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.cms_models import ContentBlock
+    from app.core.config import settings as app_settings
+    from jinja2 import Environment
+    from fastapi.responses import Response
+
+    if doc_type not in ("terms", "gdpr"):
+        raise HTTPException(status_code=400, detail="Ogiltigt dokumenttyp")
+
+    key = "terms_text" if doc_type == "terms" else "gdpr_text"
+    block = db.query(ContentBlock).filter(ContentBlock.key == key).first()
+    if not block:
+        raise HTTPException(status_code=404, detail="Innehåll hittades inte")
+
+    lang_map = {"sv": "value_sv", "en": "value_en", "de": "value_de"}
+    field = lang_map.get(lang, "value_sv")
+    raw = getattr(block, field, "") or ""
+
+    # Hämta säsongsdata för rendering
+    from app.models.models import Season
+    season = db.query(Season).filter(Season.active == True).first()
+    ctx = {
+        "snap": {
+            "deposit_pct": float(season.deposit_pct) if season else 10,
+            "deposit_days": season.deposit_days if season else 7,
+            "payment_days_before": season.payment_days_before if season else 60,
+        },
+        "admin_email": app_settings.ADMIN_EMAIL,
+    }
+    try:
+        content_html = Environment().from_string(raw).render(**ctx)
+    except Exception:
+        content_html = raw
+
+    titles = {
+        "terms": {"sv": "Bokningsvillkor", "en": "Booking Terms", "de": "Buchungsbedingungen"},
+        "gdpr":  {"sv": "Personuppgiftshantering", "en": "Privacy Policy", "de": "Datenschutz"},
+    }
+    title = titles[doc_type].get(lang, titles[doc_type]["sv"])
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body {{ font-family: Arial, sans-serif; font-size: 12pt; color: #333; max-width: 800px; margin: 40px auto; padding: 0 40px; }}
+  h1 {{ color: #1a5276; font-size: 18pt; border-bottom: 2px solid #1a5276; padding-bottom: 8px; margin-bottom: 20px; }}
+  h2 {{ color: #2d6a8f; font-size: 14pt; }}
+  p {{ line-height: 1.6; }}
+  ul, ol {{ line-height: 1.8; }}
+  .footer {{ margin-top: 40px; font-size: 10pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; }}
+</style>
+</head>
+<body>
+<h1>{title}</h1>
+{content_html}
+<div class="footer">Sjölyckan, Rolsmo · {app_settings.ADMIN_EMAIL}</div>
+</body>
+</html>"""
+
+    try:
+        import weasyprint
+        pdf = weasyprint.HTML(string=html).write_pdf()
+        filename = f"sjolyckan_{doc_type}_{lang}.pdf"
+        return Response(
+            content=pdf,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF-generering misslyckades: {str(e)}")
+
+
+# ─── Kopiera säsong ──────────────────────────────────────
+@router.post("/seasons/{season_id}/copy")
+def copy_season(season_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Season
+    s = db.query(Season).filter(Season.id == season_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Säsong hittades inte")
+    new_s = Season(
+        name_sv=s.name_sv + " (kopia)",
+        name_en=s.name_en + " (copy)" if s.name_en else "",
+        name_de=s.name_de + " (Kopie)" if s.name_de else "",
+        date_from=s.date_from,
+        date_to=s.date_to,
+        price_per_night=s.price_per_night,
+        deposit_pct=s.deposit_pct,
+        deposit_days=s.deposit_days,
+        payment_days_before=s.payment_days_before,
+        min_nights=s.min_nights,
+        reminder_1_days=s.reminder_1_days,
+        reminder_2_days=s.reminder_2_days,
+        cancellation_deposit_days=s.cancellation_deposit_days,
+        cancellation_full_days=s.cancellation_full_days,
+        extra_guest_fee=s.extra_guest_fee,
+        extra_guest_threshold=s.extra_guest_threshold,
+        active=False,
+    )
+    db.add(new_s)
+    db.commit()
+    db.refresh(new_s)
+    return new_s

@@ -17,7 +17,13 @@ const SETTINGS = [
       { value: 'brevo',      label: 'Brevo SMTP (backup)' },
     ]
   },
-  { key: 'attach_terms_pdf', label: 'Bifoga villkor som PDF i bekräftelsemail', type: 'select',
+  { key: 'attach_terms_pdf', label: 'Bifoga bokningsvillkor som PDF i bekräftelsemail', type: 'select',
+    options: [
+      { value: 'false', label: 'Nej' },
+      { value: 'true',  label: 'Ja' },
+    ]
+  },
+  { key: 'attach_gdpr_pdf', label: 'Bifoga GDPR-dokument som PDF i bekräftelsemail', type: 'select',
     options: [
       { value: 'false', label: 'Nej' },
       { value: 'true',  label: 'Ja' },

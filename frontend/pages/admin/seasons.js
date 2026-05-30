@@ -10,6 +10,7 @@ const empty = {
   price_per_night: '', deposit_pct: 10, deposit_days: 7, extra_guest_fee: 0, extra_guest_threshold: 4,
   payment_days_before: 60, min_nights: 2,
   reminder_1_days: 14, reminder_2_days: 3,
+  cancellation_deposit_days: 30, cancellation_full_days: 14,
   visible: true, active: true, sort_order: 0,
 };
 
@@ -37,6 +38,13 @@ export default function AdminSeasons() {
 
   const toggle = async (id) => {
     await adminApi.toggleSeason(id); load();
+  };
+
+  const copy = async (id) => {
+    try {
+      await adminApi.copySeason(id);
+      load();
+    } catch(e) { alert('Fel: ' + e.message); }
   };
 
   const del = async (id) => {
@@ -79,6 +87,7 @@ export default function AdminSeasons() {
                     </span>
                     <button onClick={() => edit(s)} style={actionBtn}>Redigera</button>
                     <button onClick={() => toggle(s.id)} style={actionBtn}>{s.active ? 'Inaktivera' : 'Aktivera'}</button>
+                    <button onClick={() => copy(s.id)} style={{ ...actionBtn }}>Kopiera</button>
                     <button onClick={() => del(s.id)} style={{ ...actionBtn, color: 'var(--red)' }}>Ta bort</button>
                   </div>
                 </div>
@@ -86,9 +95,14 @@ export default function AdminSeasons() {
                   {[
                     ['Pris/natt', `${s.price_per_night} kr`],
                     ['Handpenning', `${s.deposit_pct}%`],
-                    ['Extra gästavgift', s.extra_guest_fee > 0 ? `${s.extra_guest_fee} kr/gäst/natt (över ${s.extra_guest_threshold} pers)` : 'Ingen'],
+                    ['Betala handp. inom', `${s.deposit_days} dagar`],
                     ['Betalfrist', `${s.payment_days_before} dagar`],
                     ['Min. nätter', s.min_nights],
+                    ['Extra gästavgift', s.extra_guest_fee > 0 ? `${s.extra_guest_fee} kr/gäst/natt (över ${s.extra_guest_threshold} pers)` : 'Ingen'],
+                    ['Avbokn. handp.', `${s.cancellation_deposit_days || 30} dagar`],
+                    ['Avbokn. fullt belopp', `${s.cancellation_full_days || 14} dagar`],
+                    ['Påminnelse 1', `${s.reminder_1_days} dagar`],
+                    ['Påminnelse 2', `${s.reminder_2_days} dagar`],
                   ].map(([k, v]) => (
                     <div key={k} style={{ background: 'var(--sand)', borderRadius: 'var(--radius-md)', padding: '6px 10px' }}>
                       <div style={{ fontSize: 10, color: 'var(--ink-pale)' }}>{k}</div>
@@ -120,6 +134,8 @@ export default function AdminSeasons() {
               <F label="Extra avgift fr.o.m. antal gäster" field="extra_guest_threshold" type="number" half />
               <F label="Påminnelse 1 (dagar före)" field="reminder_1_days" type="number" half />
               <F label="Påminnelse 2 (dagar före)" field="reminder_2_days" type="number" half />
+              <F label="Avbokning: handp. återbet. (dagar före ankomst)" field="cancellation_deposit_days" type="number" half />
+              <F label="Avbokning: fullt belopp (dagar före ankomst)" field="cancellation_full_days" type="number" half />
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               {editing && (

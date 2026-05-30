@@ -142,20 +142,39 @@ def get_terms(
     deposit_pct: float = 10,
     deposit_days: int = 7,
     payment_days_before: int = 60,
+    date_from: str = None,
     db: Session = Depends(get_db)
 ):
     from app.models.cms_models import ContentBlock
     from app.core.config import settings as app_settings
+    from app.models.models import Season
+    from datetime import date as date_type
     from jinja2 import Environment
     terms = db.query(ContentBlock).filter(ContentBlock.key == "terms_text").first()
     gdpr  = db.query(ContentBlock).filter(ContentBlock.key == "gdpr_text").first()
     lang_map = {"sv": "value_sv", "en": "value_en", "de": "value_de"}
     field = lang_map.get(lang, "value_sv")
+    # Slå upp rätt säsong baserat på datum
+    season = None
+    if date_from:
+        try:
+            d = date_type.fromisoformat(date_from)
+            season = db.query(Season).filter(
+                Season.active == True,
+                Season.date_from <= d,
+                Season.date_to >= d,
+            ).first()
+        except Exception:
+            pass
+    if not season:
+        season = db.query(Season).filter(Season.active == True).first()
     ctx = {
         "snap": {
-            "deposit_pct": deposit_pct,
-            "deposit_days": deposit_days,
-            "payment_days_before": payment_days_before,
+            "deposit_pct": float(season.deposit_pct) if season else deposit_pct,
+            "deposit_days": season.deposit_days if season else deposit_days,
+            "payment_days_before": season.payment_days_before if season else payment_days_before,
+            "cancellation_deposit_days": season.cancellation_deposit_days if season else 30,
+            "cancellation_full_days": season.cancellation_full_days if season else 14,
         },
         "admin_email": app_settings.ADMIN_EMAIL,
     }
@@ -163,7 +182,13 @@ def get_terms(
         if not text:
             return ""
         try:
-            return Environment().from_string(text).render(**ctx)
+            # Ersätt &nbsp; med vanliga mellanslag för Jinja2-rendering
+            import re
+            clean = text.replace('&nbsp;', ' ')
+            # Rendera Jinja2
+            rendered = Environment().from_string(clean).render(**ctx)
+            # Återställ &nbsp; i icke-Jinja2-delar
+            return rendered
         except Exception:
             return text
     return {
