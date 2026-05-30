@@ -87,14 +87,24 @@ export default function AdminCMS() {
   useEffect(() => { load(); }, []);
 
   const saveContent = async (block) => {
+    if (!block) { setMsg('Fel: block saknas'); return; }
     try {
-      await axios.put(`${API}/cms/admin/content/${block.key}`, null, {
+      const body = { 
+        value_sv: block.value_sv||'', 
+        value_en: block.value_en||'', 
+        value_de: block.value_de||'' 
+      };
+      console.log('Sparar:', block.key);
+      const res = await axios.put(`${API}/cms/admin/content/${block.key}`, body, {
         headers: getHeaders(),
-        params: { value_sv: block.value_sv||'', value_en: block.value_en||'', value_de: block.value_de||'' },
       });
+      console.log('Sparat OK:', res.status);
       setMsg(`Sparat!`);
       setTimeout(() => setMsg(''), 3000);
-    } catch (e) { setMsg('Fel: ' + e.message); }
+    } catch (e) { 
+      console.error('Sparfel:', e);
+      setMsg('Fel: ' + (e.response?.data?.detail || e.message)); 
+    }
   };
 
   const saveRoom = async () => {

@@ -304,9 +304,13 @@ def admin_list_content(db: Session = Depends(get_db), _: User = Depends(require_
 
 @router.put("/admin/content/{key}")
 def admin_update_content(
-    key: str, value_sv: str = "", value_en: str = "", value_de: str = "",
+    key: str,
+    data: dict,
     db: Session = Depends(get_db), _: User = Depends(require_admin),
 ):
+    value_sv = data.get("value_sv", "")
+    value_en = data.get("value_en", "")
+    value_de = data.get("value_de", "")
     block = db.query(ContentBlock).filter(ContentBlock.key == key).first()
     if block:
         block.value_sv = value_sv; block.value_en = value_en; block.value_de = value_de
