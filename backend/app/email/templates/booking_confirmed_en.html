@@ -50,11 +50,12 @@
   <div class="box yellow">
     <h3>💳 Deposit</h3>
     <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> is due by <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') }}</strong></p>
-    <p style="text-align:center;margin-top:16px">
-      <a href="{{ frontend_url }}/pay/{{ booking.booking_ref }}"
-         style="display:inline-block;background:#003087;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:15px;font-weight:600">
-        &#x1F535; Pay now with PayPal
-      </a>
+    {% set methods = (booking.payment_methods or 'paypal').split(',') %}
+    {% if 'swish' in methods and swish_number %}
+    <p>Swish to: <strong>{{ swish_number }}</strong><br>Reference: <strong>{{ booking.booking_ref }}</strong></p>
+    {% endif %}
+    <p style="text-align:center;margin-top:12px">
+      <a href="{{ frontend_url }}/pay/{{ booking.booking_ref }}" style="display:inline-block;background:#1a5276;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:15px;font-weight:600">💳 Pay now</a>
     </p>
     <p style="font-size:12px;color:#777;text-align:center;margin-top:6px">
       Or copy link: {{ frontend_url }}/pay/{{ booking.booking_ref }}

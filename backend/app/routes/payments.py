@@ -75,17 +75,23 @@ async def get_payment_info(ref: str, db: Session = Depends(get_db)):
         "lang":             booking.lang or "en",
         "swish_number":     swish_number,
         "payment_methods":  booking.payment_methods or "swish,paypal,stripe",
+        "total_amount":     float(booking.total_amount),
+        "deposit_amount":   float(booking.deposit_amount),
     }
 
 
 @router.post("/{ref}/paypal-create")
-async def create_paypal_order(ref: str, db: Session = Depends(get_db)):
+async def create_paypal_order(ref: str, data: dict = {}, db: Session = Depends(get_db)):
     booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
     due_amount, payment_type, _ = _booking_due(booking)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
+    # Om gästen valt att betala hela beloppet direkt
+    if data.get("amount"):
+        due_amount = float(data["amount"])
+        payment_type = "final"
     lang = booking.lang or "en"
     description = DESC[payment_type].get(lang, DESC[payment_type]["en"])
     base_url = _paypal_base()

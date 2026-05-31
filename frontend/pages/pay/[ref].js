@@ -9,7 +9,7 @@ const T = {
     greeting: 'Hej', stay: 'Din vistelse', nights: 'nätter',
     deposit_label: 'Handpenning att betala', final_label: 'Slutbetalning att betala',
     due: 'Förfaller', pay_btn: 'Betala med PayPal', processing: 'Öppnar PayPal...',
-    error: 'Något gick fel. Försök igen.', stripe_btn: 'Betala med kort', stripe_processing: 'Öppnar betalning...', swish_title: 'Betala med Swish', swish_ref: 'Ange bokningsnummer', secure: 'Säker betalning via PayPal eller kort',
+    error: 'Något gick fel. Försök igen.', stripe_btn: 'Betala med kort', stripe_processing: 'Öppnar betalning...', swish_title: 'Betala med Swish', swish_ref: 'Ange bokningsnummer', secure: 'Säker betalning via PayPal eller kort', no_deposit: 'Ingen handpenning krävs', pay_deposit: 'Betala handpenning', pay_full: 'Betala hela beloppet nu', pay_later: 'Betala senare',
   },
   en: {
     title: 'Pay your booking', loading: 'Loading booking information...',
@@ -17,7 +17,7 @@ const T = {
     greeting: 'Hello', stay: 'Your stay', nights: 'nights',
     deposit_label: 'Deposit to pay', final_label: 'Final payment to pay',
     due: 'Due by', pay_btn: 'Pay with PayPal', processing: 'Opening PayPal...',
-    error: 'Something went wrong. Please try again.', stripe_btn: 'Pay by card', stripe_processing: 'Opening payment...', secure: 'Secure payment via PayPal or card',
+    error: 'Something went wrong. Please try again.', stripe_btn: 'Pay by card', stripe_processing: 'Opening payment...', secure: 'Secure payment via PayPal or card', no_deposit: 'No deposit required', pay_deposit: 'Pay deposit', pay_full: 'Pay full amount now', pay_later: 'Pay later',
   },
   de: {
     title: 'Buchung bezahlen', loading: 'Buchungsinformationen werden geladen...',
@@ -25,7 +25,7 @@ const T = {
     greeting: 'Hallo', stay: 'Ihr Aufenthalt', nights: 'Nächte',
     deposit_label: 'Anzahlung zu bezahlen', final_label: 'Restzahlung zu bezahlen',
     due: 'Fällig bis', pay_btn: 'Mit PayPal bezahlen', processing: 'PayPal wird geöffnet...',
-    error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.', stripe_btn: 'Mit Karte bezahlen', stripe_processing: 'Zahlung wird geöffnet...', secure: 'Sichere Zahlung über PayPal oder Karte',
+    error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.', stripe_btn: 'Mit Karte bezahlen', stripe_processing: 'Zahlung wird geöffnet...', secure: 'Sichere Zahlung über PayPal oder Karte', no_deposit: 'Keine Anzahlung erforderlich', pay_deposit: 'Anzahlung bezahlen', pay_full: 'Gesamtbetrag jetzt bezahlen', pay_later: 'Später bezahlen',
   },
 };
 
@@ -47,6 +47,7 @@ export default function PayPage() {
   const [errKey, setErrKey] = useState('');
   const [paying, setPaying] = useState(false);
   const [payingStripe, setPayingStripe] = useState(false);
+  const [payMode, setPayMode] = useState('deposit');
 
   useEffect(() => {
     if (!ref) return;
@@ -75,7 +76,8 @@ export default function PayPage() {
   const handlePayPal = async () => {
     setPaying(true);
     try {
-      const r = await axios.post(`/api/pay/${ref}/paypal-create`);
+      const amount = (payMode === 'full' || booking.deposit_amount === 0) ? booking.total_amount : undefined;
+      const r = await axios.post(`/api/pay/${ref}/paypal-create`, amount ? { amount } : {});
       window.location.href = r.data.approve_url;
     } catch (e) {
       setErrKey('error');
@@ -112,13 +114,34 @@ export default function PayPage() {
             <span style={{ color: '#aaa', fontSize: 12 }}>{booking.booking_ref}</span>
           </div>
         </div>
-        <div style={s.amtBox}>
-          <div style={s.amtLabel}>{booking.payment_type === 'deposit' ? t.deposit_label : t.final_label}</div>
-          <div style={s.amt}>{fmtSEK(booking.due_amount)}</div>
-          {booking.due_date && (
-            <div style={s.due}>{t.due} {fmtDate(booking.due_date, lang)}</div>
-          )}
-        </div>
+        {booking.payment_type === 'deposit' && booking.deposit_amount === 0 ? (
+          <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 14px', fontSize:13, color:'var(--ink-light)', marginBottom:8, textAlign:'center' }}>
+            <strong>✓ {t.no_deposit}</strong>
+          </div>
+        ) : booking.payment_type === 'deposit' ? (
+          <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+            <button onClick={() => setPayMode('deposit')} style={{ flex:1, padding:'8px 4px', borderRadius:'var(--radius-md)', border:`2px solid ${payMode==='deposit'?'var(--water)':'var(--sand-dark)'}`, background:payMode==='deposit'?'var(--water-pale)':'white', fontSize:12, cursor:'pointer', fontWeight:payMode==='deposit'?600:400, lineHeight:1.4 }}>
+              {t.pay_deposit}<br/><strong>{fmtSEK(booking.deposit_amount)}</strong>
+            </button>
+            <button onClick={() => setPayMode('full')} style={{ flex:1, padding:'8px 4px', borderRadius:'var(--radius-md)', border:`2px solid ${payMode==='full'?'var(--water)':'var(--sand-dark)'}`, background:payMode==='full'?'var(--water-pale)':'white', fontSize:12, cursor:'pointer', fontWeight:payMode==='full'?600:400, lineHeight:1.4 }}>
+              {t.pay_full}<br/><strong>{fmtSEK(booking.total_amount)}</strong>
+            </button>
+          </div>
+        ) : null}
+        {booking.deposit_amount > 0 || booking.payment_type !== 'deposit' ? (
+          <div style={s.amtBox}>
+            <div style={s.amtLabel}>{booking.payment_type === 'deposit' ? (payMode==='deposit' ? t.deposit_label : t.final_label) : t.final_label}</div>
+            <div style={s.amt}>{fmtSEK(booking.payment_type === 'deposit' ? (payMode==='deposit' ? booking.deposit_amount : booking.total_amount) : booking.due_amount)}</div>
+            {booking.due_date && payMode==='deposit' && (
+              <div style={s.due}>{t.due} {fmtDate(booking.due_date, lang)}</div>
+            )}
+          </div>
+        ) : (
+          <div style={s.amtBox}>
+            <div style={s.amtLabel}>{t.final_label}</div>
+            <div style={s.amt}>{fmtSEK(booking.total_amount)}</div>
+          </div>
+        )}
         {(() => {
           const methods = (booking.payment_methods || 'paypal,stripe').split(',');
           const or = <div style={s.divider}><span>{lang === 'de' ? 'oder' : lang === 'sv' ? 'eller' : 'or'}</span></div>;
