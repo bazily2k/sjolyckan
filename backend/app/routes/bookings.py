@@ -37,6 +37,7 @@ class BookingRequest(BaseModel):
     message: Optional[str] = None
     terms_accepted: bool = False
     gdpr_accepted: bool = False
+    house_rules_accepted: bool = False
 
 
 class PriceCheckRequest(BaseModel):
@@ -192,6 +193,8 @@ async def create_booking_request(
         raise HTTPException(status_code=400, detail="Du måste godkänna bokningsvillkoren")
     if not req.gdpr_accepted:
         raise HTTPException(status_code=400, detail="Du måste godkänna hanteringen av personuppgifter")
+    if not req.house_rules_accepted:
+        raise HTTPException(status_code=400, detail="Du måste godkänna husreglerna")
     try:
         discount_pct = Decimal('0')
         if req.guest_email:
@@ -207,7 +210,40 @@ async def create_booking_request(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    booking = create_booking_record(db, req.dict(), calc)
+    # Hämta och rendera villkorstexter för snapshot
+    try:
+        from app.models.cms_models import ContentBlock
+        from jinja2 import Environment
+        from app.core.config import settings as app_settings
+        snap = calc["snapshot"]
+        ctx = {
+            "snap": snap,
+            "admin_email": app_settings.ADMIN_EMAIL,
+            "max_guests": req.guests_count,
+        }
+        def render_block(key, lang):
+            block = db.query(ContentBlock).filter(ContentBlock.key == key).first()
+            if not block:
+                return ""
+            field = {"sv": "value_sv", "en": "value_en", "de": "value_de"}.get(lang, "value_sv")
+            raw = getattr(block, field, "") or ""
+            try:
+                return Environment().from_string(raw.replace("&nbsp;", " ")).render(**ctx)
+            except Exception:
+                return raw
+        lang = req.lang or "sv"
+        terms_snapshot = {
+            "terms_text":       render_block("terms_text", lang),
+            "gdpr_text":        render_block("gdpr_text", lang),
+            "house_rules_text": render_block("house_rules_text", lang),
+            "lang": lang,
+            "rendered_at": str(calc["deposit_due_date"]),
+        }
+    except Exception as e:
+        terms_snapshot = None
+    req_dict = req.dict()
+    req_dict["terms_snapshot"] = terms_snapshot
+    booking = create_booking_record(db, req_dict, calc)
 
     # Uppdatera användarprofil om e-post matchar befintligt konto
     try:
@@ -456,6 +492,10 @@ def _booking_summary(b: Booking) -> dict:
         "created_at": str(b.created_at),
         "payment_due_date": str(b.payment_due_date),
         "deposit_due_date": str(b.deposit_due_date),
+        "terms_accepted": b.terms_accepted,
+        "gdpr_accepted": b.gdpr_accepted,
+        "house_rules_accepted": b.house_rules_accepted,
+        "terms_snapshot": b.terms_snapshot,
     }
 
 

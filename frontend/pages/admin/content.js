@@ -9,7 +9,7 @@ const QUILL_MODULES = {
     ['clean'],
   ],
 };
-const WYSIWYG_KEYS = ['terms_text', 'gdpr_text', 'about_text', 'about_title',
+const WYSIWYG_KEYS = ['terms_text', 'gdpr_text', 'house_rules_text', 'about_text', 'about_title',
   'checkin_rule', 'checkout_rule', 'max_guests_rule', 'linen_rule', 'pets_rule', 'cleaning_rule'];
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
@@ -35,6 +35,7 @@ const CONTENT_LABELS = {
   linen_rule: 'Husregel: Sängkläder',
   pets_rule: 'Husregel: Husdjur',
   cleaning_rule: 'Husregel: Städning',
+  house_rules_text: 'Husregler (visas i bokningsformulär, stöder variabel: {{ max_guests }})',
   terms_text: 'Bokningsvillkor (stöder variabler: {{ snap.deposit_pct|int }}, {{ snap.deposit_days }}, {{ snap.payment_days_before }})',
   gdpr_text: 'GDPR / Personuppgiftshantering (stöder variabler: {{ admin_email }}, {{ snap.deposit_pct|int }}, {{ snap.cancellation_deposit_days }}, {{ snap.cancellation_full_days }})',
 };

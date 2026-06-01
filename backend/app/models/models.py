@@ -219,6 +219,11 @@ class Booking(Base):
     confirmed_at = Column(DateTime(timezone=True))
     cancelled_at = Column(DateTime(timezone=True))
     cancellation_reason = Column(Text)
+    # Villkorsgodkännande
+    terms_accepted = Column(Boolean, default=False)
+    gdpr_accepted = Column(Boolean, default=False)
+    house_rules_accepted = Column(Boolean, default=False)
+    terms_snapshot = Column(JSON, nullable=True)
 
     # Relationer
     user = relationship("User", back_populates="bookings")

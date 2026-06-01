@@ -168,6 +168,11 @@ def get_terms(
             pass
     if not season:
         season = db.query(Season).filter(Season.active == True).first()
+    # Hämta max_guests från inställningar
+    from app.models.models import Setting
+    max_guests_setting = db.query(Setting).filter(Setting.key == "max_guests").first()
+    max_guests = int(max_guests_setting.value) if max_guests_setting else 8
+
     ctx = {
         "snap": {
             "deposit_pct": float(season.deposit_pct) if season else deposit_pct,
@@ -177,6 +182,7 @@ def get_terms(
             "cancellation_full_days": season.cancellation_full_days if season else 14,
         },
         "admin_email": app_settings.ADMIN_EMAIL,
+        "max_guests": max_guests,
     }
     def render(text):
         if not text:
@@ -191,8 +197,11 @@ def get_terms(
             return rendered
         except Exception:
             return text
+    house_rules = db.query(ContentBlock).filter(ContentBlock.key == "house_rules_text").first()
+
     return {
-        "terms_text": render(getattr(terms, field, "") if terms else ""),
-        "gdpr_text":  render(getattr(gdpr,  field, "") if gdpr  else ""),
+        "terms_text":       render(getattr(terms,       field, "") if terms       else ""),
+        "gdpr_text":        render(getattr(gdpr,        field, "") if gdpr        else ""),
+        "house_rules_text": render(getattr(house_rules, field, "") if house_rules else ""),
         "admin_email": app_settings.ADMIN_EMAIL,
     }

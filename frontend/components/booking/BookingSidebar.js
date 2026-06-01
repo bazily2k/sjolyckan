@@ -94,6 +94,9 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   const [gdprText, setGdprText] = useState('');
   const [showTerms, setShowTerms] = useState(false);
   const [showGdpr, setShowGdpr] = useState(false);
+  const [houseRulesAccepted, setHouseRulesAccepted] = useState(false);
+  const [houseRulesText, setHouseRulesText] = useState('');
+  const [showHouseRules, setShowHouseRules] = useState(false);
   const [price, setPrice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('dates');
@@ -228,6 +231,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
       .then(d => {
         setTermsText(d.terms_text || '');
         setGdprText(d.gdpr_text || '');
+        setHouseRulesText(d.house_rules_text || '');
       }).catch(() => {});
   }, [lang, price]);
 
@@ -310,6 +314,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
         article_quantities: articleQuantities,
         terms_accepted: termsAccepted,
         gdpr_accepted: gdprAccepted,
+        house_rules_accepted: houseRulesAccepted,
         lang,
       });
       setBooking(res.data);
@@ -609,12 +614,26 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
                 className="ql-content"
                 dangerouslySetInnerHTML={{ __html: gdprText }} />
             )}
+            <label style={{ display:'flex', alignItems:'flex-start', gap:8, fontSize:12, color:'var(--ink)', cursor:'pointer', marginTop:8 }}>
+              <input type="checkbox" checked={houseRulesAccepted} onChange={e => setHouseRulesAccepted(e.target.checked)} style={{ marginTop:2, flexShrink:0 }} />
+              <span>
+                {lang==='sv'?'Jag godkänner ':lang==='de'?'Ich akzeptiere die ':'I accept the '}
+                <button type="button" onClick={() => setShowHouseRules(!showHouseRules)} style={{ background:'none', border:'none', color:'var(--water)', cursor:'pointer', fontSize:12, padding:0, textDecoration:'underline' }}>
+                  {lang==='sv'?'husreglerna':lang==='de'?'Hausregeln':'house rules'}
+                </button>
+              </span>
+            </label>
+            {showHouseRules && houseRulesText && (
+              <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', fontSize:11, color:'var(--ink-light)', marginTop:8, maxHeight:150, overflowY:'auto' }}
+                className="ql-content"
+                dangerouslySetInnerHTML={{ __html: houseRulesText }} />
+            )}
           </div>
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={() => setStep('dates')} style={{ ...bookBtn, background:'var(--sand)', color:'var(--ink)', flex:1 }}>
               {L.back}
             </button>
-            <button onClick={submit} disabled={loading || !termsAccepted || !gdprAccepted} style={{ ...bookBtn, flex:3, opacity:(loading||!termsAccepted||!gdprAccepted)?0.7:1 }}>
+            <button onClick={submit} disabled={loading || !termsAccepted || !gdprAccepted || !houseRulesAccepted} style={{ ...bookBtn, flex:3, opacity:(loading||!termsAccepted||!gdprAccepted||!houseRulesAccepted)?0.7:1 }}>
               {loading?'...':L.submit}
             </button>
           </div>

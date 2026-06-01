@@ -369,6 +369,38 @@ export default function MyPage({ locale }) {
                               ))}
                             </div>
                           )}
+                          {/* Villkor */}
+                          {b.terms_snapshot && (
+                            <div style={{ marginTop: 12, borderTop: '1px solid var(--sand-dark)', paddingTop: 12 }}>
+                              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-pale)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>
+                                {lang === 'sv' ? 'Godkända villkor' : lang === 'de' ? 'Akzeptierte Bedingungen' : 'Accepted terms'}
+                              </div>
+                              {b.terms_snapshot.terms_text && (
+                                <details style={{ marginBottom: 6 }}>
+                                  <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--ink-light)' }}>
+                                    {lang === 'sv' ? 'Bokningsvillkor' : lang === 'de' ? 'Buchungsbedingungen' : 'Booking terms'}
+                                  </summary>
+                                  <div style={{ fontSize: 11, color: 'var(--ink-light)', padding: 8, background: 'white', borderRadius: 'var(--radius-md)', marginTop: 4 }} className="ql-content" dangerouslySetInnerHTML={{ __html: b.terms_snapshot.terms_text }} />
+                                </details>
+                              )}
+                              {b.terms_snapshot.gdpr_text && (
+                                <details style={{ marginBottom: 6 }}>
+                                  <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--ink-light)' }}>
+                                    {lang === 'sv' ? 'Personuppgiftshantering' : lang === 'de' ? 'Datenschutz' : 'Privacy policy'}
+                                  </summary>
+                                  <div style={{ fontSize: 11, color: 'var(--ink-light)', padding: 8, background: 'white', borderRadius: 'var(--radius-md)', marginTop: 4 }} className="ql-content" dangerouslySetInnerHTML={{ __html: b.terms_snapshot.gdpr_text }} />
+                                </details>
+                              )}
+                              {b.terms_snapshot.house_rules_text && (
+                                <details>
+                                  <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--ink-light)' }}>
+                                    {lang === 'sv' ? 'Husregler' : lang === 'de' ? 'Hausregeln' : 'House rules'}
+                                  </summary>
+                                  <div style={{ fontSize: 11, color: 'var(--ink-light)', padding: 8, background: 'white', borderRadius: 'var(--radius-md)', marginTop: 4 }} className="ql-content" dangerouslySetInnerHTML={{ __html: b.terms_snapshot.house_rules_text }} />
+                                </details>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

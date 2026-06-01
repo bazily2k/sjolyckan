@@ -233,6 +233,10 @@ def create_booking_record(db: Session, data: dict, calc: dict) -> Booking:
         payment_due_date=calc["payment_due_date"],
         snapshot=calc["snapshot"],
         status=BookingStatus.pending,
+        terms_accepted=data.get("terms_accepted", False),
+        gdpr_accepted=data.get("gdpr_accepted", False),
+        house_rules_accepted=data.get("house_rules_accepted", False),
+        terms_snapshot=data.get("terms_snapshot"),
     )
     db.add(booking)
     db.flush()

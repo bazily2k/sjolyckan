@@ -580,6 +580,41 @@ export default function AdminBookings() {
                 </div>
               )}
 
+              {/* Villkor & husregler */}
+              {selected.terms_snapshot && (
+                <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 12, marginTop: 16 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 8 }}>GODKÄNDA VILLKOR VID BOKNINGSTILLFÄLLET</div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, background: selected.terms_accepted ? 'var(--water-pale)' : '#fce8e8', color: selected.terms_accepted ? 'var(--water)' : 'var(--red)', padding: '3px 8px', borderRadius: 'var(--radius-md)' }}>
+                      {selected.terms_accepted ? '✓' : '✗'} Bokningsvillkor
+                    </span>
+                    <span style={{ fontSize: 12, background: selected.gdpr_accepted ? 'var(--water-pale)' : '#fce8e8', color: selected.gdpr_accepted ? 'var(--water)' : 'var(--red)', padding: '3px 8px', borderRadius: 'var(--radius-md)' }}>
+                      {selected.gdpr_accepted ? '✓' : '✗'} GDPR
+                    </span>
+                    <span style={{ fontSize: 12, background: selected.house_rules_accepted ? 'var(--water-pale)' : '#fce8e8', color: selected.house_rules_accepted ? 'var(--water)' : 'var(--red)', padding: '3px 8px', borderRadius: 'var(--radius-md)' }}>
+                      {selected.house_rules_accepted ? '✓' : '✗'} Husregler
+                    </span>
+                  </div>
+                  {selected.terms_snapshot.terms_text && (
+                    <details style={{ marginBottom: 6 }}>
+                      <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--ink-light)' }}>Visa bokningsvillkor</summary>
+                      <div style={{ fontSize: 11, color: 'var(--ink-light)', padding: '8px', background: 'var(--sand)', borderRadius: 'var(--radius-md)', marginTop: 4 }} className="ql-content" dangerouslySetInnerHTML={{ __html: selected.terms_snapshot.terms_text }} />
+                    </details>
+                  )}
+                  {selected.terms_snapshot.gdpr_text && (
+                    <details style={{ marginBottom: 6 }}>
+                      <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--ink-light)' }}>Visa GDPR</summary>
+                      <div style={{ fontSize: 11, color: 'var(--ink-light)', padding: '8px', background: 'var(--sand)', borderRadius: 'var(--radius-md)', marginTop: 4 }} className="ql-content" dangerouslySetInnerHTML={{ __html: selected.terms_snapshot.gdpr_text }} />
+                    </details>
+                  )}
+                  {selected.terms_snapshot.house_rules_text && (
+                    <details>
+                      <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--ink-light)' }}>Visa husregler</summary>
+                      <div style={{ fontSize: 11, color: 'var(--ink-light)', padding: '8px', background: 'var(--sand)', borderRadius: 'var(--radius-md)', marginTop: 4 }} className="ql-content" dangerouslySetInnerHTML={{ __html: selected.terms_snapshot.house_rules_text }} />
+                    </details>
+                  )}
+                </div>
+              )}
               {/* Betalningslogg */}
               {selected.payments?.length > 0 && (
                 <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 12, marginTop: 16 }}>
