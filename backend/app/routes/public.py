@@ -143,6 +143,7 @@ def get_terms(
     deposit_days: int = 7,
     payment_days_before: int = 60,
     date_from: str = None,
+    max_guests: int = None,
     db: Session = Depends(get_db)
 ):
     from app.models.cms_models import ContentBlock
@@ -170,8 +171,9 @@ def get_terms(
         season = db.query(Season).filter(Season.active == True).first()
     # Hämta max_guests från inställningar
     from app.models.models import Setting
-    max_guests_setting = db.query(Setting).filter(Setting.key == "max_guests").first()
-    max_guests = int(max_guests_setting.value) if max_guests_setting else 8
+    if max_guests is None:
+        max_guests_setting = db.query(Setting).filter(Setting.key == "max_guests").first()
+        max_guests = int(max_guests_setting.value) if max_guests_setting else 8
 
     ctx = {
         "snap": {

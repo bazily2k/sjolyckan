@@ -143,7 +143,7 @@ export default function PayPage() {
           </div>
         )}
         {(() => {
-          const methods = (booking.payment_methods || 'paypal,stripe').split(',');
+          const methods = (booking.payment_methods || 'swish,paypal,stripe').split(',');
           const or = <div style={s.divider}><span>{lang === 'de' ? 'oder' : lang === 'sv' ? 'eller' : 'or'}</span></div>;
           const btns = [];
           if (methods.includes('paypal')) btns.push(

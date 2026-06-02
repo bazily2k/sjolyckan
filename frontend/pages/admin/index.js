@@ -21,7 +21,7 @@ export default function AdminBookings() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payMethod, setPayMethod] = useState('swish');
-  const [payMethods, setPayMethods] = useState(['swish']);
+  const [payMethods, setPayMethods] = useState(['swish','paypal','stripe']);
   const [discountAmount, setDiscountAmount] = useState('');
   const [removedArticles, setRemovedArticles] = useState(new Set());
   const [adjustLoading, setAdjustLoading] = useState(false);

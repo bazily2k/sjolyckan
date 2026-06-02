@@ -226,6 +226,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
       if (price.payment_days_before) params.set('payment_days_before', price.payment_days_before);
     }
     if (checkIn) params.set('date_from', checkIn);
+    if (guests) params.set('max_guests', guests);
     fetch(`/api/public/terms?${params}`)
       .then(r => r.json())
       .then(d => {
