@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from typing import Optional
@@ -7,7 +7,7 @@ from app.models.database import get_db
 from app.models.models import User, UserRole
 from app.core.auth import (
     verify_password, hash_password, create_access_token,
-    validate_password_strength, get_current_user, require_superadmin
+    validate_password_strength, get_current_user, require_superadmin, require_admin
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -154,6 +154,13 @@ def list_users(
                 "created_at": str(u.created_at),
                 "last_login": str(u.last_login) if u.last_login else None,
                 "discount_pct": float(u.discount_pct) if u.discount_pct else 0,
+                "phone": u.phone or "",
+                "address_line1": u.address_line1 or "",
+                "address_line2": u.address_line2 or "",
+                "postal_code": u.postal_code or "",
+                "city": u.city or "",
+                "country": u.country or "SE",
+                "lang": u.lang or "sv",
             }
             for u in users
         ],
@@ -329,3 +336,85 @@ def admin_update_user_discount(
         user.discount_pct = data["discount_pct"]
     db.commit()
     return {"ok": True, "discount_pct": float(user.discount_pct) if user.discount_pct else 0}
+
+
+# ─── Glömt lösenord ─────────────────────────────────────
+@router.post("/forgot-password")
+async def forgot_password(data: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    import secrets
+    from datetime import datetime, timedelta
+    email = data.get("email", "").strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return {"message": "Om e-postadressen finns registrerad skickas en återställningslänk."}
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires = datetime.utcnow() + timedelta(hours=24)
+    db.commit()
+    from app.core.config import settings as app_settings
+    reset_url = f"{app_settings.FRONTEND_URL}/reset-password/{token}"
+    from app.email.service import send_simple_email
+    background_tasks.add_task(
+        send_simple_email, db,
+        to_email=email,
+        subject="Återställ ditt lösenord — Sjölyckan",
+        html=f"""<p>Hej {user.first_name or ''},</p>
+<p>Klicka på länken nedan för att återställa ditt lösenord. Länken är giltig i 24 timmar.</p>
+<p><a href="{reset_url}">{reset_url}</a></p>
+<p>Om du inte begärde detta kan du ignorera detta mail.</p>
+<p>Sjölyckan, Rolsmo</p>"""
+    )
+    return {"message": "Om e-postadressen finns registrerad skickas en återställningslänk."}
+
+
+@router.post("/reset-password")
+def reset_password(data: dict, db: Session = Depends(get_db)):
+    from datetime import datetime
+    token = data.get("token", "")
+    new_password = data.get("password", "")
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Lösenordet måste vara minst 8 tecken")
+    user = db.query(User).filter(User.reset_token == token).first()
+    if not user or not user.reset_token_expires:
+        raise HTTPException(status_code=400, detail="Ogiltig eller utgången länk")
+    if user.reset_token_expires < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Länken har gått ut")
+    user.password_hash = hash_password(new_password)
+    user.reset_token = None
+    user.reset_token_expires = None
+    db.commit()
+    return {"message": "Lösenordet har återställts"}
+
+
+# ─── Admin: uppdatera användare ─────────────────────────
+@router.put("/admin/users/{user_id}")
+def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Användare hittades inte")
+    for field in ["first_name", "last_name", "phone", "country", "address_line1", "address_line2", "postal_code", "city"]:
+        if field in data:
+            setattr(user, field, data[field])
+    if "email" in data and data["email"] != user.email:
+        existing = db.query(User).filter(User.email == data["email"]).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="E-postadressen används redan")
+        user.email = data["email"]
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "email": user.email, "first_name": user.first_name, "last_name": user.last_name}
+
+
+# ─── Admin: återställ lösenord ───────────────────────────
+@router.post("/admin/users/{user_id}/reset-password")
+def admin_reset_password(user_id: int, data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.core.auth import get_password_hash
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Användare hittades inte")
+    new_password = data.get("password", "")
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Lösenordet måste vara minst 8 tecken")
+    user.password_hash = get_password_hash(new_password)
+    db.commit()
+    return {"message": "Lösenordet har återställts"}

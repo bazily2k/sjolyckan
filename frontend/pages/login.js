@@ -112,7 +112,12 @@ export default function Login() {
             <input placeholder={t('auth.password')} type="password" value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              required style={{ ...inp, marginBottom: mode === 'register' ? 6 : 16 }} />
+              required style={{ ...inp, marginBottom: mode === 'register' ? 6 : 8 }} />
+            {mode === 'login' && (
+              <div style={{ textAlign:'right', marginBottom:12 }}>
+                <a href="/forgot-password" style={{ fontSize:12, color:'var(--water)', textDecoration:'none' }}>Glömt lösenord?</a>
+              </div>
+            )}
 
             {mode === 'register' && (
               <p style={{ fontSize: 11, color: 'var(--ink-pale)', marginBottom: 16 }}>{t('auth.password_hint')}</p>

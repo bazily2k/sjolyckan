@@ -63,6 +63,8 @@ class User(Base):
     lang = Column(String(5), default="sv")
     role = Column(Enum(UserRole), default=UserRole.guest)
     discount_pct = Column(Numeric(5, 2), default=0)
+    reset_token = Column(String(255), nullable=True)
+    reset_token_expires = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True))

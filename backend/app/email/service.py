@@ -194,3 +194,23 @@ async def send_booking_email_by_id(booking_id: int, email_type: str):
             await send_booking_email(db, booking, email_type)
     finally:
         db.close()
+
+
+async def send_simple_email(db, to_email: str, subject: str, html: str):
+    """Skicka ett enkelt e-postmeddelande — använder samma logik som send_booking_email."""
+    from app.models.models import Setting, EmailLog
+    from datetime import datetime
+    try:
+        provider = db.query(Setting).filter(Setting.key == "email_provider").first()
+        use_brevo = provider and provider.value == "brevo"
+        if use_brevo:
+            ok = await send_via_brevo(to_email, subject, html)
+        else:
+            ok = await send_email(to_email, subject, html)
+        # Logga inte till email_logs (booking_id kan inte vara NULL)
+        if not ok:
+            import logging
+            logging.getLogger(__name__).error(f"send_simple_email failed to send to {to_email}")
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"send_simple_email failed: {e}")

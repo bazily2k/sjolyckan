@@ -7,6 +7,10 @@ import { adminApi } from '../../lib/api';
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState({ email:'', password:'', first_name:'', last_name:'', role:'staff' });
+  const [editingUser, setEditingUser] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [newPassword, setNewPassword] = useState('');
+  const [pwMsg, setPwMsg] = useState('');
   const [msg, setMsg] = useState('');
 
   const load = () => adminApi.listUsers()
@@ -14,6 +18,28 @@ export default function AdminUsers() {
     .catch(() => {});
 
   useEffect(() => { load(); }, []);
+
+  const startEdit = (u) => {
+    setEditingUser(u.id);
+    setEditForm({ email: u.email, first_name: u.first_name||'', last_name: u.last_name||'', phone: u.phone||'', country: u.country||'SE', address_line1: u.address_line1||'', postal_code: u.postal_code||'', city: u.city||'' });
+    setNewPassword(''); setPwMsg('');
+  };
+  const saveEdit = async () => {
+    try {
+      await adminApi.updateUserFull(editingUser, editForm);
+      setMsg('Användare uppdaterad!');
+      setEditingUser(null);
+      load();
+    } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+  };
+  const resetPassword = async (userId) => {
+    if (newPassword.length < 8) { setPwMsg('Minst 8 tecken'); return; }
+    try {
+      await adminApi.adminResetPassword(userId, { password: newPassword });
+      setPwMsg('Lösenord återställt!');
+      setNewPassword('');
+    } catch(e) { setPwMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+  };
 
   const updateRole = async (userId, role) => {
     try {
@@ -58,7 +84,7 @@ export default function AdminUsers() {
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
                 <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
-                  {['Namn','E-post','Roll','Rabatt %','Senast inloggad','Status'].map(h => (
+                  {['Namn','E-post','Roll','Rabatt %','Senast inloggad','Status',''].map(h => (
                     <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase' }}>{h}</th>
                   ))}
                 </tr>
@@ -98,12 +124,51 @@ export default function AdminUsers() {
                         {u.is_active ? '● Aktiv' : '● Inaktiv'}
                       </span>
                     </td>
+                    <td style={{ padding:'10px 14px' }}>
+                      <button onClick={() => startEdit(u)} style={{ padding:'4px 10px', fontSize:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer' }}>Redigera</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
+          {/* Redigera användare */}
+          {editingUser && (
+            <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ background:'white', borderRadius:'var(--radius-lg)', padding:24, width:480, maxHeight:'90vh', overflowY:'auto' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                  <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, margin:0 }}>Redigera användare</h3>
+                  <button onClick={() => setEditingUser(null)} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-pale)', lineHeight:1 }}>×</button>
+                </div>
+                {[
+                  {l:'Förnamn', f:'first_name'}, {l:'Efternamn', f:'last_name'},
+                  {l:'E-post', f:'email', t:'email'}, {l:'Telefon', f:'phone'},
+                  {l:'Gatuadress', f:'address_line1'}, {l:'C/o, lägenhetsnr', f:'address_line2'}, {l:'Postnummer', f:'postal_code'},
+                  {l:'Ort', f:'city'},
+                ].map(({l,f,t}) => (
+                  <div key={f} style={{ marginBottom:10 }}>
+                    <label style={{ fontSize:11, color:'var(--ink-pale)', display:'block', marginBottom:2 }}>{l}</label>
+                    <input type={t||'text'} value={editForm[f]||''} onChange={e => setEditForm(ef => ({...ef,[f]:e.target.value}))}
+                      style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13, boxSizing:'border-box' }} />
+                  </div>
+                ))}
+                <div style={{ display:'flex', gap:8, marginTop:16 }}>
+                  <button onClick={saveEdit} style={{ flex:1, padding:10, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Spara ändringar</button>
+                  <button onClick={() => setEditingUser(null)} style={{ flex:1, padding:10, background:'var(--sand)', color:'var(--ink)', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Avbryt</button>
+                </div>
+                <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
+                  <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Återställ lösenord</div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <input type='password' placeholder='Nytt lösenord (min 8 tecken)' value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                      style={{ flex:1, padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13 }} />
+                    <button onClick={() => resetPassword(editingUser)} style={{ padding:'8px 14px', background:'var(--ink)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Spara</button>
+                  </div>
+                  {pwMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{pwMsg}</div>}
+                </div>
+              </div>
+            </div>
+          )}
           {/* Skapa personal */}
           <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', padding:20 }}>
             <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, marginBottom:16 }}>Skapa användare</h3>
