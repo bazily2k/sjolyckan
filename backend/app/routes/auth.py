@@ -408,13 +408,13 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), _
 # ─── Admin: återställ lösenord ───────────────────────────
 @router.post("/admin/users/{user_id}/reset-password")
 def admin_reset_password(user_id: int, data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    from app.core.auth import get_password_hash
+    from app.core.auth import hash_password
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Användare hittades inte")
     new_password = data.get("password", "")
     if len(new_password) < 8:
         raise HTTPException(status_code=400, detail="Lösenordet måste vara minst 8 tecken")
-    user.password_hash = get_password_hash(new_password)
+    user.password_hash = hash_password(new_password)
     db.commit()
     return {"message": "Lösenordet har återställts"}

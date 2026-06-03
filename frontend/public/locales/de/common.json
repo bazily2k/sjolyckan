@@ -88,7 +88,8 @@
     "register_btn": "Konto erstellen",
     "no_account": "Kein Konto?",
     "has_account": "Haben Sie bereits ein Konto?",
-    "password_hint": "Mindestens 10 Zeichen, Kombination aus Buchstaben, Zahlen und Sonderzeichen"
+    "password_hint": "Mindestens 10 Zeichen, Kombination aus Buchstaben, Zahlen und Sonderzeichen",
+    "login_error": "Falsche E-Mail oder falsches Passwort. Bitte erneut versuchen."
   },
   "admin": {
     "title": "Admin",

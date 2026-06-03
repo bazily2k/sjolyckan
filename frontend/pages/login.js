@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useRouter } from 'next/router';
@@ -12,13 +12,16 @@ export default function Login() {
   const router = useRouter();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ email: '', password: '', first_name: '', last_name: '', phone: '' });
-  const [errorModal, setErrorModal] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const errorRef = useRef('');
+  const setError = (msg) => { errorRef.current = msg; setErrorMsg(msg); };
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (errorRef.current) setErrorMsg(errorRef.current);
+  });
   const handle = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setLoading(true);
     console.log('Login attempt started');
     try {
@@ -31,8 +34,8 @@ export default function Login() {
         router.push('/');
       }
     } catch (e) {
-      const msg = e.response?.data?.detail || 'Ett fel uppstod. Kontrollera e-post och lösenord.';
-      setErrorModal(msg);
+      const msg = t('auth.login_error');
+      setError(msg);
       console.log('Error set:', msg);
     } finally {
       setLoading(false);
@@ -41,41 +44,20 @@ export default function Login() {
 
   return (
     <>
-      <Head><title>{mode === 'login' ? t('auth.login_title') : t('auth.register_title')} — Sjölyckan</title></Head>
-
-      {/* Felmeddelande-modal */}
-      {errorModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 24,
-        }}>
-          <div style={{
-            background: 'white', borderRadius: 12,
-            padding: '32px 36px', maxWidth: 360, width: '100%',
-            textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-          }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 12, color: '#a32d2d' }}>
-              Inloggning misslyckades
-            </h3>
-            <p style={{ fontSize: 14, color: 'var(--ink-light)', marginBottom: 24, lineHeight: 1.6 }}>
-              {errorModal}
-            </p>
-            <button
-              onClick={() => setErrorModal('')}
-              style={{
-                padding: '10px 36px',
-                background: 'var(--water)', color: 'white',
-                border: 'none', borderRadius: 8,
-                fontSize: 15, fontWeight: 500, cursor: 'pointer',
-              }}>
-              OK
-            </button>
+      {errorMsg && (
+        <div onClick={() => setError('')} style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+          <div onClick={ev => ev.stopPropagation()} style={{ background:'white', borderRadius:16, padding:'32px 36px', maxWidth:380, width:'100%', textAlign:'center', boxShadow:'0 8px 32px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize:44, marginBottom:12 }}>⚠️</div>
+            <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:12, color:'#a32d2d' }}>Inloggning misslyckades</h3>
+            <p style={{ fontSize:14, color:'var(--ink-light)', marginBottom:24, lineHeight:1.6 }}>{errorMsg}</p>
+            <button onClick={() => setError('')} style={{ padding:'10px 36px', background:'var(--water)', color:'white', border:'none', borderRadius:8, fontSize:15, fontWeight:500, cursor:'pointer' }}>OK</button>
           </div>
         </div>
       )}
+      <Head><title>{mode === 'login' ? t('auth.login_title') : t('auth.register_title')} — Sjölyckan</title></Head>
+
+      {/* Felmeddelande-modal */}
+
 
       <div style={{ minHeight: '100vh', background: 'var(--sand)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <div style={{ background: 'white', borderRadius: 24, padding: '40px 36px', width: '100%', maxWidth: 420, boxShadow: '0 8px 32px rgba(26,36,32,0.12)' }}>
@@ -86,7 +68,7 @@ export default function Login() {
             </h1>
           </div>
 
-          <form onSubmit={handle}>
+          <div>
             {mode === 'register' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                 <input placeholder={t('auth.first_name')} value={form.first_name}
@@ -123,7 +105,8 @@ export default function Login() {
               <p style={{ fontSize: 11, color: 'var(--ink-pale)', marginBottom: 16 }}>{t('auth.password_hint')}</p>
             )}
 
-            <button type="submit" disabled={loading} style={{
+
+            <button type="button" onClick={handle} disabled={loading} style={{
               width: '100%', padding: 13,
               background: loading ? 'var(--ink-pale)' : 'var(--water)',
               color: 'white', border: 'none',
@@ -133,11 +116,11 @@ export default function Login() {
             }}>
               {loading ? '...' : mode === 'login' ? t('auth.login_btn') : t('auth.register_btn')}
             </button>
-          </form>
+          </div>
 
           <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink-pale)', marginTop: 16 }}>
             {mode === 'login' ? t('auth.no_account') : t('auth.has_account')}{' '}
-            <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setErrorModal(''); }}
+            <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setErrorMsg(''); }}
               style={{ color: 'var(--water)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
               {mode === 'login' ? t('auth.register_btn') : t('auth.login_btn')}
             </button>

@@ -88,7 +88,8 @@
     "register_btn": "Skapa konto",
     "no_account": "Inget konto?",
     "has_account": "Har du redan ett konto?",
-    "password_hint": "Minst 10 tecken, blandning av bokstäver, siffror och specialtecken"
+    "password_hint": "Minst 10 tecken, blandning av bokstäver, siffror och specialtecken",
+    "login_error": "Fel e-post eller lösenord. Försök igen."
   },
   "admin": {
     "title": "Admin",
