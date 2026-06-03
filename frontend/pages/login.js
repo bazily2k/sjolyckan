@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useRouter } from 'next/router';
@@ -13,13 +13,15 @@ export default function Login() {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ email: '', password: '', first_name: '', last_name: '', phone: '' });
   const [errorMsg, setErrorMsg] = useState('');
-  const errorRef = useRef('');
-  const setError = (msg) => { errorRef.current = msg; setErrorMsg(msg); };
+  const setError = (msg) => {
+    if (typeof window !== 'undefined') window.__loginError = msg;
+    setErrorMsg(msg);
+  };
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (errorRef.current) setErrorMsg(errorRef.current);
-  });
+    if (typeof window !== 'undefined' && window.__loginError) setErrorMsg(window.__loginError);
+  }, []);
   const handle = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     setLoading(true);
