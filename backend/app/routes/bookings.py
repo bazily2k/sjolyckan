@@ -198,19 +198,23 @@ async def create_booking_request(
     # Tillgänglighetskoll: avvisa datum som krockar med befintlig bokning (ej
     # cancelled) eller blockerat datum. Halvöppet intervall => utcheckningsdag ledig.
     from app.models.models import BlockedDate
+    _unavail = {
+        "en": "The selected dates are no longer available",
+        "de": "Die gewählten Daten sind nicht mehr verfügbar",
+    }.get(req.lang, "De valda datumen är inte längre tillgängliga")
     conflict = db.query(Booking).filter(
         Booking.status != BookingStatus.cancelled,
         Booking.date_from < req.date_to,
         Booking.date_to > req.date_from,
     ).first()
     if conflict:
-        raise HTTPException(status_code=409, detail="De valda datumen är inte längre tillgängliga")
+        raise HTTPException(status_code=409, detail=_unavail)
     blocked = db.query(BlockedDate).filter(
         BlockedDate.date_from < req.date_to,
         BlockedDate.date_to > req.date_from,
     ).first()
     if blocked:
-        raise HTTPException(status_code=409, detail="De valda datumen är inte längre tillgängliga")
+        raise HTTPException(status_code=409, detail=_unavail)
     try:
         discount_pct = Decimal('0')
         if req.guest_email:
