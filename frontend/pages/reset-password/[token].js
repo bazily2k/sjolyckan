@@ -19,7 +19,7 @@ export default function ResetPassword() {
     if (password.length < 8) { setMsg(t('auth.reset_short')); return; }
     setLoading(true);
     try {
-      await axios.post(`${API}/auth/reset-password`, { token, password });
+      await axios.post(`${API}/auth/reset-password`, { token, password, lang: router.locale });
       setDone(true);
       setMsg(t('auth.reset_success'));
     } catch(err) {
