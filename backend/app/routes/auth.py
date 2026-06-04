@@ -270,12 +270,14 @@ def admin_update_user_role(
     user_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    _: User = Depends(require_superadmin),
+    actor: User = Depends(require_admin),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Användare hittades inte")
     new_role = data.get("role")
+    if actor.role != UserRole.admin and (user.role == UserRole.admin or new_role == "admin"):
+        raise HTTPException(status_code=403, detail="Endast admin kan tilldela eller ändra admin-rollen")
     try:
         user.role = UserRole(new_role)
     except ValueError:
@@ -290,11 +292,13 @@ def admin_update_user_discount(
     user_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    _: User = Depends(require_superadmin),
+    actor: User = Depends(require_admin),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Användare hittades inte")
+    if user.role == UserRole.admin and actor.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Endast admin kan ändra admin-konton")
     if "discount_pct" in data:
         user.discount_pct = data["discount_pct"]
     db.commit()
