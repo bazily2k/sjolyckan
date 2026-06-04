@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models.models import (
@@ -47,6 +47,38 @@ def _booking_due(booking: Booking):
     return None, None, None
 
 
+def _amount_paid(db: Session, booking: Booking) -> float:
+    """Summa redan betalt (status=paid) for bokningen."""
+    from sqlalchemy import func
+    paid = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
+        Payment.booking_id == booking.id,
+        Payment.status == PaymentStatus.paid,
+    ).scalar()
+    return float(paid or 0)
+
+
+def _resolve_amount(db: Session, booking: Booking, data: dict,
+                    due_amount, payment_type):
+    """
+    Bestam belopp och typ server-side. Litar ALDRIG blint pa klientens belopp.
+      pay_full=True  -> resterande (total - redan betalt)
+      amount angivet -> maste matcha staged due ELLER full remaining
+    """
+    full_remaining = round(float(booking.total_amount) - _amount_paid(db, booking), 2)
+    expected_due = round(float(due_amount), 2)
+    if data.get("pay_full"):
+        return full_remaining, "final"
+    req = data.get("amount")
+    if req is not None:
+        req = round(float(req), 2)
+        if abs(req - full_remaining) < 0.5:
+            return full_remaining, "final"
+        if abs(req - expected_due) < 0.5:
+            return expected_due, payment_type
+        raise HTTPException(status_code=400, detail="Ogiltigt belopp")
+    return expected_due, payment_type
+
+
 @router.get("/{ref}")
 async def get_payment_info(ref: str, db: Session = Depends(get_db)):
     booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
@@ -88,10 +120,8 @@ async def create_paypal_order(ref: str, data: dict = {}, db: Session = Depends(g
     due_amount, payment_type, _ = _booking_due(booking)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
-    # Om gästen valt att betala hela beloppet direkt
-    if data.get("amount"):
-        due_amount = float(data["amount"])
-        payment_type = "final"
+    # Belopp avgörs server-side (litar ej på klientens belopp)
+    due_amount, payment_type = _resolve_amount(db, booking, data, due_amount, payment_type)
     lang = booking.lang or "en"
     description = DESC[payment_type].get(lang, DESC[payment_type]["en"])
     base_url = _paypal_base()
@@ -133,7 +163,8 @@ async def create_paypal_order(ref: str, data: dict = {}, db: Session = Depends(g
 
 
 @router.post("/paypal-capture")
-async def capture_paypal_order(data: dict, db: Session = Depends(get_db)):
+async def capture_paypal_order(data: dict, background_tasks: BackgroundTasks,
+                               db: Session = Depends(get_db)):
     order_id = data.get("order_id")
     ref      = data.get("ref")
     if not order_id or not ref:
@@ -174,14 +205,21 @@ async def capture_paypal_order(data: dict, db: Session = Depends(get_db)):
                 raise HTTPException(status_code=500,
                                     detail=f"PayPal capture misslyckades: {r.text}")
 
-    # Hämta faktiskt betalt belopp från PayPal
+    # Hämta faktiskt betalt belopp + verifiera att ordern hör till bokningen
     try:
         paypal_data = r.json()
-        capture = paypal_data.get("purchase_units", [{}])[0].get("payments", {}).get("captures", [{}])[0]
+        pu = paypal_data.get("purchase_units", [{}])[0]
+        ref_id = pu.get("reference_id")
+        if ref_id and ref_id != booking.booking_ref:
+            raise HTTPException(status_code=400,
+                                detail="Betalningen hör inte till denna bokning")
+        capture = pu.get("payments", {}).get("captures", [{}])[0]
         actual_amount = float(capture.get("amount", {}).get("value", due_amount))
         if actual_amount >= float(booking.total_amount) * 0.99:
             payment_type = "final"
             due_amount = actual_amount
+    except HTTPException:
+        raise
     except Exception:
         pass
     p_type     = PaymentType.deposit if payment_type == "deposit" else PaymentType.final
@@ -203,8 +241,7 @@ async def capture_paypal_order(data: dict, db: Session = Depends(get_db)):
 
     if new_status == BookingStatus.deposit_paid:
         from app.email.service import send_booking_email_by_id
-        import asyncio
-        asyncio.create_task(send_booking_email_by_id(booking.id, "payment_reminder"))
+        background_tasks.add_task(send_booking_email_by_id, booking.id, "payment_reminder")
 
     return {
         "success":      True,
@@ -216,7 +253,7 @@ async def capture_paypal_order(data: dict, db: Session = Depends(get_db)):
     }
 
 
-# ── POST /pay/{ref}/stripe-create ── skapa Stripe checkout ────────────────
+# -- POST /pay/{ref}/stripe-create -- skapa Stripe checkout ----------------
 @router.post("/{ref}/stripe-create")
 async def create_stripe_session(ref: str, data: dict = {}, db: Session = Depends(get_db)):
     import stripe as stripe_lib
@@ -231,10 +268,8 @@ async def create_stripe_session(ref: str, data: dict = {}, db: Session = Depends
     due_amount, payment_type, _ = _booking_due(booking)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
-    # Om gästen valt att betala hela beloppet direkt
-    if data.get("amount"):
-        due_amount = float(data["amount"])
-        payment_type = "final"
+    # Belopp avgörs server-side (litar ej på klientens belopp)
+    due_amount, payment_type = _resolve_amount(db, booking, data, due_amount, payment_type)
 
     lang = booking.lang or "en"
     desc = DESC[payment_type].get(lang, DESC[payment_type]["en"])
@@ -261,9 +296,10 @@ async def create_stripe_session(ref: str, data: dict = {}, db: Session = Depends
             "amount": due_amount, "payment_type": payment_type}
 
 
-# ── POST /pay/stripe-capture ── bekräfta Stripe-betalning ─────────────────
+# -- POST /pay/stripe-capture -- bekräfta Stripe-betalning -----------------
 @router.post("/stripe-capture")
-async def capture_stripe_payment(data: dict, db: Session = Depends(get_db)):
+async def capture_stripe_payment(data: dict, background_tasks: BackgroundTasks,
+                                 db: Session = Depends(get_db)):
     import stripe as stripe_lib
     stripe_lib.api_key = settings.STRIPE_SECRET_KEY
 
@@ -294,9 +330,13 @@ async def capture_stripe_payment(data: dict, db: Session = Depends(get_db)):
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
 
-    # Verifiera betalning hos Stripe
+    # Verifiera betalning hos Stripe + att sessionen hör till bokningen
     try:
         session = stripe_lib.checkout.Session.retrieve(session_id)
+        meta_ref = (session.get("metadata") or {}).get("booking_ref")
+        if meta_ref and meta_ref != booking.booking_ref:
+            raise HTTPException(status_code=400,
+                                detail="Betalningen hör inte till denna bokning")
         if session.payment_status != "paid":
             raise HTTPException(status_code=400, detail="Betalningen ej genomförd")
         # Hämta faktiskt betalt belopp från Stripe
@@ -326,8 +366,7 @@ async def capture_stripe_payment(data: dict, db: Session = Depends(get_db)):
 
     if new_status == BookingStatus.deposit_paid:
         from app.email.service import send_booking_email_by_id
-        import asyncio
-        asyncio.create_task(send_booking_email_by_id(booking.id, "payment_reminder"))
+        background_tasks.add_task(send_booking_email_by_id, booking.id, "payment_reminder")
 
     return {
         "success":      True,
