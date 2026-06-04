@@ -195,6 +195,22 @@ async def create_booking_request(
         raise HTTPException(status_code=400, detail="Du måste godkänna hanteringen av personuppgifter")
     if not req.house_rules_accepted:
         raise HTTPException(status_code=400, detail="Du måste godkänna husreglerna")
+    # Tillgänglighetskoll: avvisa datum som krockar med befintlig bokning (ej
+    # cancelled) eller blockerat datum. Halvöppet intervall => utcheckningsdag ledig.
+    from app.models.models import BlockedDate
+    conflict = db.query(Booking).filter(
+        Booking.status != BookingStatus.cancelled,
+        Booking.date_from < req.date_to,
+        Booking.date_to > req.date_from,
+    ).first()
+    if conflict:
+        raise HTTPException(status_code=409, detail="De valda datumen är inte längre tillgängliga")
+    blocked = db.query(BlockedDate).filter(
+        BlockedDate.date_from < req.date_to,
+        BlockedDate.date_to > req.date_from,
+    ).first()
+    if blocked:
+        raise HTTPException(status_code=409, detail="De valda datumen är inte längre tillgängliga")
     try:
         discount_pct = Decimal('0')
         if req.guest_email:
@@ -541,18 +557,6 @@ def _booking_detail(b: Booking) -> dict:
         ],
     })
     return d
-
-
-# ─── Gästens egna bokningar ──────────────────────────────
-@router.get("/my")
-def my_bookings(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    bookings = db.query(Booking).filter(
-        Booking.guest_email == user.email
-    ).order_by(Booking.created_at.desc()).all()
-    return [_booking_detail(b) for b in bookings]
 
 
 # ─── Gästens egna bokningar ──────────────────────────────
