@@ -251,7 +251,7 @@ def create_booking_record(db: Session, data: dict, calc: dict) -> Booking:
             name_de=art_data["name_de"],
             price_snapshot=art_data["price"],
             price_type=art_data["price_type"],
-            quantity=1,
+            quantity=art_data["quantity"],
             line_total=art_data["line_total"],
         )
         db.add(ba)
