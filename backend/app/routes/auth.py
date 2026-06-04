@@ -418,10 +418,12 @@ def reset_password(data: dict, db: Session = Depends(get_db)):
 
 # ─── Admin: uppdatera användare ─────────────────────────
 @router.put("/admin/users/{user_id}")
-def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), actor: User = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Användare hittades inte")
+    if user.role == UserRole.admin and actor.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Endast admin kan ändra admin-konton")
     for field in ["first_name", "last_name", "phone", "country", "address_line1", "address_line2", "postal_code", "city"]:
         if field in data:
             setattr(user, field, data[field])
@@ -437,14 +439,16 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), _
 
 # ─── Admin: återställ lösenord ───────────────────────────
 @router.post("/admin/users/{user_id}/reset-password")
-def admin_reset_password(user_id: int, data: dict, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+def admin_reset_password(user_id: int, data: dict, db: Session = Depends(get_db), actor: User = Depends(require_admin)):
     from app.core.auth import hash_password
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Användare hittades inte")
+    if user.role == UserRole.admin and actor.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Endast admin kan återställa lösenord för admin-konton")
     new_password = data.get("password", "")
     if not validate_password_strength(new_password)["ok"]:
-        raise HTTPException(status_code=400, detail=_pw_policy_msg(admin.lang or "sv"))
+        raise HTTPException(status_code=400, detail=_pw_policy_msg(actor.lang or "sv"))
     user.password_hash = hash_password(new_password)
     db.commit()
     return {"message": "Lösenordet har återställts"}
