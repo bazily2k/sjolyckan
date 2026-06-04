@@ -389,13 +389,21 @@ async def forgot_password(data: dict, background_tasks: BackgroundTasks, db: Ses
     return {"message": "Om e-postadressen finns registrerad skickas en återställningslänk."}
 
 
+def _pw_policy_msg(lang):
+    return {
+        "en": "Password must be at least 10 characters and include uppercase and lowercase letters, a number and a special character.",
+        "de": "Das Passwort muss mindestens 10 Zeichen lang sein und Groß- und Kleinbuchstaben, eine Zahl und ein Sonderzeichen enthalten.",
+    }.get(lang, "Lösenordet måste vara minst 10 tecken och innehålla stora och små bokstäver, siffror och specialtecken.")
+
+
 @router.post("/reset-password")
 def reset_password(data: dict, db: Session = Depends(get_db)):
     from datetime import datetime
     token = data.get("token", "")
     new_password = data.get("password", "")
-    if len(new_password) < 8:
-        raise HTTPException(status_code=400, detail="Lösenordet måste vara minst 8 tecken")
+    lang = data.get("lang") or "sv"
+    if not validate_password_strength(new_password)["ok"]:
+        raise HTTPException(status_code=400, detail=_pw_policy_msg(lang))
     user = db.query(User).filter(User.reset_token == token).first()
     if not user or not user.reset_token_expires:
         raise HTTPException(status_code=400, detail="Ogiltig eller utgången länk")
@@ -429,14 +437,14 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), _
 
 # ─── Admin: återställ lösenord ───────────────────────────
 @router.post("/admin/users/{user_id}/reset-password")
-def admin_reset_password(user_id: int, data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+def admin_reset_password(user_id: int, data: dict, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
     from app.core.auth import hash_password
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Användare hittades inte")
     new_password = data.get("password", "")
-    if len(new_password) < 8:
-        raise HTTPException(status_code=400, detail="Lösenordet måste vara minst 8 tecken")
+    if not validate_password_strength(new_password)["ok"]:
+        raise HTTPException(status_code=400, detail=_pw_policy_msg(admin.lang or "sv"))
     user.password_hash = hash_password(new_password)
     db.commit()
     return {"message": "Lösenordet har återställts"}
