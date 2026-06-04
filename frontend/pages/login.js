@@ -99,7 +99,7 @@ export default function Login() {
               required style={{ ...inp, marginBottom: mode === 'register' ? 6 : 8 }} />
             {mode === 'login' && (
               <div style={{ textAlign:'right', marginBottom:12 }}>
-                <a href="/forgot-password" style={{ fontSize:12, color:'var(--water)', textDecoration:'none' }}>Glömt lösenord?</a>
+                <a href={router.locale && router.locale !== 'sv' ? `/${router.locale}/forgot-password` : '/forgot-password'} style={{ fontSize:12, color:'var(--water)', textDecoration:'none' }}>{t('auth.forgot_link')}</a>
               </div>
             )}
 

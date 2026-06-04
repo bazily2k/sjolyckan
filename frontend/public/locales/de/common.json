@@ -89,7 +89,22 @@
     "no_account": "Kein Konto?",
     "has_account": "Haben Sie bereits ein Konto?",
     "password_hint": "Mindestens 10 Zeichen, Kombination aus Buchstaben, Zahlen und Sonderzeichen",
-    "login_error": "Falsche E-Mail oder falsches Passwort. Bitte erneut versuchen."
+    "login_error": "Falsche E-Mail oder falsches Passwort. Bitte erneut versuchen.",
+    "forgot_title": "Passwort vergessen",
+    "forgot_desc": "Geben Sie Ihre E-Mail-Adresse ein und wir senden Ihnen einen Link zurück.",
+    "forgot_btn": "Zurücksetzen-Link senden",
+    "forgot_sent": "Falls die E-Mail-Adresse registriert ist, wird ein Zurücksetzen-Link gesendet.",
+    "forgot_error": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+    "reset_title": "Passwort zurücksetzen",
+    "reset_btn": "Neues Passwort speichern",
+    "reset_success": "Ihr Passwort wurde zurückgesetzt! Sie können sich jetzt anmelden.",
+    "reset_mismatch": "Die Passwörter stimmen nicht überein.",
+    "reset_short": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+    "reset_invalid": "Der Link ist ungültig oder abgelaufen.",
+    "back_to_login": "← Zurück zur Anmeldung",
+    "new_password": "Neues Passwort (min. 8 Zeichen)",
+    "confirm_password": "Passwort bestätigen",
+    "forgot_link": "Passwort vergessen?"
   },
   "admin": {
     "title": "Admin",

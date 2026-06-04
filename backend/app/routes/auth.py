@@ -344,6 +344,7 @@ async def forgot_password(data: dict, background_tasks: BackgroundTasks, db: Ses
     import secrets
     from datetime import datetime, timedelta
     email = data.get("email", "").strip().lower()
+    request_lang = data.get("lang", None)
     user = db.query(User).filter(User.email == email).first()
     if not user:
         return {"message": "Om e-postadressen finns registrerad skickas en återställningslänk."}
@@ -352,16 +353,37 @@ async def forgot_password(data: dict, background_tasks: BackgroundTasks, db: Ses
     user.reset_token_expires = datetime.utcnow() + timedelta(hours=24)
     db.commit()
     from app.core.config import settings as app_settings
+    lang = request_lang or user.lang or "sv"
     reset_url = f"{app_settings.FRONTEND_URL}/reset-password/{token}"
+    subjects = {
+        "sv": "Återställ ditt lösenord — Sjölyckan",
+        "en": "Reset your password — Sjölyckan",
+        "de": "Passwort zurücksetzen — Sjölyckan",
+    }
+    greetings = {
+        "sv": f"Hej {user.first_name or ''}",
+        "en": f"Hello {user.first_name or ''}",
+        "de": f"Hallo {user.first_name or ''}",
+    }
+    bodies = {
+        "sv": f"Klicka på länken nedan för att återställa ditt lösenord. Länken är giltig i 24 timmar.",
+        "en": f"Click the link below to reset your password. The link is valid for 24 hours.",
+        "de": f"Klicken Sie auf den Link unten, um Ihr Passwort zurückzusetzen. Der Link ist 24 Stunden gültig.",
+    }
+    ignores = {
+        "sv": "Om du inte begärde detta kan du ignorera detta mail.",
+        "en": "If you did not request this, you can ignore this email.",
+        "de": "Wenn Sie dies nicht angefordert haben, können Sie diese E-Mail ignorieren.",
+    }
     from app.email.service import send_simple_email
     background_tasks.add_task(
         send_simple_email, db,
         to_email=email,
-        subject="Återställ ditt lösenord — Sjölyckan",
-        html=f"""<p>Hej {user.first_name or ''},</p>
-<p>Klicka på länken nedan för att återställa ditt lösenord. Länken är giltig i 24 timmar.</p>
+        subject=subjects.get(lang, subjects["en"]),
+        html=f"""<p>{greetings.get(lang, greetings["en"])},</p>
+<p>{bodies.get(lang, bodies["en"])}</p>
 <p><a href="{reset_url}">{reset_url}</a></p>
-<p>Om du inte begärde detta kan du ignorera detta mail.</p>
+<p>{ignores.get(lang, ignores["en"])}</p>
 <p>Sjölyckan, Rolsmo</p>"""
     )
     return {"message": "Om e-postadressen finns registrerad skickas en återställningslänk."}

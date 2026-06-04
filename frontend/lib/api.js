@@ -17,7 +17,8 @@ api.interceptors.response.use(
     if (err.response?.status === 401 && typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      const locale = document.documentElement.lang || 'sv';
+      window.location.href = locale !== 'sv' ? `/${locale}/login` : '/login';
     }
     return Promise.reject(err);
   }

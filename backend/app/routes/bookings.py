@@ -492,6 +492,7 @@ def _booking_summary(b: Booking) -> dict:
         "created_at": str(b.created_at),
         "payment_due_date": str(b.payment_due_date),
         "deposit_due_date": str(b.deposit_due_date),
+        "hidden": b.hidden,
         "terms_accepted": b.terms_accepted,
         "gdpr_accepted": b.gdpr_accepted,
         "house_rules_accepted": b.house_rules_accepted,

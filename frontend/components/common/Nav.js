@@ -57,7 +57,7 @@ export default function Nav() {
                   {t('nav.admin')}
                 </a>
               )}
-              <a href="/my" style={{ padding:'8px 16px', background: scrolled ? 'var(--water)' : 'rgba(255,255,255,0.15)', color:'white', borderRadius:'var(--radius-md)', fontSize:13, fontWeight:500, border: scrolled ? 'none' : '1px solid rgba(255,255,255,0.4)' }}>
+              <a href={router.locale && router.locale !== 'sv' ? `/${router.locale}/my` : '/my'} style={{ padding:'8px 16px', background: scrolled ? 'var(--water)' : 'rgba(255,255,255,0.15)', color:'white', borderRadius:'var(--radius-md)', fontSize:13, fontWeight:500, border: scrolled ? 'none' : '1px solid rgba(255,255,255,0.4)' }}>
                 {t('nav.my_bookings')}
               </a>
               <button onClick={logout} style={{ padding:'6px 12px', fontSize:13, background:'transparent', border:'none', cursor:'pointer', color:textMuted }}>
@@ -65,7 +65,7 @@ export default function Nav() {
               </button>
             </>
           ) : mounted ? (
-            <a href="/login" style={{ padding:'8px 20px', background: scrolled ? 'var(--water)' : 'rgba(255,255,255,0.15)', color:'white', borderRadius:'var(--radius-md)', fontSize:13, fontWeight:500, border: scrolled ? 'none' : '1px solid rgba(255,255,255,0.4)' }}>
+            <a href={router.locale && router.locale !== 'sv' ? `/${router.locale}/login` : '/login'} style={{ padding:'8px 20px', background: scrolled ? 'var(--water)' : 'rgba(255,255,255,0.15)', color:'white', borderRadius:'var(--radius-md)', fontSize:13, fontWeight:500, border: scrolled ? 'none' : '1px solid rgba(255,255,255,0.4)' }}>
               {t('nav.login')}
             </a>
           ) : null}

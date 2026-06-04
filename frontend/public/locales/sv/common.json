@@ -89,7 +89,22 @@
     "no_account": "Inget konto?",
     "has_account": "Har du redan ett konto?",
     "password_hint": "Minst 10 tecken, blandning av bokstäver, siffror och specialtecken",
-    "login_error": "Fel e-post eller lösenord. Försök igen."
+    "login_error": "Fel e-post eller lösenord. Försök igen.",
+    "forgot_title": "Glömt lösenord",
+    "forgot_desc": "Ange din e-postadress så skickar vi en återställningslänk.",
+    "forgot_btn": "Skicka återställningslänk",
+    "forgot_sent": "Om e-postadressen finns registrerad skickas en återställningslänk.",
+    "forgot_error": "Ett fel uppstod. Försök igen.",
+    "reset_title": "Återställ lösenord",
+    "reset_btn": "Spara nytt lösenord",
+    "reset_success": "Lösenordet har återställts! Du kan nu logga in.",
+    "reset_mismatch": "Lösenorden stämmer inte överens.",
+    "reset_short": "Lösenordet måste vara minst 8 tecken.",
+    "reset_invalid": "Länken är ogiltig eller har gått ut.",
+    "back_to_login": "← Tillbaka till inloggning",
+    "new_password": "Nytt lösenord (min 8 tecken)",
+    "confirm_password": "Bekräfta lösenord",
+    "forgot_link": "Glömt lösenord?"
   },
   "admin": {
     "title": "Admin",

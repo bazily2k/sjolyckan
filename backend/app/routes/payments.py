@@ -174,6 +174,16 @@ async def capture_paypal_order(data: dict, db: Session = Depends(get_db)):
                 raise HTTPException(status_code=500,
                                     detail=f"PayPal capture misslyckades: {r.text}")
 
+    # Hämta faktiskt betalt belopp från PayPal
+    try:
+        paypal_data = r.json()
+        capture = paypal_data.get("purchase_units", [{}])[0].get("payments", {}).get("captures", [{}])[0]
+        actual_amount = float(capture.get("amount", {}).get("value", due_amount))
+        if actual_amount >= float(booking.total_amount) * 0.99:
+            payment_type = "final"
+            due_amount = actual_amount
+    except Exception:
+        pass
     p_type     = PaymentType.deposit if payment_type == "deposit" else PaymentType.final
     new_status = BookingStatus.deposit_paid if payment_type == "deposit" else BookingStatus.paid
 
@@ -208,7 +218,7 @@ async def capture_paypal_order(data: dict, db: Session = Depends(get_db)):
 
 # ── POST /pay/{ref}/stripe-create ── skapa Stripe checkout ────────────────
 @router.post("/{ref}/stripe-create")
-async def create_stripe_session(ref: str, db: Session = Depends(get_db)):
+async def create_stripe_session(ref: str, data: dict = {}, db: Session = Depends(get_db)):
     import stripe as stripe_lib
     stripe_lib.api_key = settings.STRIPE_SECRET_KEY
     if not settings.STRIPE_SECRET_KEY:
@@ -221,6 +231,10 @@ async def create_stripe_session(ref: str, db: Session = Depends(get_db)):
     due_amount, payment_type, _ = _booking_due(booking)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
+    # Om gästen valt att betala hela beloppet direkt
+    if data.get("amount"):
+        due_amount = float(data["amount"])
+        payment_type = "final"
 
     lang = booking.lang or "en"
     desc = DESC[payment_type].get(lang, DESC[payment_type]["en"])
@@ -285,6 +299,11 @@ async def capture_stripe_payment(data: dict, db: Session = Depends(get_db)):
         session = stripe_lib.checkout.Session.retrieve(session_id)
         if session.payment_status != "paid":
             raise HTTPException(status_code=400, detail="Betalningen ej genomförd")
+        # Hämta faktiskt betalt belopp från Stripe
+        actual_amount = session.amount_total / 100
+        if actual_amount >= float(booking.total_amount) * 0.99:
+            payment_type = "final"
+            due_amount = actual_amount
     except stripe_lib.error.StripeError as e:
         raise HTTPException(status_code=500, detail=f"Stripe-fel: {str(e)}")
 

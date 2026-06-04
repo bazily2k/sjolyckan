@@ -65,7 +65,8 @@ export default function PayPage() {
   const handleStripe = async () => {
     setPayingStripe(true);
     try {
-      const r = await axios.post(`/api/pay/${ref}/stripe-create`);
+      const amount = (payMode === 'full' || booking.deposit_amount === 0) ? booking.total_amount : undefined;
+      const r = await axios.post(`/api/pay/${ref}/stripe-create`, amount ? { amount } : {});
       window.location.href = r.data.url;
     } catch (e) {
       setErrKey('error');

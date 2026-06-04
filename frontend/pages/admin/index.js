@@ -42,7 +42,6 @@ export default function AdminBookings() {
   };
 
   const sortedBookings = [...bookings]
-    .filter(b => !hiddenIds.has(b.id))
     .sort((a, b) => {
       let av, bv;
       if (sortBy === 'booking_ref') { av = a.booking_ref; bv = b.booking_ref; }
@@ -302,9 +301,9 @@ export default function AdminBookings() {
                         {b.status === 'pending' && (
                           <span style={{ color: 'var(--water)', fontSize: 12, marginRight: 4 }}>Hantera →</span>
                         )}
-                        <button onClick={e => { e.stopPropagation(); hideBooking(b.id); }} title="Dölj"
-                          style={{ padding: '2px 7px', fontSize: 11, border: '1px solid var(--sand-dark)', borderRadius: 4, background: 'white', cursor: 'pointer', color: 'var(--ink-pale)' }}>
-                          👁
+                        <button onClick={e => { e.stopPropagation(); hideBooking(b.id); }} title={b.hidden ? 'Visa' : 'Dölj'}
+                          style={{ padding: '2px 7px', fontSize: 11, border: '1px solid var(--sand-dark)', borderRadius: 4, background: b.hidden ? 'var(--sand)' : 'white', cursor: 'pointer', color: 'var(--ink-pale)' }}>
+                          {b.hidden ? '👁‍🗨' : '👁'}
                         </button>
                         <button onClick={e => { e.stopPropagation(); deleteBooking(b.id); }} title="Radera"
                           style={{ padding: '2px 7px', fontSize: 11, border: '1px solid #f5c6cb', borderRadius: 4, background: 'white', cursor: 'pointer', color: 'var(--red)' }}>
