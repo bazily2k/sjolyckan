@@ -311,48 +311,6 @@ def delete_blocked_date(
     db.commit()
     return {"ok": True}
 
-# ─── Blockerade datum ─────────────────────────────────
-@router.get("/blocked-dates")
-def list_blocked_dates(
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import BlockedDate
-    blocks = db.query(BlockedDate).order_by(BlockedDate.date_from).all()
-    return [{"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason} for b in blocks]
-
-@router.post("/blocked-dates")
-def create_blocked_date(
-    data: dict,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import BlockedDate
-    from datetime import date
-    b = BlockedDate(
-        date_from=date.fromisoformat(data["date_from"]),
-        date_to=date.fromisoformat(data["date_to"]),
-        reason=data.get("reason", ""),
-    )
-    db.add(b)
-    db.commit()
-    db.refresh(b)
-    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
-
-@router.delete("/blocked-dates/{block_id}")
-def delete_blocked_date(
-    block_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import BlockedDate
-    b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
-    if not b:
-        raise HTTPException(status_code=404, detail="Hittades inte")
-    db.delete(b)
-    db.commit()
-    return {"ok": True}
-
 # ─── Skicka om e-post ───────────────────────────────────
 @router.post("/email-logs/{log_id}/resend")
 async def resend_email(
