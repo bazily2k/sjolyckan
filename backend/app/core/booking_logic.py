@@ -132,6 +132,7 @@ def calculate_booking_price(
     # Tillägg
     articles_data = []
     articles_amount = Decimal("0")
+    refundable_deposit_amount = Decimal("0")
     for aid in article_ids:
         art = db.query(Article).filter(
             Article.id == aid,
@@ -153,7 +154,10 @@ def calculate_booking_price(
             line_total = art.price * qty
         else:  # fixed
             line_total = art.price
-        articles_amount += line_total
+        if getattr(art, "is_deposit", False):
+            refundable_deposit_amount += line_total
+        else:
+            articles_amount += line_total
         articles_data.append({
             "article_id": art.id,
             "name_sv": art.name_sv,
@@ -163,6 +167,7 @@ def calculate_booking_price(
             "price_type": art.price_type,
             "quantity": qty,
             "line_total": float(line_total),
+            "is_deposit": bool(getattr(art, "is_deposit", False)),
         })
 
     # Extra avgift för gäster över threshold
@@ -173,13 +178,13 @@ def calculate_booking_price(
             extra_guests = guests_count - threshold
             extra_guest_fee = Decimal(str(dominant_season.extra_guest_fee)) * extra_guests * nights
 
-    total_amount = base_amount + articles_amount + extra_guest_fee
+    chargeable_amount = base_amount + articles_amount + extra_guest_fee
 
-    # Applicera rabatt om användaren har discount_pct > 0
+    # Applicera rabatt om användaren har discount_pct > 0 (gäller ej deposition)
     discount_amount = Decimal('0')
     if discount_pct and discount_pct > 0:
-        discount_amount = (total_amount * discount_pct / 100).quantize(Decimal('1'))
-        total_amount = total_amount - discount_amount
+        discount_amount = (chargeable_amount * discount_pct / 100).quantize(Decimal('1'))
+        chargeable_amount = chargeable_amount - discount_amount
 
     # Säsongsvillkor (använder dominant säsong eller standardvärden)
     deposit_pct = Decimal(str(dominant_season.deposit_pct)) if dominant_season else Decimal("10")
@@ -193,7 +198,9 @@ def calculate_booking_price(
     if min_nights > 0 and nights < min_nights:
         raise ValueError(_calc_err(lang, "min_nights", n=min_nights))
 
-    deposit_amount = (total_amount * deposit_pct / 100).quantize(Decimal("1"))
+    deposit_amount = (chargeable_amount * deposit_pct / 100).quantize(Decimal("1"))
+    # Återbetalningsbar deposition läggs på totalen men ingår inte i handpenningen
+    total_amount = chargeable_amount + refundable_deposit_amount
     deposit_due_date = date.today() + timedelta(days=deposit_days)
     payment_due_date = date_from - timedelta(days=payment_days_before)
 
@@ -221,6 +228,7 @@ def calculate_booking_price(
         "daily_prices": daily_prices,
         "articles": articles_data,
         "extra_guest_fee": float(extra_guest_fee),
+        "refundable_deposit_amount": float(refundable_deposit_amount),
         "extra_guest_threshold": dominant_season.extra_guest_threshold if dominant_season else 4,
         "terms_version": "1.0",
         "discount_pct": float(discount_pct),
@@ -230,6 +238,7 @@ def calculate_booking_price(
         "nights": nights,
         "base_amount": base_amount,
         "articles_amount": articles_amount,
+        "refundable_deposit_amount": refundable_deposit_amount,
         "total_amount": total_amount,
         "discount_amount": discount_amount,
         "deposit_amount": deposit_amount,
