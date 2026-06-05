@@ -423,15 +423,24 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
               <span>{price.extra_guest_fee?.toLocaleString('sv-SE')} kr</span>
             </div>
           )}
-          {price.articles_amount > 0 && (
-            <div style={priceRow}><span>{t('booking.addons')}</span><span>{price.articles_amount?.toLocaleString('sv-SE')} kr</span></div>
-          )}
+          {price.articles?.filter(a => !a.is_deposit).map(a => (
+            <div key={a.article_id} style={priceRow}>
+              <span>{(lang==='de'?a.name_de:lang==='en'?a.name_en:a.name_sv)}{a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>
+              <span>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+            </div>
+          ))}
           {price.discount_amount > 0 && (
             <div style={{ ...priceRow, color:'var(--forest)' }}>
               <span>{lang==='de'?'Rabatt':lang==='en'?'Discount':'Rabatt'} ({price.discount_pct}%)</span>
               <span>−{price.discount_amount?.toLocaleString('sv-SE')} kr</span>
             </div>
           )}
+          {price.articles?.filter(a => a.is_deposit).map(a => (
+            <div key={a.article_id} style={priceRow}>
+              <span>{(lang==='de'?a.name_de:lang==='en'?a.name_en:a.name_sv)} <em style={{ color:'var(--ink-pale)', fontStyle:'normal', fontSize:11 }}>({lang==='de'?'erstattungsfähig':lang==='en'?'refundable':'återbetalas'})</em></span>
+              <span>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+            </div>
+          ))}
           <div style={{ ...priceRow, fontWeight:600, borderTop:'1px solid var(--sand-dark)', paddingTop:6, marginTop:4 }}>
             <span>{t('booking.total')}</span><span>{price.total_amount?.toLocaleString('sv-SE')} kr</span>
           </div>
