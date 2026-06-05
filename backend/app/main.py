@@ -13,6 +13,27 @@ from app.core.config import settings
 # Skapa alla tabeller vid start
 Base.metadata.create_all(bind=engine)
 
+# Säkerställ DB-objekt som inte uttrycks i ORM-modellerna:
+# btree_gist + exclusion constraint som hindrar överlappande (ej cancelled) bokningar.
+# Idempotent — körs säkert vid varje start och återskapas automatiskt på en ny/ombyggd databas.
+def _ensure_booking_constraints():
+    try:
+        with engine.begin() as conn:
+            conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS btree_gist")
+            conn.exec_driver_sql(
+                "DO $$ BEGIN "
+                "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'no_overlapping_bookings') THEN "
+                "ALTER TABLE bookings ADD CONSTRAINT no_overlapping_bookings "
+                "EXCLUDE USING gist (daterange(date_from, date_to, '[)') WITH &&) "
+                "WHERE (status <> 'cancelled'); "
+                "END IF; END $$;"
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Kunde inte säkerställa boknings-constraints: {e}")
+
+_ensure_booking_constraints()
+
 # Skapa upload-mappar
 upload_dir = Path("/app/uploads")
 upload_dir.mkdir(parents=True, exist_ok=True)
