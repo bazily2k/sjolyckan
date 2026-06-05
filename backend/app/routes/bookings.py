@@ -47,6 +47,7 @@ class PriceCheckRequest(BaseModel):
     article_ids: List[int] = []
     article_quantities: dict = {}
     guest_email: Optional[str] = None
+    lang: str = "sv"
 
 
 class AdminConfirmRequest(BaseModel):
@@ -161,6 +162,7 @@ def price_check(req: PriceCheckRequest, db: Session = Depends(get_db)):
             req.guests_count, req.article_ids,
             discount_pct=discount_pct,
             article_quantities=req.article_quantities,
+            lang=req.lang,
         )
         return {
             "nights": calc["nights"],
@@ -244,6 +246,7 @@ async def create_booking_request(
             req.guests_count, req.article_ids,
             discount_pct=discount_pct,
             article_quantities=req.article_quantities,
+            lang=req.lang,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
