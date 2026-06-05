@@ -5,7 +5,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import { adminApi } from '../../lib/api';
 
 const ICONS = ['ti-package','ti-flame','ti-anchor','ti-ripple','ti-bed','ti-wash','ti-tools-kitchen-2','ti-trees','ti-bike','ti-fish','ti-umbrella-beach'];
-const empty = { name_sv:'', name_en:'', name_de:'', desc_sv:'', desc_en:'', desc_de:'', price:'', price_type:'per_night', icon:'ti-package', visible:true, bookable:true, sort_order:0, active:true };
+const empty = { name_sv:'', name_en:'', name_de:'', desc_sv:'', desc_en:'', desc_de:'', price:'', price_type:'per_night', icon:'ti-package', visible:true, bookable:true, is_deposit:false, sort_order:0, active:true };
 
 function Field({ label, field, type='text', half, select, options, form, setForm }) {
   return (
@@ -118,6 +118,10 @@ export default function AdminArticles() {
               <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, cursor:'pointer' }}>
                 <input type="checkbox" checked={form.bookable} onChange={e => setForm(f => ({...f, bookable: e.target.checked}))} />
                 Bokningsbar
+              </label>
+              <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, cursor:'pointer' }}>
+                <input type="checkbox" checked={form.is_deposit} onChange={e => setForm(f => ({...f, is_deposit: e.target.checked}))} />
+                Återbetalningsbar deposition
               </label>
             </div>
             <div style={{ display:'flex', gap:8, marginTop:16 }}>
