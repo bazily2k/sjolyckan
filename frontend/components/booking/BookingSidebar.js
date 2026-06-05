@@ -676,7 +676,7 @@ function Field({ label, error, required, children }) {
   );
 }
 
-const card = { background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', padding:20, boxShadow:'var(--shadow-md)' };
+const card = { background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', padding:20, boxShadow:'var(--shadow-md)', boxSizing:'border-box', width:'100%', maxWidth:'100%' };
 const dateBox = { border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', padding:'8px 12px', display:'flex', flexDirection:'column' };
 const dateLabel = { fontSize:10, fontWeight:600, color:'var(--ink-pale)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:2 };
 const dateInput = { border:'none', background:'transparent', fontSize:13, color:'var(--ink)', outline:'none', cursor:'pointer', width:'100%' };
