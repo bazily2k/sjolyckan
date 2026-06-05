@@ -137,6 +137,7 @@ class ArticleSchema(BaseModel):
     icon: str = "ti-package"
     visible: bool = True
     bookable: bool = True
+    is_deposit: bool = False
     sort_order: int = 0
     active: bool = True
 
