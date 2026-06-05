@@ -170,6 +170,34 @@ def calculate_booking_price(
             "is_deposit": bool(getattr(art, "is_deposit", False)),
         })
 
+    # Auto-inkludera synliga depositioner (kunden kan inte välja bort dem)
+    included_ids = {a["article_id"] for a in articles_data}
+    for art in db.query(Article).filter(
+        Article.is_deposit == True,
+        Article.visible == True,
+        Article.active == True,
+    ).all():
+        if art.id in included_ids:
+            continue
+        if art.price_type == "per_night":
+            line_total = art.price * nights
+        elif art.price_type == "per_guest":
+            line_total = art.price * guests_count
+        else:
+            line_total = art.price
+        refundable_deposit_amount += line_total
+        articles_data.append({
+            "article_id": art.id,
+            "name_sv": art.name_sv,
+            "name_en": art.name_en,
+            "name_de": art.name_de,
+            "price": float(art.price),
+            "price_type": art.price_type,
+            "quantity": 1,
+            "line_total": float(line_total),
+            "is_deposit": True,
+        })
+
     # Extra avgift för gäster över threshold
     extra_guest_fee = Decimal("0")
     if dominant_season and hasattr(dominant_season, "extra_guest_fee") and dominant_season.extra_guest_fee:
