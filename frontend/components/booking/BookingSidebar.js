@@ -437,13 +437,13 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           )}
           {price.articles?.filter(a => a.is_deposit).map(a => (
             <div key={a.article_id} style={{ ...priceRow, alignItems:'flex-start' }}>
-              <span>
+              <span style={{ flex:1, minWidth:0 }}>
                 {(lang==='de'?a.name_de:lang==='en'?a.name_en:a.name_sv)}
                 {(lang==='de'?a.desc_de:lang==='en'?a.desc_en:a.desc_sv) ? (
                   <span style={{ display:'block', color:'var(--ink-pale)', fontSize:11, marginTop:2 }}>{(lang==='de'?a.desc_de:lang==='en'?a.desc_en:a.desc_sv)}</span>
                 ) : null}
               </span>
-              <span style={{ whiteSpace:'nowrap', marginLeft:8 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+              <span style={{ whiteSpace:'nowrap', marginLeft:8, flexShrink:0 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
             </div>
           ))}
           <div style={{ ...priceRow, fontWeight:600, borderTop:'1px solid var(--sand-dark)', paddingTop:6, marginTop:4 }}>
