@@ -206,7 +206,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   useEffect(() => {
     if (!checkIn || !checkOut) { setPrice(null); return; }
     const timer = setTimeout(() => {
-      bookingApi.priceCheck({ date_from:checkIn, date_to:checkOut, guests_count:guests, article_ids:selectedArticles, article_quantities:articleQuantities, guest_email:form.guest_email||user?.email||undefined })
+      bookingApi.priceCheck({ date_from:checkIn, date_to:checkOut, guests_count:guests, article_ids:selectedArticles, article_quantities:articleQuantities, guest_email:form.guest_email||user?.email||undefined, lang })
         .then(r => { setPrice(r.data); setDateError(''); })
         .catch(e => {
           setPrice(null);
