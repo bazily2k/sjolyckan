@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
-import { adminApi } from '../../lib/api';
+import { adminApi, authApi } from '../../lib/api';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -12,12 +12,17 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [pwMsg, setPwMsg] = useState('');
   const [msg, setMsg] = useState('');
+  const [myRole, setMyRole] = useState(null);
+  const isAdmin = myRole === 'admin';
 
   const load = () => adminApi.listUsers()
     .then(r => setUsers(Array.isArray(r.data) ? r.data : (r.data.items || [])))
     .catch(() => {});
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    authApi.me().then(r => setMyRole(r.data.role)).catch(() => {});
+  }, []);
 
   const startEdit = (u) => {
     setEditingUser(u.id);
@@ -33,7 +38,7 @@ export default function AdminUsers() {
     } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
   };
   const resetPassword = async (userId) => {
-    if (newPassword.length < 8) { setPwMsg('Minst 8 tecken'); return; }
+    if (newPassword.length < 10) { setPwMsg('Minst 10 tecken'); return; }
     try {
       await adminApi.adminResetPassword(userId, { password: newPassword });
       setPwMsg('Lösenord återställt!');
@@ -78,7 +83,7 @@ export default function AdminUsers() {
       <Head><title>Användare — Admin Sjölyckan</title></Head>
       <AdminLayout title="Användare">
         {msg && <div style={msgBox}>{msg} <button onClick={() => setMsg('')} style={{ border:'none', background:'none', cursor:'pointer' }}>×</button></div>}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:24, alignItems:'start' }}>
+        <div style={{ display:'grid', gridTemplateColumns:isAdmin?'1fr 340px':'1fr', gap:24, alignItems:'start' }}>
           {/* Lista */}
           <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
@@ -96,6 +101,7 @@ export default function AdminUsers() {
                     <td style={{ padding:'10px 14px', color:'var(--ink-light)' }}>{u.email}</td>
                     <td style={{ padding:'10px 14px' }}>
                       <select value={u.role} onChange={e => updateRole(u.id, e.target.value)}
+                        disabled={u.role === 'admin' && !isAdmin}
                         style={{ padding:'3px 8px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12,
                           background: u.role === 'admin' ? '#faeeda' : u.role === 'staff' ? '#d1ecf1' : u.role === 'friend' ? '#d4edda' : '#e2e3e5',
                           color: u.role === 'admin' ? '#854F0B' : u.role === 'staff' ? '#0c5460' : u.role === 'friend' ? '#155724' : '#383d41',
@@ -103,7 +109,7 @@ export default function AdminUsers() {
                         <option value="guest">Gäst</option>
                         <option value="friend">Vän/Bekant</option>
                         <option value="staff">Personal</option>
-                        <option value="admin">Admin</option>
+                        {(isAdmin || u.role === 'admin') && <option value="admin">Admin</option>}
                       </select>
                     </td>
                     <td style={{ padding:'10px 14px' }}>
@@ -111,6 +117,7 @@ export default function AdminUsers() {
                         <input type='number' min='0' max='100'
                           defaultValue={u.discount_pct || 0}
                           onBlur={e => updateDiscount(u.id, e.target.value)}
+                          disabled={u.role === 'admin' && !isAdmin}
                           style={{ width:50, padding:'4px 6px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12, textAlign:'center' }}
                         />
                         <span style={{ fontSize:11, color:'var(--ink-pale)' }}>%</span>
@@ -125,7 +132,7 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td style={{ padding:'10px 14px' }}>
-                      <button onClick={() => startEdit(u)} style={{ padding:'4px 10px', fontSize:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer' }}>Redigera</button>
+                      <button onClick={() => startEdit(u)} disabled={u.role === 'admin' && !isAdmin} style={{ padding:'4px 10px', fontSize:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:(u.role === 'admin' && !isAdmin)?'not-allowed':'pointer', opacity:(u.role === 'admin' && !isAdmin)?0.5:1 }}>Redigera</button>
                     </td>
                   </tr>
                 ))}
@@ -160,7 +167,7 @@ export default function AdminUsers() {
                 <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
                   <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Återställ lösenord</div>
                   <div style={{ display:'flex', gap:8 }}>
-                    <input type='password' placeholder='Nytt lösenord (min 8 tecken)' value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                    <input type='password' placeholder='Nytt lösenord (min 10 tecken)' value={newPassword} onChange={e => setNewPassword(e.target.value)}
                       style={{ flex:1, padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13 }} />
                     <button onClick={() => resetPassword(editingUser)} style={{ padding:'8px 14px', background:'var(--ink)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Spara</button>
                   </div>
@@ -169,7 +176,7 @@ export default function AdminUsers() {
               </div>
             </div>
           )}
-          {/* Skapa personal */}
+          {isAdmin && (
           <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', padding:20 }}>
             <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, marginBottom:16 }}>Skapa användare</h3>
             <form onSubmit={create}>
@@ -192,7 +199,7 @@ export default function AdminUsers() {
                   <option value="guest">Gäst</option>
                   <option value="friend">Vän/Bekant</option>
                   <option value="staff">Personal (staff)</option>
-                  <option value="admin">Admin</option>
+                  {isAdmin && <option value="admin">Admin</option>}
                 </select>
               </div>
               <p style={{ fontSize:11, color:'var(--ink-pale)', marginBottom:12 }}>
@@ -203,6 +210,7 @@ export default function AdminUsers() {
               </button>
             </form>
           </div>
+          )}
         </div>
       </AdminLayout>
     </>
