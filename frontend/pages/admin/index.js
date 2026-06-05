@@ -359,11 +359,11 @@ export default function AdminBookings() {
                 </div>
                 {(selected.snapshot?.articles || selected.articles)?.map((a, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: 13, padding: '4px 0', color: 'var(--ink-light)' }}>
-                    <span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
                       {a.name_sv}{a.quantity > 1 ? ` × ${a.quantity}` : ''}
                       {a.desc_sv ? <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-pale)', marginTop: 2 }}>{a.desc_sv}</span> : null}
                     </span>
-                    <span style={{ whiteSpace: 'nowrap', marginLeft: 8 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+                    <span style={{ whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
                   </div>
                 ))}
                 {selected.snapshot?.discount_amount > 0 && (
