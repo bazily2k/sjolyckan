@@ -169,6 +169,8 @@ def price_check(req: PriceCheckRequest, db: Session = Depends(get_db)):
             "nights": calc["nights"],
             "base_amount": float(calc["base_amount"]),
             "articles_amount": float(calc["articles_amount"]),
+            "refundable_deposit_amount": float(calc["refundable_deposit_amount"]),
+            "articles": calc["snapshot"]["articles"],
             "total_amount": float(calc["total_amount"]),
             "discount_amount": float(calc["discount_amount"]),
             "discount_pct": float(calc["snapshot"]["discount_pct"]),
