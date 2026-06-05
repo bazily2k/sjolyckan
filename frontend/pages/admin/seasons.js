@@ -14,6 +14,17 @@ const empty = {
   visible: true, active: true, sort_order: 0,
 };
 
+function Field({ label, field, type = 'text', half, form, setForm }) {
+  return (
+    <div style={{ gridColumn: half ? 'auto' : 'span 2' }}>
+      <label style={lbl}>{label}</label>
+      <input type={type} value={form[field] ?? ''}
+        onChange={e => setForm(f => ({ ...f, [field]: type === 'number' ? Number(e.target.value) : e.target.value }))}
+        style={inp} />
+    </div>
+  );
+}
+
 export default function AdminSeasons() {
   const [seasons, setSeasons] = useState([]);
   const [form, setForm] = useState(empty);
@@ -56,14 +67,6 @@ export default function AdminSeasons() {
     setEditing(s.id);
     setForm({ ...s, date_from: s.date_from, date_to: s.date_to });
   };
-
-  const F = ({ label, field, type = 'text', half }) => (
-    <div style={{ gridColumn: half ? 'auto' : 'span 2' }}>
-      <label style={lbl}>{label}</label>
-      <input type={type} value={form[field] ?? ''} onChange={e => setForm(f => ({ ...f, [field]: type === 'number' ? Number(e.target.value) : e.target.value }))}
-        style={inp} />
-    </div>
-  );
 
   return (
     <>
@@ -120,22 +123,22 @@ export default function AdminSeasons() {
               {editing ? 'Redigera säsong' : 'Lägg till säsong'}
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <F label="Namn (svenska)" field="name_sv" />
-              <F label="Namn (engelska)" field="name_en" />
-              <F label="Namn (tyska)" field="name_de" />
-              <F label="Från datum" field="date_from" type="date" half />
-              <F label="Till datum" field="date_to" type="date" half />
-              <F label="Pris per natt (kr)" field="price_per_night" type="number" half />
-              <F label="Handpenning (%)" field="deposit_pct" type="number" half />
-              <F label="Betala handp. inom (dagar)" field="deposit_days" type="number" half />
-              <F label="Betalfrist (dagar före ankomst)" field="payment_days_before" type="number" half />
-              <F label="Minsta antal nätter" field="min_nights" type="number" half />
-              <F label="Extra avgift per gäst/natt (kr)" field="extra_guest_fee" type="number" half />
-              <F label="Extra avgift fr.o.m. antal gäster" field="extra_guest_threshold" type="number" half />
-              <F label="Påminnelse 1 (dagar före)" field="reminder_1_days" type="number" half />
-              <F label="Påminnelse 2 (dagar före)" field="reminder_2_days" type="number" half />
-              <F label="Avbokning: handp. återbet. (dagar före ankomst)" field="cancellation_deposit_days" type="number" half />
-              <F label="Avbokning: fullt belopp (dagar före ankomst)" field="cancellation_full_days" type="number" half />
+              <Field form={form} setForm={setForm} label="Namn (svenska)" field="name_sv" />
+              <Field form={form} setForm={setForm} label="Namn (engelska)" field="name_en" />
+              <Field form={form} setForm={setForm} label="Namn (tyska)" field="name_de" />
+              <Field form={form} setForm={setForm} label="Från datum" field="date_from" type="date" half />
+              <Field form={form} setForm={setForm} label="Till datum" field="date_to" type="date" half />
+              <Field form={form} setForm={setForm} label="Pris per natt (kr)" field="price_per_night" type="number" half />
+              <Field form={form} setForm={setForm} label="Handpenning (%)" field="deposit_pct" type="number" half />
+              <Field form={form} setForm={setForm} label="Betala handp. inom (dagar)" field="deposit_days" type="number" half />
+              <Field form={form} setForm={setForm} label="Betalfrist (dagar före ankomst)" field="payment_days_before" type="number" half />
+              <Field form={form} setForm={setForm} label="Minsta antal nätter" field="min_nights" type="number" half />
+              <Field form={form} setForm={setForm} label="Extra avgift per gäst/natt (kr)" field="extra_guest_fee" type="number" half />
+              <Field form={form} setForm={setForm} label="Extra avgift fr.o.m. antal gäster" field="extra_guest_threshold" type="number" half />
+              <Field form={form} setForm={setForm} label="Påminnelse 1 (dagar före)" field="reminder_1_days" type="number" half />
+              <Field form={form} setForm={setForm} label="Påminnelse 2 (dagar före)" field="reminder_2_days" type="number" half />
+              <Field form={form} setForm={setForm} label="Avbokning: handp. återbet. (dagar före ankomst)" field="cancellation_deposit_days" type="number" half />
+              <Field form={form} setForm={setForm} label="Avbokning: fullt belopp (dagar före ankomst)" field="cancellation_full_days" type="number" half />
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               {editing && (
