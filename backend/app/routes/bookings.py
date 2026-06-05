@@ -121,17 +121,23 @@ def admin_adjust_booking(
     if req.admin_note:
         b.admin_note = req.admin_note
 
-    # Uppdatera snapshot
+    # Uppdatera snapshot (bevara desc/is_deposit/quantity från ursprunget)
     snap = dict(b.snapshot)
+    _old_by_id = {x.get("article_id"): x for x in (snap.get("articles") or [])}
     snap["articles"] = [
         {
             "article_id": a.article_id,
             "name_sv": a.name_sv,
             "name_en": a.name_en,
             "name_de": a.name_de,
+            "desc_sv": _old_by_id.get(a.article_id, {}).get("desc_sv", ""),
+            "desc_en": _old_by_id.get(a.article_id, {}).get("desc_en", ""),
+            "desc_de": _old_by_id.get(a.article_id, {}).get("desc_de", ""),
             "price": float(a.price_snapshot),
             "price_type": a.price_type,
+            "quantity": getattr(a, "quantity", 1),
             "line_total": float(a.line_total),
+            "is_deposit": _old_by_id.get(a.article_id, {}).get("is_deposit", False),
         }
         for a in remaining
     ]
