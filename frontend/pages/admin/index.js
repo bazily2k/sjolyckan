@@ -357,10 +357,13 @@ export default function AdminBookings() {
                   <span>Boende ({selected.nights} nätter)</span>
                   <span>{selected.base_amount?.toLocaleString('sv-SE')} kr</span>
                 </div>
-                {selected.articles?.map((a, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--ink-light)' }}>
-                    <span>{a.name_sv}{a.quantity > 1 ? ` × ${a.quantity}` : ''}</span>
-                    <span>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+                {(selected.snapshot?.articles || selected.articles)?.map((a, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: 13, padding: '4px 0', color: 'var(--ink-light)' }}>
+                    <span>
+                      {a.name_sv}{a.quantity > 1 ? ` × ${a.quantity}` : ''}
+                      {a.desc_sv ? <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-pale)', marginTop: 2 }}>{a.desc_sv}</span> : null}
+                    </span>
+                    <span style={{ whiteSpace: 'nowrap', marginLeft: 8 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
                   </div>
                 ))}
                 {selected.snapshot?.discount_amount > 0 && (
