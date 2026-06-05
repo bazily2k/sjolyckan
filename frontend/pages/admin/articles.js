@@ -7,6 +7,21 @@ import { adminApi } from '../../lib/api';
 const ICONS = ['ti-package','ti-flame','ti-anchor','ti-ripple','ti-bed','ti-wash','ti-tools-kitchen-2','ti-trees','ti-bike','ti-fish','ti-umbrella-beach'];
 const empty = { name_sv:'', name_en:'', name_de:'', desc_sv:'', desc_en:'', desc_de:'', price:'', price_type:'per_night', icon:'ti-package', visible:true, bookable:true, sort_order:0, active:true };
 
+function Field({ label, field, type='text', half, select, options, form, setForm }) {
+  return (
+    <div style={{ gridColumn: half ? 'auto' : 'span 2' }}>
+      <label style={lbl}>{label}</label>
+      {select ? (
+        <select value={form[field]} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} style={inp}>
+          {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+        </select>
+      ) : (
+        <input type={type} value={form[field] ?? ''} onChange={e => setForm(f => ({ ...f, [field]: type==='number' ? Number(e.target.value) : e.target.value }))} style={inp} />
+      )}
+    </div>
+  );
+}
+
 export default function AdminArticles() {
   const [articles, setArticles] = useState([]);
   const [form, setForm] = useState(empty);
@@ -28,19 +43,6 @@ export default function AdminArticles() {
       setMsg('Fel: ' + (e.response?.data?.detail || e.message));
     }
   };
-
-  const F = ({ label, field, type='text', half, select, options }) => (
-    <div style={{ gridColumn: half ? 'auto' : 'span 2' }}>
-      <label style={lbl}>{label}</label>
-      {select ? (
-        <select value={form[field]} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} style={inp}>
-          {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-        </select>
-      ) : (
-        <input type={type} value={form[field] ?? ''} onChange={e => setForm(f => ({ ...f, [field]: type==='number' ? Number(e.target.value) : e.target.value }))} style={inp} />
-      )}
-    </div>
-  );
 
   return (
     <>
@@ -93,20 +95,20 @@ export default function AdminArticles() {
               {editing ? 'Redigera tillägg' : 'Lägg till tillägg'}
             </h3>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              <F label="Namn (svenska)" field="name_sv" />
-              <F label="Namn (engelska)" field="name_en" />
-              <F label="Namn (tyska)" field="name_de" />
-              <F label="Beskrivning (sv)" field="desc_sv" />
-              <F label="Beskrivning (en)" field="desc_en" />
-              <F label="Beskrivning (de)" field="desc_de" />
-              <F label="Pris (kr)" field="price" type="number" half />
-              <F label="Pristyp" field="price_type" half select options={[
+              <Field form={form} setForm={setForm} label="Namn (svenska)" field="name_sv" />
+              <Field form={form} setForm={setForm} label="Namn (engelska)" field="name_en" />
+              <Field form={form} setForm={setForm} label="Namn (tyska)" field="name_de" />
+              <Field form={form} setForm={setForm} label="Beskrivning (sv)" field="desc_sv" />
+              <Field form={form} setForm={setForm} label="Beskrivning (en)" field="desc_en" />
+              <Field form={form} setForm={setForm} label="Beskrivning (de)" field="desc_de" />
+              <Field form={form} setForm={setForm} label="Pris (kr)" field="price" type="number" half />
+              <Field form={form} setForm={setForm} label="Pristyp" field="price_type" half select options={[
                 { v:'per_night', l:'Per natt' },
                 { v:'per_guest', l:'Per gäst' },
                 { v:'fixed', l:'Fast pris' },
               ]} />
-              <F label="Ikon" field="icon" half select options={ICONS.map(i => ({ v:i, l:i.replace('ti-','') }))} />
-              <F label="Sorteringsordning" field="sort_order" type="number" half />
+              <Field form={form} setForm={setForm} label="Ikon" field="icon" half select options={ICONS.map(i => ({ v:i, l:i.replace('ti-','') }))} />
+              <Field form={form} setForm={setForm} label="Sorteringsordning" field="sort_order" type="number" half />
             </div>
             <div style={{ display:'flex', gap:8, marginTop:8 }}>
               <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, cursor:'pointer' }}>
