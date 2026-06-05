@@ -14,6 +14,7 @@ def public_articles(lang: str = "sv", db: Session = Depends(get_db)):
     articles = db.query(Article).filter(
         Article.active == True,
         Article.visible == True,
+        Article.is_deposit == False,
     ).order_by(Article.sort_order, Article.id).all()
 
     result = []
