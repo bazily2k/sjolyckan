@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import date
@@ -284,7 +285,12 @@ async def create_booking_request(
         terms_snapshot = None
     req_dict = req.dict()
     req_dict["terms_snapshot"] = terms_snapshot
-    booking = create_booking_record(db, req_dict, calc)
+    try:
+        booking = create_booking_record(db, req_dict, calc)
+    except IntegrityError:
+        # Databasens exclusion constraint fångade en samtidig dubbelbokning
+        db.rollback()
+        raise HTTPException(status_code=409, detail=_unavail)
 
     # Uppdatera användarprofil om e-post matchar befintligt konto
     try:
