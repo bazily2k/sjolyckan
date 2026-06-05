@@ -39,7 +39,7 @@
   <table>
     <tr><td>Unterkunft ({{ booking.nights }} nights)</td><td>{{ "{:,.0f}".format(booking.base_amount) }} SEK</td></tr>
     {% for art in snap.articles %}
-    <tr><td>{{ art.name_en }}</td><td>{{ "{:,.0f}".format(art.line_total) }} SEK</td></tr>
+    <tr><td>{{ art.name_de }}{% if art.desc_de %}<br><span style="font-size:11px;color:#888">{{ art.desc_de }}</span>{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total) }} SEK</td></tr>
     {% endfor %}
     {% if snap.discount_amount is defined and snap.discount_amount > 0 %}
     <tr><td style="color:#27ae60">Rabatt</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount) }} kr</td></tr>
