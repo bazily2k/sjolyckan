@@ -68,6 +68,33 @@ def get_price_for_date(db: Session, d: date) -> tuple[Decimal, Optional[Season]]
     return None, None
 
 
+def _calc_err(lang: str, key: str, **kw) -> str:
+    lang = lang if lang in ("en", "de") else "sv"
+    msgs = {
+        "checkout_after_checkin": {
+            "sv": "Utcheckning måste vara efter incheckning",
+            "en": "Check-out must be after check-in",
+            "de": "Check-out muss nach dem Check-in liegen",
+        },
+        "min_one_night": {
+            "sv": "Minst 1 natt krävs",
+            "en": "At least 1 night is required",
+            "de": "Mindestens 1 Nacht erforderlich",
+        },
+        "no_price": {
+            "sv": "Inget pris definierat för {day}",
+            "en": "No price defined for {day}",
+            "de": "Kein Preis definiert für {day}",
+        },
+        "min_nights": {
+            "sv": "Minst {n} nätter krävs för denna period",
+            "en": "At least {n} nights are required for this period",
+            "de": "Mindestens {n} Nächte für diesen Zeitraum erforderlich",
+        },
+    }
+    return msgs[key][lang].format(**kw)
+
+
 def calculate_booking_price(
     db: Session,
     date_from: date,
@@ -76,15 +103,16 @@ def calculate_booking_price(
     article_ids: list[int],
     discount_pct: Decimal = Decimal('0'),
     article_quantities: dict = None,
+    lang: str = "sv",
 ) -> dict:
     """
     Beräkna fullständigt pris och samla ihop snapshot-data.
     """
     nights = (date_to - date_from).days
     if nights <= 0:
-        raise ValueError("Utcheckning måste vara efter incheckning")
+        raise ValueError(_calc_err(lang, "checkout_after_checkin"))
     if nights < 1:
-        raise ValueError("Minst 1 natt krävs")
+        raise ValueError(_calc_err(lang, "min_one_night"))
 
     # Beräkna nätterpris dag för dag (stöder varierade priser)
     base_amount = Decimal("0")
@@ -95,7 +123,7 @@ def calculate_booking_price(
         day = date_from + timedelta(days=i)
         price, season = get_price_for_date(db, day)
         if price is None:
-            raise ValueError(f"Inget pris definierat för {day}")
+            raise ValueError(_calc_err(lang, "no_price", day=day))
         base_amount += price
         daily_prices.append({"date": str(day), "price": float(price)})
         if season and not dominant_season:
@@ -163,7 +191,7 @@ def calculate_booking_price(
     cancellation_full_days = dominant_season.cancellation_full_days if dominant_season else 14
     min_nights = dominant_season.min_nights if dominant_season else 2
     if min_nights > 0 and nights < min_nights:
-        raise ValueError(f"Minst {min_nights} nätter krävs för denna period")
+        raise ValueError(_calc_err(lang, "min_nights", n=min_nights))
 
     deposit_amount = (total_amount * deposit_pct / 100).quantize(Decimal("1"))
     deposit_due_date = date.today() + timedelta(days=deposit_days)
