@@ -39,7 +39,7 @@
   <table>
     <tr><td>Boende ({{ booking.nights }} nätter)</td><td>{{ "{:,.0f}".format(booking.base_amount) }} kr</td></tr>
     {% for art in snap.articles %}
-    <tr><td>{{ art.name_sv }}{% if art.price_type == 'per_occasion' and art.quantity is defined and art.quantity > 1 %} × {{ art.quantity }}{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total) }} kr</td></tr>
+    <tr><td>{{ art.name_sv }}{% if art.price_type == 'per_occasion' and art.quantity is defined and art.quantity > 1 %} × {{ art.quantity }}{% endif %}{% if art.desc_sv %}<br><span style="font-size:11px;color:#888">{{ art.desc_sv }}</span>{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total) }} kr</td></tr>
     {% endfor %}
     {% if snap.discount_amount is defined and snap.discount_amount > 0 %}
     <tr><td style="color:#27ae60">Rabatt</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount) }} kr</td></tr>
