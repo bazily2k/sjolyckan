@@ -363,13 +363,13 @@ export default function MyPage({ locale }) {
                               <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-pale)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 6 }}>{L.addons}</div>
                               {b.snapshot.articles.map((a, i) => (
                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: 13, padding: '3px 0', color: 'var(--ink-light)' }}>
-                                  <span>
+                                  <span style={{ flex: 1, minWidth: 0 }}>
                                     {(lang==='de'?a.name_de:lang==='en'?a.name_en:a.name_sv)}{a.quantity > 1 ? ` × ${a.quantity}` : ''}
                                     {(lang==='de'?a.desc_de:lang==='en'?a.desc_en:a.desc_sv) ? (
                                       <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-pale)', marginTop: 2 }}>{(lang==='de'?a.desc_de:lang==='en'?a.desc_en:a.desc_sv)}</span>
                                     ) : null}
                                   </span>
-                                  <span style={{ whiteSpace: 'nowrap', marginLeft: 8 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+                                  <span style={{ whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
                                 </div>
                               ))}
                             </div>
