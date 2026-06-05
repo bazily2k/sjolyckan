@@ -189,12 +189,30 @@ async def create_booking_request(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    _lang = req.lang if req.lang in ("en", "de") else "sv"
+    _consent = {
+        "terms": {
+            "sv": "Du måste godkänna bokningsvillkoren",
+            "en": "You must accept the booking terms",
+            "de": "Sie müssen die Buchungsbedingungen akzeptieren",
+        },
+        "gdpr": {
+            "sv": "Du måste godkänna hanteringen av personuppgifter",
+            "en": "You must accept the processing of personal data",
+            "de": "Sie müssen der Verarbeitung personenbezogener Daten zustimmen",
+        },
+        "house_rules": {
+            "sv": "Du måste godkänna husreglerna",
+            "en": "You must accept the house rules",
+            "de": "Sie müssen die Hausordnung akzeptieren",
+        },
+    }
     if not req.terms_accepted:
-        raise HTTPException(status_code=400, detail="Du måste godkänna bokningsvillkoren")
+        raise HTTPException(status_code=400, detail=_consent["terms"][_lang])
     if not req.gdpr_accepted:
-        raise HTTPException(status_code=400, detail="Du måste godkänna hanteringen av personuppgifter")
+        raise HTTPException(status_code=400, detail=_consent["gdpr"][_lang])
     if not req.house_rules_accepted:
-        raise HTTPException(status_code=400, detail="Du måste godkänna husreglerna")
+        raise HTTPException(status_code=400, detail=_consent["house_rules"][_lang])
     # Tillgänglighetskoll: avvisa datum som krockar med befintlig bokning (ej
     # cancelled) eller blockerat datum. Halvöppet intervall => utcheckningsdag ledig.
     from app.models.models import BlockedDate
