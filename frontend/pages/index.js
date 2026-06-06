@@ -16,17 +16,6 @@ const plain = (s) => (s || '').replace(/<[^>]+>/g, '').trim();
 const FALLBACK_IMAGES = [];
 
 
-const AMENITIES = [
-  { icon:'🌊', sv:'Sjöutsikt', en:'Lake view', de:'Seeblick' },
-  { icon:'🏖️', sv:'Strand & brygga', en:'Beach & dock', de:'Strand & Steg' },
-  { icon:'🍳', sv:'Fullt utrustat kök', en:'Fully equipped kitchen', de:'Voll ausgestattete Küche' },
-  { icon:'📶', sv:'WiFi', en:'WiFi', de:'WLAN' },
-  { icon:'🧺', sv:'Tvättstuga', en:'Laundry room', de:'Waschküche' },
-  { icon:'⚓', sv:'Privat brygga', en:'Private dock', de:'Privatsteg' },
-  { icon:'🔐', sv:'Smart lås', en:'Smart lock', de:'Smart Lock' },
-  { icon:'🌲', sv:'Trädgård', en:'Garden', de:'Garten' },
-];
-
 export default function Home({ locale }) {
   const { t } = useTranslation('common');
   const router = useRouter();
@@ -38,6 +27,8 @@ export default function Home({ locale }) {
   const [galleryImages, setGalleryImages] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [content, setContent] = useState({});
+  const [amenities, setAmenities] = useState([]);
+  const [houseRules, setHouseRules] = useState([]);
   const [heroImg, setHeroImg] = useState(0);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [bookingDates, setBookingDates] = useState({ checkIn:'', checkOut:'' });
@@ -45,13 +36,15 @@ export default function Home({ locale }) {
   useEffect(() => {
     Promise.all([
       publicApi.articles(lang),
-      axios.get(`${API}/cms/public/page?lang=${lang}`).catch(err => { console.error('Page API-fel:', err.message); return { data: { hero: [], gallery: [], rooms: [], content: {} } }; }),
+      axios.get(`${API}/cms/public/page?lang=${lang}`).catch(err => { console.error('Page API-fel:', err.message); return { data: { hero: [], gallery: [], rooms: [], amenities: [], house_rules: [], content: {} } }; }),
     ]).then(([arts, pageRes]) => {
       setArticles(arts.data);
       const page = pageRes.data;
       if (page.hero && page.hero.length > 0) setHeroImages(page.hero.map(i => i.image_path));
       if (page.gallery && page.gallery.length > 0) setGalleryImages(page.gallery);
       if (page.rooms && page.rooms.length > 0) setRooms(page.rooms);
+      if (page.amenities) setAmenities(page.amenities);
+      if (page.house_rules) setHouseRules(page.house_rules);
       if (page.content) setContent(page.content);
     }).catch(err => { console.error('Kunde inte ladda sidinnehåll:', err); });
 
@@ -73,14 +66,6 @@ export default function Home({ locale }) {
     ? galleryImages.map(i => i.image_path)
     : FALLBACK_IMAGES;
 
-  const rules = [
-    content.checkin_rule || 'Incheckning efter kl. 15:00',
-    content.checkout_rule || 'Utcheckning innan kl. 12:00',
-    content.max_guests_rule || 'Max 8 gäster',
-    content.linen_rule || 'Egna sängkläder medbringas',
-    content.pets_rule || 'Inga husdjur i sängar eller soffor',
-    content.cleaning_rule || 'Gästen städar vid utcheckning',
-  ];
 
   const clickRoomLabel = lang === 'de' ? 'Mehr Fotos →' : lang === 'en' ? 'More photos →' : 'Fler bilder →';
 
@@ -171,9 +156,9 @@ export default function Home({ locale }) {
                 <span dangerouslySetInnerHTML={{ __html: content.amenities_title || 'Bekvämligheter' }} />
               </h3>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                {AMENITIES.map((a, i) => (
-                  <div key={i} style={{ display:'flex', alignItems:'center', gap:10, fontSize:14, color:'var(--ink-light)' }}>
-                    <span style={{ fontSize:20 }}>{a.icon}</span>{a[lang]||a.sv}
+                {amenities.map((a) => (
+                  <div key={a.id} style={{ display:'flex', alignItems:'center', gap:10, fontSize:14, color:'var(--ink-light)' }}>
+                    <span style={{ fontSize:20 }}>{a.icon}</span>{a.label}
                   </div>
                 ))}
               </div>
@@ -220,9 +205,9 @@ export default function Home({ locale }) {
                 <span dangerouslySetInnerHTML={{ __html: content.rules_title || 'Husregler' }} />
               </h3>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {rules.map((r, i) => (
-                  <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, fontSize:14, color:'var(--ink-light)' }}>
-                    <span style={{ color:'var(--water)', fontSize:16, marginTop:1 }}>✓</span><span dangerouslySetInnerHTML={{ __html: r }} />
+                {houseRules.map((r) => (
+                  <div key={r.id} style={{ display:'flex', alignItems:'flex-start', gap:10, fontSize:14, color:'var(--ink-light)' }}>
+                    <span style={{ color:'var(--water)', fontSize:16, marginTop:1 }}>✓</span><span>{r.label}</span>
                   </div>
                 ))}
               </div>
