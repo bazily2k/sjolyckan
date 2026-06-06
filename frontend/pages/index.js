@@ -11,6 +11,7 @@ import { publicApi } from '../lib/api';
 import axios from 'axios';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
+const plain = (s) => (s || '').replace(/<[^>]+>/g, '').trim();
 
 const FALLBACK_IMAGES = [];
 
@@ -86,7 +87,7 @@ export default function Home({ locale }) {
   return (
     <>
       <Head>
-        <title>{content.hero_title || 'Sjölyckan'}, Rolsmo — Semesterstuga vid Rolsmosjön</title>
+        <title>{plain(content.hero_title) || 'Sjölyckan'}, Rolsmo — Semesterstuga vid Rolsmosjön</title>
         <meta name="description" content="Boka Sjölyckan — en fridfull semesterstuga vid Rolsmosjön i Småland." />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -241,7 +242,7 @@ export default function Home({ locale }) {
 
       <footer style={{ background:'var(--ink)', color:'rgba(255,255,255,0.6)', padding:'32px 24px', textAlign:'center', marginTop:64 }}>
         <p style={{ fontFamily:'var(--font-display)', fontSize:18, color:'white', marginBottom:8 }}>
-          {content.hero_title || 'Sjölyckan'}, Rolsmo
+          {plain(content.hero_title) || 'Sjölyckan'}, Rolsmo
         </p>
         <p style={{ fontSize:13 }}>Linneryd, Kronobergs län · rolsmo23.36297@gmail.com</p>
       </footer>
