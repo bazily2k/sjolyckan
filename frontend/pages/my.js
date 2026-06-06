@@ -277,7 +277,7 @@ export default function MyPage({ locale }) {
               </h1>
               <p style={{ fontSize: 14, color: 'var(--ink-light)' }}>{user.email}</p>
             </div>
-            <a href="/" style={{ fontSize: 13, color: 'var(--water)' }}>{L.back}</a>
+            <a href={router.locale && router.locale !== 'sv' ? `/${router.locale}` : '/'} style={{ fontSize: 13, color: 'var(--water)' }}>{L.back}</a>
           </div>
 
           {/* Tabbar */}
