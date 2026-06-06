@@ -6,7 +6,8 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.models.database import get_db
-from app.models.cms_models import Room, RoomImage, GalleryImage, ContentBlock
+from app.models.cms_models import Room, RoomImage, GalleryImage, ContentBlock, Amenity, HouseRule
+from pydantic import BaseModel
 from app.core.auth import require_admin
 from app.models.models import User
 
@@ -114,6 +115,9 @@ def public_page(lang: str = "sv", db: Session = Depends(get_db)):
     
     rooms = db.query(Room).filter(Room.visible == True).order_by(Room.sort_order).all()
     
+    amenities = db.query(Amenity).filter(Amenity.visible == True).order_by(Amenity.sort_order, Amenity.id).all()
+    house_rules = db.query(HouseRule).filter(HouseRule.visible == True).order_by(HouseRule.sort_order, HouseRule.id).all()
+    
     blocks = db.query(ContentBlock).all()
     
     return {
@@ -127,6 +131,8 @@ def public_page(lang: str = "sv", db: Session = Depends(get_db)):
             } for i in gallery_images
         ],
         "rooms": [room_to_dict(r, lang) for r in rooms],
+        "amenities": [{"id": a.id, "icon": a.icon or "", "label": getattr(a, f"label_{lang}", a.label_sv)} for a in amenities],
+        "house_rules": [{"id": r.id, "label": getattr(r, f"label_{lang}", r.label_sv)} for r in house_rules],
         "content": {b.key: getattr(b, f"value_{lang}", b.value_sv) or "" for b in blocks},
     }
 # ── ADMIN: RUM ───────────────────────────────────────────
@@ -319,3 +325,97 @@ def admin_update_content(
         db.add(block)
     db.commit()
     return block
+
+
+# ============ Bekvämligheter (amenities) ============
+class AmenityIn(BaseModel):
+    icon: str = ""
+    label_sv: str
+    label_en: str = ""
+    label_de: str = ""
+    sort_order: int = 0
+    visible: bool = True
+
+
+def _amenity_dict(a: Amenity) -> dict:
+    return {"id": a.id, "icon": a.icon or "", "label_sv": a.label_sv,
+            "label_en": a.label_en, "label_de": a.label_de,
+            "sort_order": a.sort_order, "visible": a.visible}
+
+
+@router.get("/admin/amenities")
+def admin_list_amenities(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    return [_amenity_dict(a) for a in db.query(Amenity).order_by(Amenity.sort_order, Amenity.id).all()]
+
+
+@router.post("/admin/amenities")
+def admin_create_amenity(data: AmenityIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    a = Amenity(**data.dict())
+    db.add(a); db.commit(); db.refresh(a)
+    return _amenity_dict(a)
+
+
+@router.put("/admin/amenities/{aid}")
+def admin_update_amenity(aid: int, data: AmenityIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    a = db.query(Amenity).filter(Amenity.id == aid).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Bekvämlighet hittades inte")
+    for k, v in data.dict().items():
+        setattr(a, k, v)
+    db.commit(); db.refresh(a)
+    return _amenity_dict(a)
+
+
+@router.delete("/admin/amenities/{aid}")
+def admin_delete_amenity(aid: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    a = db.query(Amenity).filter(Amenity.id == aid).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Bekvämlighet hittades inte")
+    db.delete(a); db.commit()
+    return {"ok": True}
+
+
+# ============ Husregler (house rules) ============
+class HouseRuleIn(BaseModel):
+    label_sv: str
+    label_en: str = ""
+    label_de: str = ""
+    sort_order: int = 0
+    visible: bool = True
+
+
+def _rule_dict(r: HouseRule) -> dict:
+    return {"id": r.id, "label_sv": r.label_sv, "label_en": r.label_en,
+            "label_de": r.label_de, "sort_order": r.sort_order, "visible": r.visible}
+
+
+@router.get("/admin/house-rules")
+def admin_list_rules(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    return [_rule_dict(r) for r in db.query(HouseRule).order_by(HouseRule.sort_order, HouseRule.id).all()]
+
+
+@router.post("/admin/house-rules")
+def admin_create_rule(data: HouseRuleIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    r = HouseRule(**data.dict())
+    db.add(r); db.commit(); db.refresh(r)
+    return _rule_dict(r)
+
+
+@router.put("/admin/house-rules/{rid}")
+def admin_update_rule(rid: int, data: HouseRuleIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    r = db.query(HouseRule).filter(HouseRule.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Husregel hittades inte")
+    for k, v in data.dict().items():
+        setattr(r, k, v)
+    db.commit(); db.refresh(r)
+    return _rule_dict(r)
+
+
+@router.delete("/admin/house-rules/{rid}")
+def admin_delete_rule(rid: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    r = db.query(HouseRule).filter(HouseRule.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Husregel hittades inte")
+    db.delete(r); db.commit()
+    return {"ok": True}
