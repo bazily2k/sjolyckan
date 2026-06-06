@@ -168,7 +168,7 @@ export default function Home({ locale }) {
               <p style={{ fontSize:14, color:'var(--ink-pale)', marginBottom:12 }}>
                 {content.capacity || '8 gäster · 4 sovrum · 4 sängar · 1,5 badrum'}
               </p>
-              <p style={{ fontSize:15, color:'var(--ink-light)', lineHeight:1.8, maxWidth:560 }}>
+              <p style={{ fontSize:15, color:'var(--ink-light)', lineHeight:1.8, overflowWrap:'break-word', wordBreak:'break-word' }}>
                 <span dangerouslySetInnerHTML={{ __html: content.about_text || '' }} />
               </p>
             </div>
