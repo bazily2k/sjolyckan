@@ -53,6 +53,14 @@ export default function AdminCMS() {
   const [roomExtraImage, setRoomExtraImage] = useState(null);
   const [galleryImage, setGalleryImage] = useState(null);
   const [galleryForm, setGalleryForm] = useState({ alt_sv:'', use_in_hero:true, use_in_gallery:true, sort_order:0 });
+  const emptyAmenity = { icon:'', label_sv:'', label_en:'', label_de:'', sort_order:0, visible:true };
+  const emptyRule = { label_sv:'', label_en:'', label_de:'', sort_order:0, visible:true };
+  const [amenities, setAmenities] = useState([]);
+  const [rules, setRules] = useState([]);
+  const [amForm, setAmForm] = useState(emptyAmenity);
+  const [amEditing, setAmEditing] = useState(null);
+  const [ruleForm, setRuleForm] = useState(emptyRule);
+  const [ruleEditing, setRuleEditing] = useState(null);
   const fileRef = useRef();
   const extraFileRef = useRef();
   const galleryRef = useRef();
@@ -62,10 +70,12 @@ export default function AdminCMS() {
 
   const load = async () => {
     try {
-      const [c, r, g] = await Promise.all([
+      const [c, r, g, am, hr] = await Promise.all([
         axios.get(`${API}/cms/admin/content`, { headers: getHeaders() }),
         axios.get(`${API}/cms/admin/rooms`, { headers: getHeaders() }),
         axios.get(`${API}/cms/admin/gallery`, { headers: getHeaders() }),
+        axios.get(`${API}/cms/admin/amenities`, { headers: getHeaders() }),
+        axios.get(`${API}/cms/admin/house-rules`, { headers: getHeaders() }),
       ]);
       // Sortera content enligt CONTENT_LABELS-ordningen
       const keyOrder = Object.keys(CONTENT_LABELS);
@@ -80,12 +90,36 @@ export default function AdminCMS() {
       setContent(sorted);
       setRooms(r.data);
       setGallery(g.data);
+      setAmenities(am.data);
+      setRules(hr.data);
     } catch (e) {
       setMsg('Fel: ' + e.message);
     }
   };
 
   useEffect(() => { load(); }, []);
+
+  const saveAmenity = async () => {
+    if (!amForm.label_sv) { setMsg('Fel: Ange minst svensk text.'); return; }
+    try {
+      if (amEditing) await axios.put(`${API}/cms/admin/amenities/${amEditing}`, amForm, { headers: getHeaders() });
+      else await axios.post(`${API}/cms/admin/amenities`, amForm, { headers: getHeaders() });
+      setMsg('Bekvämlighet sparad!'); setAmForm(emptyAmenity); setAmEditing(null); load();
+    } catch (e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+  };
+  const editAmenity = (a) => { setAmEditing(a.id); setAmForm({ icon:a.icon||'', label_sv:a.label_sv, label_en:a.label_en, label_de:a.label_de, sort_order:a.sort_order, visible:a.visible }); setTab('amenities'); };
+  const deleteAmenity = async (id) => { if (!confirm('Ta bort denna bekvämlighet?')) return; try { await axios.delete(`${API}/cms/admin/amenities/${id}`, { headers: getHeaders() }); setMsg('Borttagen.'); load(); } catch (e) { setMsg('Fel: ' + e.message); } };
+
+  const saveRule = async () => {
+    if (!ruleForm.label_sv) { setMsg('Fel: Ange minst svensk text.'); return; }
+    try {
+      if (ruleEditing) await axios.put(`${API}/cms/admin/house-rules/${ruleEditing}`, ruleForm, { headers: getHeaders() });
+      else await axios.post(`${API}/cms/admin/house-rules`, ruleForm, { headers: getHeaders() });
+      setMsg('Husregel sparad!'); setRuleForm(emptyRule); setRuleEditing(null); load();
+    } catch (e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+  };
+  const editRule = (r) => { setRuleEditing(r.id); setRuleForm({ label_sv:r.label_sv, label_en:r.label_en, label_de:r.label_de, sort_order:r.sort_order, visible:r.visible }); setTab('rules'); };
+  const deleteRule = async (id) => { if (!confirm('Ta bort denna husregel?')) return; try { await axios.delete(`${API}/cms/admin/house-rules/${id}`, { headers: getHeaders() }); setMsg('Borttagen.'); load(); } catch (e) { setMsg('Fel: ' + e.message); } };
 
   const saveContent = async (block) => {
     if (!block) { setMsg('Fel: block saknas'); return; }
@@ -193,7 +227,7 @@ export default function AdminCMS() {
 
         {/* Tabbar */}
         <div style={{ display:'flex', gap:0, marginBottom:24, borderBottom:'1px solid var(--sand-dark)' }}>
-          {[['content','✏️ Texter'],['rooms','🛏 Rum & bilder'],['gallery','🖼 Bildgalleri']].map(([key, label]) => (
+          {[['content','✏️ Texter'],['rooms','🛏 Rum & bilder'],['gallery','🖼 Bildgalleri'],['amenities','✨ Bekvämligheter'],['rules','📋 Husregler']].map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{
               padding:'10px 20px', border:'none', background:'transparent', cursor:'pointer',
               fontSize:14, fontWeight: tab===key ? 500 : 400,
@@ -385,6 +419,82 @@ export default function AdminCMS() {
               {gallery.length === 0 && (
                 <div style={{ gridColumn:'1/-1', textAlign:'center', padding:40, color:'var(--ink-pale)', fontSize:14 }}>Inga bilder uppladdade än.</div>
               )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'amenities' && (
+          <div>
+            <div style={{ background:'white', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-lg)', padding:20, marginBottom:24 }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, marginBottom:16 }}>{amEditing ? 'Redigera bekvämlighet' : 'Lägg till bekvämlighet'}</h3>
+              <div style={{ display:'grid', gridTemplateColumns:'80px 1fr 1fr 1fr', gap:12, marginBottom:12 }}>
+                <div><label style={lbl}>Ikon</label><input value={amForm.icon} onChange={e => setAmForm(f => ({...f,icon:e.target.value}))} style={inp} placeholder="🌊" /></div>
+                <div><label style={lbl}>Text (sv)</label><input value={amForm.label_sv} onChange={e => setAmForm(f => ({...f,label_sv:e.target.value}))} style={inp} /></div>
+                <div><label style={lbl}>Text (en)</label><input value={amForm.label_en} onChange={e => setAmForm(f => ({...f,label_en:e.target.value}))} style={inp} /></div>
+                <div><label style={lbl}>Text (de)</label><input value={amForm.label_de} onChange={e => setAmForm(f => ({...f,label_de:e.target.value}))} style={inp} /></div>
+              </div>
+              <div style={{ display:'flex', gap:16, alignItems:'center', marginBottom:12 }}>
+                <div><label style={lbl}>Ordning</label><input type="number" value={amForm.sort_order} onChange={e => setAmForm(f => ({...f,sort_order:parseInt(e.target.value)||0}))} style={{...inp, width:80}} /></div>
+                <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, cursor:'pointer', marginTop:16 }}>
+                  <input type="checkbox" checked={amForm.visible} onChange={e => setAmForm(f => ({...f,visible:e.target.checked}))} /> Synlig
+                </label>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={saveAmenity} style={saveBtn}>{amEditing ? 'Spara ändringar' : 'Lägg till'}</button>
+                {amEditing && <button onClick={() => { setAmEditing(null); setAmForm(emptyAmenity); }} style={actionBtn}>Avbryt</button>}
+              </div>
+            </div>
+            <div style={{ background:'white', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
+              {amenities.map(a => (
+                <div key={a.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 16px', borderBottom:'1px solid var(--sand)' }}>
+                  <span style={{ fontSize:22, width:32, textAlign:'center' }}>{a.icon}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14 }}>{a.label_sv} {!a.visible && <span style={{ fontSize:11, color:'var(--ink-pale)' }}>(dold)</span>}</div>
+                    <div style={{ fontSize:12, color:'var(--ink-pale)' }}>{a.label_en} · {a.label_de}</div>
+                  </div>
+                  <span style={{ fontSize:11, color:'var(--ink-pale)' }}>#{a.sort_order}</span>
+                  <button onClick={() => editAmenity(a)} style={actionBtn}>Redigera</button>
+                  <button onClick={() => deleteAmenity(a.id)} style={{ ...actionBtn, color:'var(--red)', borderColor:'#f5c6cb' }}>Ta bort</button>
+                </div>
+              ))}
+              {amenities.length === 0 && <div style={{ textAlign:'center', padding:40, color:'var(--ink-pale)', fontSize:14 }}>Inga bekvämligheter än.</div>}
+            </div>
+          </div>
+        )}
+
+        {tab === 'rules' && (
+          <div>
+            <div style={{ background:'white', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-lg)', padding:20, marginBottom:24 }}>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, marginBottom:16 }}>{ruleEditing ? 'Redigera husregel' : 'Lägg till husregel'}</h3>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
+                <div><label style={lbl}>Text (sv)</label><input value={ruleForm.label_sv} onChange={e => setRuleForm(f => ({...f,label_sv:e.target.value}))} style={inp} /></div>
+                <div><label style={lbl}>Text (en)</label><input value={ruleForm.label_en} onChange={e => setRuleForm(f => ({...f,label_en:e.target.value}))} style={inp} /></div>
+                <div><label style={lbl}>Text (de)</label><input value={ruleForm.label_de} onChange={e => setRuleForm(f => ({...f,label_de:e.target.value}))} style={inp} /></div>
+              </div>
+              <div style={{ display:'flex', gap:16, alignItems:'center', marginBottom:12 }}>
+                <div><label style={lbl}>Ordning</label><input type="number" value={ruleForm.sort_order} onChange={e => setRuleForm(f => ({...f,sort_order:parseInt(e.target.value)||0}))} style={{...inp, width:80}} /></div>
+                <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, cursor:'pointer', marginTop:16 }}>
+                  <input type="checkbox" checked={ruleForm.visible} onChange={e => setRuleForm(f => ({...f,visible:e.target.checked}))} /> Synlig
+                </label>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={saveRule} style={saveBtn}>{ruleEditing ? 'Spara ändringar' : 'Lägg till'}</button>
+                {ruleEditing && <button onClick={() => { setRuleEditing(null); setRuleForm(emptyRule); }} style={actionBtn}>Avbryt</button>}
+              </div>
+            </div>
+            <div style={{ background:'white', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
+              {rules.map(r => (
+                <div key={r.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 16px', borderBottom:'1px solid var(--sand)' }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:14 }}>{r.label_sv} {!r.visible && <span style={{ fontSize:11, color:'var(--ink-pale)' }}>(dold)</span>}</div>
+                    <div style={{ fontSize:12, color:'var(--ink-pale)' }}>{r.label_en} · {r.label_de}</div>
+                  </div>
+                  <span style={{ fontSize:11, color:'var(--ink-pale)' }}>#{r.sort_order}</span>
+                  <button onClick={() => editRule(r)} style={actionBtn}>Redigera</button>
+                  <button onClick={() => deleteRule(r.id)} style={{ ...actionBtn, color:'var(--red)', borderColor:'#f5c6cb' }}>Ta bort</button>
+                </div>
+              ))}
+              {rules.length === 0 && <div style={{ textAlign:'center', padding:40, color:'var(--ink-pale)', fontSize:14 }}>Inga husregler än.</div>}
             </div>
           </div>
         )}
