@@ -14,12 +14,6 @@ const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 const FALLBACK_IMAGES = [];
 
-const FALLBACK_ROOMS = [
-  { id:1, name:'Sovrum 1', beds:'1 dubbelsäng', image_path:'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/91f1b5fe-dc2c-4250-9973-cf761f2f3773.jpeg?im_w=720', images:[] },
-  { id:2, name:'Sovrum 2', beds:'1 enkelsäng', image_path:'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/2b95eccd-fd17-4f6f-b19c-316556314cb9.jpeg?im_w=720', images:[] },
-  { id:3, name:'Sovrum 3', beds:'1 dubbelsäng', image_path:'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/e0c1e851-ed1a-483d-8551-36dcfef75a97.jpeg?im_w=720', images:[] },
-  { id:4, name:'Sovrum 4', beds:'1 dubbelsäng', image_path:'https://a0.muscache.com/im/pictures/hosting/Hosting-U3RheVN1cHBseUxpc3Rpbmc6OTEwMDgzMTIzMjg5ODc2MzI3/original/b7796ba4-ddc7-4392-a272-03ae16b0a8e0.jpeg?im_w=720', images:[] },
-];
 
 const AMENITIES = [
   { icon:'🌊', sv:'Sjöutsikt', en:'Lake view', de:'Seeblick' },
@@ -41,7 +35,7 @@ export default function Home({ locale }) {
   const [articles, setArticles] = useState([]);
   const [heroImages, setHeroImages] = useState(FALLBACK_IMAGES);
   const [galleryImages, setGalleryImages] = useState([]);
-  const [rooms, setRooms] = useState(FALLBACK_ROOMS);
+  const [rooms, setRooms] = useState([]);
   const [content, setContent] = useState({});
   const [heroImg, setHeroImg] = useState(0);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -115,15 +109,12 @@ export default function Home({ locale }) {
         ))}
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.5) 100%)' }} />
         <div style={{ position:'relative', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', color:'white', padding:'0 24px' }}>
-          <p style={{ fontSize:14, fontWeight:300, letterSpacing:'3px', textTransform:'uppercase', marginBottom:12, opacity:0.85 }}>
-            {content.hero_subtitle || 'Rolsmo, Småland'}
-          </p>
-          <h1 style={{ fontFamily:'var(--font-display)', fontSize:'clamp(52px, 10vw, 90px)', fontWeight:400, marginBottom:16, letterSpacing:'-2px' }}>
-            {content.hero_title || 'Sjölyckan'}
-          </h1>
-          <p style={{ fontSize:18, fontWeight:300, maxWidth:480, opacity:0.9, marginBottom:36, lineHeight:1.6 }}>
-            {content.hero_tagline || 'En sommar att minnas vid Rolsmosjön'}
-          </p>
+          <div className="hero-rich" style={{ fontSize:14, fontWeight:300, letterSpacing:'3px', textTransform:'uppercase', marginBottom:12, opacity:0.85 }}
+            dangerouslySetInnerHTML={{ __html: content.hero_subtitle || 'Rolsmo, Småland' }} />
+          <h1 className="hero-rich" style={{ fontFamily:'var(--font-display)', fontSize:'clamp(52px, 10vw, 90px)', fontWeight:400, marginBottom:16, letterSpacing:'-2px' }}
+            dangerouslySetInnerHTML={{ __html: content.hero_title || 'Sjölyckan' }} />
+          <div className="hero-rich" style={{ fontSize:18, fontWeight:300, maxWidth:480, opacity:0.9, marginBottom:36, lineHeight:1.6 }}
+            dangerouslySetInnerHTML={{ __html: content.hero_tagline || 'En sommar att minnas vid Rolsmosjön' }} />
           <div style={{ display:'flex', gap:12, flexWrap:'wrap', justifyContent:'center' }}>
             <a href="#boka" style={{ padding:'14px 36px', background:'white', color:'var(--ink)', borderRadius:'var(--radius-xl)', fontSize:15, fontWeight:500, boxShadow:'0 4px 20px rgba(0,0,0,0.2)' }}>
               {t('hero.cta')} ↓
