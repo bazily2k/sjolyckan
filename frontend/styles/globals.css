@@ -255,3 +255,7 @@ input, select, textarea, button {
 .ql-content ul, .ql-content ol { margin: 0 0 8px 16px; padding: 0; }
 .ql-content li { margin-bottom: 4px; }
 .ql-content h1, .ql-content h2, .ql-content h3 { margin: 8px 0 4px; font-weight: 600; }
+
+/* Hero WYSIWYG: nollställ Quills p-marginal så rubrik/tagline sitter rätt */
+.hero-rich p { margin: 0; }
+.hero-rich p:empty { min-height: 0.5em; }
