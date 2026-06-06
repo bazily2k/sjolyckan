@@ -9,7 +9,7 @@ const QUILL_MODULES = {
     ['clean'],
   ],
 };
-const WYSIWYG_KEYS = ['terms_text', 'gdpr_text', 'house_rules_text', 'about_text', 'about_title',
+const WYSIWYG_KEYS = ['hero_title', 'hero_subtitle', 'hero_tagline', 'terms_text', 'gdpr_text', 'house_rules_text', 'about_text', 'about_title',
   'checkin_rule', 'checkout_rule', 'max_guests_rule', 'linen_rule', 'pets_rule', 'cleaning_rule'];
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
