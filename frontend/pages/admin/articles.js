@@ -22,6 +22,19 @@ function Field({ label, field, type='text', half, select, options, form, setForm
   );
 }
 
+function formatErr(e) {
+  const d = e?.response?.data?.detail;
+  if (Array.isArray(d)) {
+    return d.map(x => {
+      const field = Array.isArray(x.loc) ? x.loc[x.loc.length - 1] : '';
+      return (field ? field + ': ' : '') + (x.msg || '');
+    }).join('; ');
+  }
+  if (typeof d === 'string') return d;
+  if (d && typeof d === 'object') return d.msg || JSON.stringify(d);
+  return e?.message || 'Okänt fel';
+}
+
 export default function AdminArticles() {
   const [articles, setArticles] = useState([]);
   const [form, setForm] = useState(empty);
@@ -32,6 +45,9 @@ export default function AdminArticles() {
   useEffect(() => { load(); }, []);
 
   const save = async () => {
+    if (form.price === '' || form.price === null || isNaN(Number(form.price))) {
+      setMsg('Fel: Ange ett giltigt pris.'); return;
+    }
     try {
       if (editing) {
         await adminApi.updateArticle(editing, form);
@@ -40,7 +56,7 @@ export default function AdminArticles() {
       }
       setMsg('Sparat!'); setForm(empty); setEditing(null); load();
     } catch (e) {
-      setMsg('Fel: ' + (e.response?.data?.detail || e.message));
+      setMsg('Fel: ' + formatErr(e));
     }
   };
 
