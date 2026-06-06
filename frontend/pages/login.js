@@ -64,7 +64,7 @@ export default function Login() {
       <div style={{ minHeight: '100vh', background: 'var(--sand)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <div style={{ background: 'white', borderRadius: 24, padding: '40px 36px', width: '100%', maxWidth: 420, boxShadow: '0 8px 32px rgba(26,36,32,0.12)' }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <a href="/" style={{ fontFamily: 'var(--font-display)', fontSize: 26, color: 'var(--water)' }}>Sjölyckan</a>
+            <a href={router.locale && router.locale !== 'sv' ? `/${router.locale}` : '/'} style={{ fontFamily: 'var(--font-display)', fontSize: 26, color: 'var(--water)' }}>Sjölyckan</a>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginTop: 8, fontWeight: 400 }}>
               {mode === 'login' ? t('auth.login_title') : t('auth.register_title')}
             </h1>
