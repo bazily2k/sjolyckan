@@ -72,3 +72,28 @@ class ContentBlock(Base):
     value_de = Column(Text)
     description = Column(String(300))
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class Amenity(Base):
+    __tablename__ = "amenities"
+
+    id = Column(Integer, primary_key=True)
+    icon = Column(String(20))                 # emoji
+    label_sv = Column(String(200), nullable=False)
+    label_en = Column(String(200), nullable=False)
+    label_de = Column(String(200), nullable=False)
+    sort_order = Column(Integer, default=0)
+    visible = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HouseRule(Base):
+    __tablename__ = "house_rules"
+
+    id = Column(Integer, primary_key=True)
+    label_sv = Column(String(400), nullable=False)
+    label_en = Column(String(400), nullable=False)
+    label_de = Column(String(400), nullable=False)
+    sort_order = Column(Integer, default=0)
+    visible = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
