@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.models.database import engine
 from app.models.models import Base
-from app.models.cms_models import Room, GalleryImage, ContentBlock
+from app.models.cms_models import Room, GalleryImage, ContentBlock, Amenity, HouseRule
 from app.routes import bookings, admin, auth, public
 from app.routes.payments import router as payments_router
 from app.routes.cms import router as cms_router
@@ -34,6 +34,43 @@ def _ensure_booking_constraints():
         logging.getLogger(__name__).warning(f"Kunde inte säkerställa boknings-constraints: {e}")
 
 _ensure_booking_constraints()
+
+# Seeda standard-bekvämligheter och husregler om tabellerna är tomma (bevarar tidigare hårdkodat innehåll)
+def _seed_cms_defaults():
+    from app.models.database import SessionLocal
+    db = SessionLocal()
+    try:
+        if db.query(Amenity).count() == 0:
+            amenities = [
+                ("🌊", "Sjöutsikt", "Lake view", "Seeblick"),
+                ("🏖", "Strand & brygga", "Beach & dock", "Strand & Steg"),
+                ("🍳", "Fullt utrustat kök", "Fully equipped kitchen", "Voll ausgestattete Küche"),
+                ("📶", "WiFi", "WiFi", "WLAN"),
+                ("🧺", "Tvättstuga", "Laundry room", "Waschküche"),
+                ("⚓", "Privat brygga", "Private dock", "Privatsteg"),
+            ]
+            for i, (icon, sv, en, de) in enumerate(amenities):
+                db.add(Amenity(icon=icon, label_sv=sv, label_en=en, label_de=de, sort_order=i))
+        if db.query(HouseRule).count() == 0:
+            rules = [
+                ("Incheckning efter kl. 15:00", "Check-in after 3:00 PM", "Check-in ab 15:00 Uhr"),
+                ("Utcheckning innan kl. 12:00", "Check-out before 12:00 PM", "Check-out vor 12:00 Uhr"),
+                ("Max 8 gäster", "Max 8 guests", "Max. 8 Gäste"),
+                ("Egna sängkläder medbringas", "Bring your own bed linen", "Eigene Bettwäsche mitbringen"),
+                ("Inga husdjur i sangar eller soffor", "No pets on beds or sofas", "Keine Haustiere auf Betten oder Sofas"),
+                ("Gästen städar vid utcheckning", "Guests clean on checkout", "Gäste reinigen beim Auschecken"),
+            ]
+            for i, (sv, en, de) in enumerate(rules):
+                db.add(HouseRule(label_sv=sv, label_en=en, label_de=de, sort_order=i))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).warning(f"Kunde inte seeda CMS-default: {e}")
+    finally:
+        db.close()
+
+_seed_cms_defaults()
 
 # Skapa upload-mappar
 upload_dir = Path("/app/uploads")
