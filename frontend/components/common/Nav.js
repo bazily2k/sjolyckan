@@ -33,7 +33,7 @@ export default function Nav() {
       transition:'all 0.3s ease', padding:'0 24px',
     }}>
       <div style={{ maxWidth:1100, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', height:64 }}>
-        <a href="/" style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:500, color:textColor, letterSpacing:'-0.5px' }}>
+        <a href={router.locale && router.locale !== 'sv' ? `/${router.locale}` : '/'} style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:500, color:textColor, letterSpacing:'-0.5px' }}>
           Sjölyckan
         </a>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
