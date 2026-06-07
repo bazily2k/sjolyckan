@@ -143,7 +143,11 @@ async def send_booking_email(
     to_admin: bool = False,
 ) -> bool:
     lang = booking.lang or "sv"
-    recipient = settings.ADMIN_EMAIL if to_admin else booking.guest_email
+    if to_admin:
+        recipient = settings.ADMIN_EMAIL
+    else:
+        # Föredra kopplat kontots e-post (kan ha rättats av admin) framför guest_email
+        recipient = (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
 
     subj_template = SUBJECTS.get(email_type, {}).get(lang, "Sjölyckan")
     subject = subj_template.format(
