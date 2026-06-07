@@ -12,6 +12,7 @@ export default function AdminUsers() {
   const [editForm, setEditForm] = useState({});
   const [newPassword, setNewPassword] = useState('');
   const [pwMsg, setPwMsg] = useState('');
+  const [setupMsg, setSetupMsg] = useState('');
   const [msg, setMsg] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -182,6 +183,15 @@ export default function AdminUsers() {
                     <button onClick={() => resetPassword(editingUser)} style={{ padding:'8px 14px', background:'var(--ink)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Spara</button>
                   </div>
                   {pwMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{pwMsg}</div>}
+                <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
+                  <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Inloggningsinbjudan</div>
+                  <div style={{ fontSize:12, color:'var(--ink-pale)', marginBottom:10 }}>Skicka ett nytt e-postmeddelande med länk för att sätta lösenord (7 dagar giltig).</div>
+                  <button onClick={async () => { try { await adminApi.resendSetupEmail(editingUser.id); setSetupMsg('Mejl skickat till ' + editingUser.email); } catch(e) { setSetupMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                    style={{ width:'100%', padding:'8px 0', background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
+                    ✉️ Skicka om inloggningsinbjudan
+                  </button>
+                  {setupMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{setupMsg}</div>}
+                </div>
                 </div>
               </div>
             </div>
