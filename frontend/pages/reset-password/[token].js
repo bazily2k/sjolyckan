@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import axios from 'axios';
+import PasswordField, { isStrongPassword } from '../../components/common/PasswordField';
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 export default function ResetPassword() {
   const { t } = useTranslation('common');
@@ -16,7 +17,7 @@ export default function ResetPassword() {
   const submit = async (e) => {
     e.preventDefault();
     if (password !== password2) { setMsg(t('auth.reset_mismatch')); return; }
-    if (password.length < 8) { setMsg(t('auth.reset_short')); return; }
+    if (!isStrongPassword(password)) { setMsg(t('auth.reset_short')); return; }
     setLoading(true);
     try {
       await axios.post(`${API}/auth/reset-password`, { token, password, lang: router.locale });
@@ -35,9 +36,11 @@ export default function ResetPassword() {
         )}
         {!done && (
           <form onSubmit={submit}>
-            <input type="password" placeholder={t('auth.new_password')} value={password} onChange={e => setPassword(e.target.value)} required
+            <PasswordField value={password} onChange={setPassword} placeholder={t('auth.new_password')}
+              lang={router.locale || 'sv'} showRequirements showGenerate
               style={{ width:'100%', padding:'10px 12px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:14, marginBottom:10, boxSizing:'border-box', outline:'none' }} />
-            <input type="password" placeholder={t('auth.confirm_password')} value={password2} onChange={e => setPassword2(e.target.value)} required
+            <PasswordField value={password2} onChange={setPassword2} placeholder={t('auth.confirm_password')}
+              lang={router.locale || 'sv'}
               style={{ width:'100%', padding:'10px 12px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:14, marginBottom:16, boxSizing:'border-box', outline:'none' }} />
             <button type="submit" disabled={loading} style={{ width:'100%', padding:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', fontSize:15, fontWeight:500, cursor:'pointer' }}>
               {loading ? '...' : t('auth.reset_btn')}
