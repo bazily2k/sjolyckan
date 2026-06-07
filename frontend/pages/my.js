@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import PasswordField from '../components/common/PasswordField';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import Nav from '../components/common/Nav';
@@ -486,15 +487,15 @@ export default function MyPage({ locale }) {
 
                 <div style={{ marginBottom: 10 }}>
                   <label style={lbl}>{L.current_password}</label>
-                  <input type="password" value={passwords.current} onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))} style={inp} />
+                  <PasswordField value={passwords.current} onChange={v => setPasswords(p => ({ ...p, current: v }))} style={inp} lang={lang} autoComplete="current-password" />
                 </div>
                 <div style={{ marginBottom: 10 }}>
                   <label style={lbl}>{L.new_password}</label>
-                  <input type="password" value={passwords.new_pass} onChange={e => setPasswords(p => ({ ...p, new_pass: e.target.value }))} style={inp} />
+                  <PasswordField value={passwords.new_pass} onChange={v => setPasswords(p => ({ ...p, new_pass: v }))} style={inp} lang={lang} showRequirements showGenerate />
                 </div>
                 <div style={{ marginBottom: 6 }}>
                   <label style={lbl}>{L.confirm_password}</label>
-                  <input type="password" value={passwords.confirm} onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} style={inp} />
+                  <PasswordField value={passwords.confirm} onChange={v => setPasswords(p => ({ ...p, confirm: v }))} style={inp} lang={lang} />
                 </div>
                 <p style={{ fontSize: 11, color: 'var(--ink-pale)', marginBottom: 16 }}>{L.password_hint}</p>
 
