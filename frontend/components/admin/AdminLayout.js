@@ -1,47 +1,78 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth, isAdmin } from '../../lib/auth';
 
 export default function AdminLayout({ children, title = 'Admin' }) {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading && (!user || !isAdmin(user))) {
-      router.push('/login');
-    }
+    if (!loading && (!user || !isAdmin(user))) router.push('/login');
   }, [user, loading]);
 
-  if (loading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", fontFamily: "var(--font-body)", color: "var(--ink-light)" }}>Laddar admin-panelen...</div>;
+  useEffect(() => {
+    const check = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setNavOpen(false);
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  if (loading) return <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', fontFamily:'var(--font-body)', color:'var(--ink-light)' }}>Laddar admin-panelen...</div>;
   if (!user) return null;
 
   const navItems = [
-    { href: '/admin', label: '📋 Bokningar' },
-    { href: '/admin/seasons', label: '📅 Säsonger & priser' },
-    { href: '/admin/articles', label: '🎯 Tillägg' },
-    { href: '/admin/content', label: '✏️ Innehåll & bilder' },
-    { href: '/admin/settings', label: '⚙️ Inställningar' },
-    { href: '/admin/users', label: '👥 Användare' },
-    { href: '/admin/email-logs', label: '📧 E-postlogg' },
+    { href: '/admin',               label: '📋 Bokningar' },
+    { href: '/admin/seasons',       label: '📅 Säsonger & priser' },
+    { href: '/admin/articles',      label: '🎯 Tillägg' },
+    { href: '/admin/content',       label: '✏️ Innehåll & bilder' },
+    { href: '/admin/settings',      label: '⚙️ Inställningar' },
+    { href: '/admin/users',         label: '👥 Användare' },
+    { href: '/admin/email-logs',    label: '📧 E-postlogg' },
     { href: '/admin/blocked-dates', label: '🚫 Blockerade datum' },
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--sand)' }}>
+    <div style={{ display:'flex', minHeight:'100vh', background:'var(--sand)' }}>
+
+      {/* Overlay (mobil) */}
+      {isMobile && navOpen && (
+        <div onClick={() => setNavOpen(false)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000 }} />
+      )}
+
+      {/* Nav-sidebar */}
       <aside style={{
-        width: 220, background: 'var(--ink)', color: 'white',
-        display: 'flex', flexDirection: 'column',
-        position: 'fixed', top: 0, left: 0, bottom: 0,
+        width:220, background:'var(--ink)', color:'white',
+        display:'flex', flexDirection:'column',
+        position:'fixed', top:0, left:0, bottom:0,
+        transform: isMobile && !navOpen ? 'translateX(-100%)' : 'translateX(0)',
+        transition:'transform 0.22s ease',
+        zIndex:1001,
       }}>
-        <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <a href="/" style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'white' }}>Sjölyckan</a>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Admin</div>
+        <div style={{ padding:'24px 20px 16px', borderBottom:'1px solid rgba(255,255,255,0.1)', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+          <div>
+            <a href="/" style={{ fontFamily:'var(--font-display)', fontSize:18, color:'white' }}>Sjölyckan</a>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:2, textTransform:'uppercase', letterSpacing:'0.5px' }}>Admin</div>
+          </div>
+          {isMobile && (
+            <button onClick={() => setNavOpen(false)}
+              style={{ background:'none', border:'none', color:'rgba(255,255,255,0.6)', fontSize:24, cursor:'pointer', lineHeight:1, padding:0, marginTop:2 }}>
+              ×
+            </button>
+          )}
         </div>
-        <nav style={{ flex: 1, padding: '16px 0' }}>
+
+        <nav style={{ flex:1, padding:'16px 0' }}>
           {navItems.map(item => (
-            <a key={item.href} href={item.href} style={{
-              display: 'block', padding: '10px 20px',
-              fontSize: 13, color: router.pathname === item.href ? 'white' : 'rgba(255,255,255,0.6)',
+            <a key={item.href} href={item.href} onClick={() => setNavOpen(false)} style={{
+              display:'block', padding:'10px 20px', fontSize:13,
+              color: router.pathname === item.href ? 'white' : 'rgba(255,255,255,0.6)',
               background: router.pathname === item.href ? 'rgba(255,255,255,0.1)' : 'transparent',
               borderLeft: router.pathname === item.href ? '3px solid var(--water-light)' : '3px solid transparent',
             }}>
@@ -49,27 +80,47 @@ export default function AdminLayout({ children, title = 'Admin' }) {
             </a>
           ))}
         </nav>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: 8 }}>
-          <a href="/" target="_blank" style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 4 }}>
+
+        <div style={{ padding:'16px 20px', borderBottom:'1px solid rgba(255,255,255,0.1)', marginBottom:8 }}>
+          <a href="/" target="_blank" style={{ fontSize:12, color:'rgba(255,255,255,0.5)', display:'block', marginBottom:4 }}>
             🌐 Visa bokningssidan →
           </a>
         </div>
-        <div style={{ padding: '8px 20px 16px' }}>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>{user.email}</div>
+        <div style={{ padding:'8px 20px 16px' }}>
+          <div style={{ fontSize:12, color:'rgba(255,255,255,0.5)', marginBottom:8 }}>{user.email}</div>
           <button onClick={logout} style={{
-            width: '100%', padding: '7px 0', background: 'rgba(255,255,255,0.08)',
-            color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 12,
+            width:'100%', padding:'7px 0', background:'rgba(255,255,255,0.08)',
+            color:'rgba(255,255,255,0.7)', border:'1px solid rgba(255,255,255,0.15)',
+            borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12,
           }}>
             Logga ut
           </button>
         </div>
       </aside>
 
-      <main style={{ marginLeft: 220, flex: 1, padding: '32px 36px', maxWidth: 1200 }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, marginBottom: 24, color: 'var(--ink)' }}>
-          {title}
-        </h1>
+      {/* Huvudinnehåll */}
+      <main style={{
+        marginLeft: isMobile ? 0 : 220,
+        flex:1,
+        padding: isMobile ? '16px' : '32px 36px',
+        maxWidth:1200,
+        boxSizing:'border-box',
+        width: isMobile ? '100%' : undefined,
+      }}>
+        {/* Mobilhuvud med hamburger */}
+        {isMobile ? (
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+            <button onClick={() => setNavOpen(true)} style={{
+              background:'var(--ink)', color:'white', border:'none',
+              borderRadius:'var(--radius-md)', width:38, height:38,
+              fontSize:20, cursor:'pointer', display:'flex',
+              alignItems:'center', justifyContent:'center', flexShrink:0,
+            }}>☰</button>
+            <h1 style={{ fontFamily:'var(--font-display)', fontSize:20, color:'var(--ink)', margin:0 }}>{title}</h1>
+          </div>
+        ) : (
+          <h1 style={{ fontFamily:'var(--font-display)', fontSize:26, marginBottom:24, color:'var(--ink)' }}>{title}</h1>
+        )}
         {children}
       </main>
     </div>
