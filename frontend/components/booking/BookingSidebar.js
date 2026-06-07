@@ -343,6 +343,13 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           <div style={infoRow}><span>{t('confirm.deposit')}</span><strong>{booking.deposit_amount?.toLocaleString('sv-SE')} kr</strong></div>
           <div style={infoRow}><span>{t('confirm.deposit_due')}</span><strong>{booking.deposit_due_date}</strong></div>
         </div>
+        <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'12px 14px', fontSize:12.5, color:'var(--ink-light)', marginTop:12, lineHeight:1.5 }}>
+          ✉️ {lang==='de'
+            ? 'Falls Sie noch kein Konto haben, haben wir eines für Sie erstellt. Bitte prüfen Sie Ihre E-Mail, um Ihr Passwort festzulegen und Ihre Buchung zu verfolgen.'
+            : lang==='en'
+            ? "If you don't already have an account, we've created one for you. Please check your email to set your password and follow your booking."
+            : 'Om du inte redan har ett konto har vi skapat ett åt dig. Kolla din e-post för att sätta ditt lösenord och följa din bokning.'}
+        </div>
       </div>
     );
   }
