@@ -405,6 +405,48 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), a
 
 
 # ─── Admin: återställ lösenord ───────────────────────────
+
+@router.post("/admin/users/{user_id}/resend-setup-email")
+def admin_resend_setup_email(
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin),
+):
+    """Skicka om 'sätt lösenord'-mejl till ett konto."""
+    from app.email.service import send_simple_email
+    from app.core.config import settings as app_settings
+    import secrets as _s, datetime as _d
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Användaren hittades inte")
+
+    token = _s.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires = _d.datetime.utcnow() + _d.timedelta(days=7)
+    db.commit()
+
+    lang2 = (getattr(user, "lang", None) or "sv")
+    if lang2 not in ("sv", "en", "de"):
+        lang2 = "sv"
+    first = user.first_name or ""
+    set_url = f"{app_settings.FRONTEND_URL}/reset-password/{token}"
+    subj  = {"sv": "Ditt konto hos Sjölyckan — sätt ditt lösenord",
+             "en": "Your Sjölyckan account — set your password",
+             "de": "Ihr Sjölyckan-Konto — Passwort festlegen"}[lang2]
+    greet = {"sv": f"Hej {first}", "en": f"Hello {first}", "de": f"Hallo {first}"}[lang2]
+    body  = {"sv": "Klicka på länken nedan för att sätta ditt lösenord och logga in för att se din bokning. Länken är giltig i 7 dagar.",
+             "en": "Click the link below to set your password and log in to view your booking. The link is valid for 7 days.",
+             "de": "Klicken Sie auf den Link unten, um Ihr Passwort festzulegen und sich anzumelden. Der Link ist 7 Tage gültig."}[lang2]
+    background_tasks.add_task(
+        send_simple_email, db,
+        to_email=user.email,
+        subject=subj,
+        html=f"<p>{greet},</p><p>{body}</p><p><a href=\"{set_url}\">{set_url}</a></p><p>Sjölyckan, Rolsmo</p>",
+    )
+    return {"ok": True, "email": user.email}
+
 @router.post("/admin/users/{user_id}/reset-password")
 def admin_reset_password(user_id: int, data: dict, db: Session = Depends(get_db), actor: User = Depends(require_admin)):
     from app.core.auth import hash_password
