@@ -500,7 +500,7 @@ export default function AdminBookings() {
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, height: 60, marginBottom: 12, resize: 'none' }} />
                   <div style={{ display: 'flex', gap: 8 }}>
                     {selected.user_id && (
-                      <button onClick={async () => { try { await adminApi.resendSetupEmail(selected.user_id); setMsg('Inloggningsinbjudan skickad till ' + (selected.user_email || selected.guest_email)); } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                      <button onClick={async () => { try { const res = await adminApi.resendSetupEmail(selected.user_id); setMsg('Inloggningsinbjudan skickad till ' + res.data.email); setSelected(prev => ({...prev, user_email: res.data.email})); } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
                         style={{ padding:'8px 14px', background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, marginBottom:8, width:'100%' }}>
                         ✉️ Skicka om inloggningsinbjudan
                       </button>
