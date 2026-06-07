@@ -186,7 +186,7 @@ export default function AdminUsers() {
                 <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
                   <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Inloggningsinbjudan</div>
                   <div style={{ fontSize:12, color:'var(--ink-pale)', marginBottom:10 }}>Skicka ett nytt e-postmeddelande med länk för att sätta lösenord (7 dagar giltig).</div>
-                  <button onClick={async () => { try { await adminApi.resendSetupEmail(editingUser.id); setSetupMsg('Mejl skickat till ' + editingUser.email); } catch(e) { setSetupMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                  <button onClick={async () => { try { const res = await adminApi.resendSetupEmail(editingUser.id); setSetupMsg('Mejl skickat till ' + res.data.email); } catch(e) { setSetupMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
                     style={{ width:'100%', padding:'8px 0', background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
                     ✉️ Skicka om inloggningsinbjudan
                   </button>
