@@ -13,6 +13,13 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [pwMsg, setPwMsg] = useState('');
   const [msg, setMsg] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 900);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   const [myRole, setMyRole] = useState(null);
   const isAdmin = myRole === 'admin';
 
@@ -84,9 +91,9 @@ export default function AdminUsers() {
       <Head><title>Användare — Admin Sjölyckan</title></Head>
       <AdminLayout title="Användare">
         {msg && <div style={msgBox}>{msg} <button onClick={() => setMsg('')} style={{ border:'none', background:'none', cursor:'pointer' }}>×</button></div>}
-        <div style={{ display:'grid', gridTemplateColumns:isAdmin?'1fr 340px':'1fr', gap:24, alignItems:'start' }}>
+        <div style={{ display:'grid', gridTemplateColumns:isAdmin && !isMobile?'1fr 340px':'1fr', gap:24, alignItems:'start' }}>
           {/* Lista */}
-          <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden' }}>
+          <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden', overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
                 <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
@@ -144,7 +151,7 @@ export default function AdminUsers() {
           {/* Redigera användare */}
           {editingUser && (
             <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ background:'white', borderRadius:'var(--radius-lg)', padding:24, width:480, maxHeight:'90vh', overflowY:'auto' }}>
+              <div style={{ background:'white', borderRadius:'var(--radius-lg)', padding:24, width:isMobile?'calc(100vw - 32px)':480, maxWidth:'calc(100vw - 32px)', maxHeight:'90vh', overflowY:'auto', boxSizing:'border-box' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
                   <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, margin:0 }}>Redigera användare</h3>
                   <button onClick={() => setEditingUser(null)} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-pale)', lineHeight:1 }}>×</button>
