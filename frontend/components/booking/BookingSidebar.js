@@ -418,9 +418,18 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
             <span>{price.base_amount?.toLocaleString('sv-SE')} kr</span>
           </div>
           {price.extra_guest_fee > 0 && (
-            <div style={priceRow}>
-              <span>{lang==='de'?'Zusatzgäste':lang==='en'?'Extra guests':'Extra gäster'}</span>
-              <span>{price.extra_guest_fee?.toLocaleString('sv-SE')} kr</span>
+            <div style={{ ...priceRow, alignItems:'flex-start' }}>
+              <span style={{ flex:1, minWidth:0 }}>
+                {lang==='de'?'Zusatzgebühr Gäste':lang==='en'?'Extra guest fee':'Extra gästavgift'}
+                <span style={{ display:'block', fontSize:11, color:'var(--ink-pale)', marginTop:2 }}>
+                  {lang==='de'
+                    ? `${price.extra_guests} Gäste über ${price.extra_guest_threshold} · ${price.extra_guest_rate?.toLocaleString('sv-SE')} kr/Gast/Nacht`
+                    : lang==='en'
+                    ? `${price.extra_guests} guest(s) above ${price.extra_guest_threshold} · ${price.extra_guest_rate?.toLocaleString('sv-SE')} kr/guest/night`
+                    : `${price.extra_guests} gäst(er) över ${price.extra_guest_threshold} · ${price.extra_guest_rate?.toLocaleString('sv-SE')} kr/gäst/natt`}
+                </span>
+              </span>
+              <span style={{ whiteSpace:'nowrap', marginLeft:8, flexShrink:0 }}>{price.extra_guest_fee?.toLocaleString('sv-SE')} kr</span>
             </div>
           )}
           {price.articles?.filter(a => !a.is_deposit).map(a => (
