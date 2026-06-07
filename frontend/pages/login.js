@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '../lib/auth';
 import { authApi } from '../lib/api';
+import PasswordField from '../components/common/PasswordField';
 
 export default function Login() {
   const { t } = useTranslation('common');
@@ -93,10 +94,12 @@ export default function Login() {
                 style={{ ...inp, marginBottom: 8 }} />
             )}
 
-            <input placeholder={t('auth.password')} type="password" value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              required style={{ ...inp, marginBottom: mode === 'register' ? 6 : 8 }} />
+            <div style={{ marginBottom: mode === 'register' ? 6 : 8 }}>
+              <PasswordField value={form.password} onChange={v => setForm(f => ({ ...f, password: v }))}
+                placeholder={t('auth.password')} style={inp} lang={router.locale || 'sv'}
+                showRequirements={mode === 'register'} showGenerate={mode === 'register'}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+            </div>
             {mode === 'login' && (
               <div style={{ textAlign:'right', marginBottom:12 }}>
                 <a href={router.locale && router.locale !== 'sv' ? `/${router.locale}/forgot-password` : '/forgot-password'} style={{ fontSize:12, color:'var(--water)', textDecoration:'none' }}>{t('auth.forgot_link')}</a>
