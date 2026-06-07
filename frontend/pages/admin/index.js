@@ -331,7 +331,7 @@ export default function AdminBookings() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16, fontSize: 13 }}>
                 {[
                   ['Gäst', selected.guest_name],
-                  ['E-post', selected.guest_email],
+                  ['E-post', selected.user_email || selected.guest_email],
                   ['Telefon', selected.guest_phone || '–'],
                   ['Land', selected.guest_country],
                   ['Ankomst', selected.date_from],
@@ -499,6 +499,12 @@ export default function AdminBookings() {
                     onChange={e => setAdminNote(e.target.value)}
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, height: 60, marginBottom: 12, resize: 'none' }} />
                   <div style={{ display: 'flex', gap: 8 }}>
+                    {selected.user_id && (
+                      <button onClick={async () => { try { await adminApi.resendSetupEmail(selected.user_id); setMsg('Inloggningsinbjudan skickad till ' + (selected.user_email || selected.guest_email)); } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                        style={{ padding:'8px 14px', background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, marginBottom:8, width:'100%' }}>
+                        ✉️ Skicka om inloggningsinbjudan
+                      </button>
+                    )}
                     <button onClick={() => confirm(selected.id)} disabled={actionLoading}
                       style={{ flex: 1, padding: 10, background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>
                       ✓ Godkänn
