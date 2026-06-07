@@ -3,6 +3,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { adminApi, authApi } from '../../lib/api';
+import PasswordField, { isStrongPassword } from '../../components/common/PasswordField';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -38,7 +39,7 @@ export default function AdminUsers() {
     } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
   };
   const resetPassword = async (userId) => {
-    if (newPassword.length < 10) { setPwMsg('Minst 10 tecken'); return; }
+    if (!isStrongPassword(newPassword)) { setPwMsg('Uppfyller inte lösenordskraven'); return; }
     try {
       await adminApi.adminResetPassword(userId, { password: newPassword });
       setPwMsg('Lösenord återställt!');
@@ -166,9 +167,11 @@ export default function AdminUsers() {
                 </div>
                 <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
                   <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Återställ lösenord</div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <input type='password' placeholder='Nytt lösenord (min 10 tecken)' value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                      style={{ flex:1, padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13 }} />
+                  <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
+                    <div style={{ flex:1 }}>
+                      <PasswordField value={newPassword} onChange={setNewPassword} placeholder='Nytt lösenord' lang="sv" showRequirements showGenerate
+                        style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13 }} />
+                    </div>
                     <button onClick={() => resetPassword(editingUser)} style={{ padding:'8px 14px', background:'var(--ink)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Spara</button>
                   </div>
                   {pwMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{pwMsg}</div>}
@@ -188,9 +191,13 @@ export default function AdminUsers() {
               ].map(({ label, field, type='text' }) => (
                 <div key={field} style={{ marginBottom:10 }}>
                   <label style={lbl}>{label}</label>
-                  <input type={type} required value={form[field]}
-                    onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
-                    style={inp} />
+                  {type === 'password' ? (
+                    <PasswordField value={form[field]} onChange={v => setForm(f => ({ ...f, [field]: v }))} style={inp} lang="sv" showRequirements showGenerate />
+                  ) : (
+                    <input type={type} required value={form[field]}
+                      onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+                      style={inp} />
+                  )}
                 </div>
               ))}
               <div style={{ marginBottom:16 }}>
@@ -202,9 +209,6 @@ export default function AdminUsers() {
                   {isAdmin && <option value="admin">Admin</option>}
                 </select>
               </div>
-              <p style={{ fontSize:11, color:'var(--ink-pale)', marginBottom:12 }}>
-                Lösenord: minst 10 tecken, blandning av bokstäver, siffror och specialtecken.
-              </p>
               <button type="submit" style={{ width:'100%', padding:10, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontWeight:500 }}>
                 Skapa användare
               </button>
