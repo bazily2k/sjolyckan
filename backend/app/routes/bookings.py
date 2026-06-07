@@ -303,34 +303,111 @@ async def create_booking_request(
         db.rollback()
         raise HTTPException(status_code=409, detail=_unavail)
 
-    # Uppdatera användarprofil om e-post matchar befintligt konto
+    # Koppla bokningen till ett kundkonto (skapa automatiskt vid behov) — alternativ B
     try:
-        existing_user = db.query(User).filter(User.email == req.guest_email).first()
-        if existing_user:
+        from app.core.auth import hash_password
+        from app.email.service import send_simple_email
+        from app.models.models import UserRole
+        import secrets as _secrets
+        from datetime import datetime as _dt, timedelta as _td
+
+        email_norm = (req.guest_email or "").strip().lower()
+
+        # Tolka adressfälten (line1, line2, postnr, ort)
+        line1 = line2 = postal = city = None
+        if req.guest_address:
+            parts = [p.strip() for p in req.guest_address.split(",")]
+            if len(parts) >= 3:
+                line1, line2 = parts[0], parts[1]
+            elif len(parts) == 2:
+                line1 = parts[0]
+            last = parts[-1].strip().split(" ", 1) if parts else []
+            if len(last) == 2:
+                postal, city = last[0], last[1]
+
+        name = (req.guest_name or "").strip()
+        first_name = name.split(" ")[0] if name else ""
+        last_name = name.split(" ", 1)[1] if " " in name else ""
+
+        user = (db.query(User).filter(User.email == email_norm).first()
+                or db.query(User).filter(User.email == req.guest_email).first())
+
+        new_account = False
+        if user:
+            # Befintligt konto: uppdatera profil (oförändrat beteende)
             if req.guest_phone:
-                existing_user.phone = req.guest_phone
+                user.phone = req.guest_phone
             if req.guest_country:
-                existing_user.country = req.guest_country
-            if req.guest_address:
-                parts = [p.strip() for p in req.guest_address.split(",")]
-                if len(parts) >= 3:
-                    existing_user.address_line1 = parts[0]
-                    existing_user.address_line2 = parts[1]
-                    last = parts[-1].strip().split(" ", 1)
-                    if len(last) == 2:
-                        existing_user.postal_code = last[0]
-                        existing_user.city = last[1]
-                elif len(parts) == 2:
-                    existing_user.address_line1 = parts[0]
-                    existing_user.address_line2 = None
-                    last = parts[-1].strip().split(" ", 1)
-                    if len(last) == 2:
-                        existing_user.postal_code = last[0]
-                        existing_user.city = last[1]
-            db.commit()
+                user.country = req.guest_country
+            if line1 is not None:
+                user.address_line1 = line1
+                user.address_line2 = line2
+            if postal:
+                user.postal_code = postal
+            if city:
+                user.city = city
+            if first_name and not user.first_name:
+                user.first_name = first_name
+            if last_name and not user.last_name:
+                user.last_name = last_name
+        else:
+            # Nytt konto: oanvändbart slumplösenord tills kunden sätter sitt eget
+            user = User(
+                email=email_norm,
+                password_hash=hash_password(_secrets.token_urlsafe(32)),
+                first_name=first_name or None,
+                last_name=last_name or None,
+                phone=req.guest_phone or None,
+                country=req.guest_country or "SE",
+                address_line1=line1,
+                address_line2=line2,
+                postal_code=postal,
+                city=city,
+                role=UserRole.guest,
+                is_active=True,
+            )
+            db.add(user)
+            db.flush()  # ger user.id
+            new_account = True
+
+        booking.user_id = user.id
+
+        set_pw_token = None
+        if new_account:
+            set_pw_token = _secrets.token_urlsafe(32)
+            user.reset_token = set_pw_token
+            user.reset_token_expires = _dt.utcnow() + _td(days=7)
+
+        db.commit()
+
+        # Skicka "sätt lösenord"-mejl till nyskapat konto
+        if new_account and set_pw_token:
+            _lang2 = req.lang if req.lang in ("en", "de") else "sv"
+            set_url = f"{settings.FRONTEND_URL}/reset-password/{set_pw_token}"
+            subj = {
+                "sv": "Ditt konto hos Sjölyckan — sätt ditt lösenord",
+                "en": "Your Sjölyckan account — set your password",
+                "de": "Ihr Sjölyckan-Konto — Passwort festlegen",
+            }[_lang2]
+            greet = {"sv": f"Hej {first_name or ''}", "en": f"Hello {first_name or ''}", "de": f"Hallo {first_name or ''}"}[_lang2]
+            body = {
+                "sv": "I samband med din bokningsförfrågan har vi skapat ett konto åt dig. Klicka på länken nedan för att sätta ditt lösenord och logga in för att följa din bokning. Länken är giltig i 7 dagar.",
+                "en": "Together with your booking request we have created an account for you. Click the link below to set your password and log in to follow your booking. The link is valid for 7 days.",
+                "de": "Zusammen mit Ihrer Buchungsanfrage haben wir ein Konto für Sie erstellt. Klicken Sie auf den Link unten, um Ihr Passwort festzulegen und sich anzumelden, um Ihre Buchung zu verfolgen. Der Link ist 7 Tage gültig.",
+            }[_lang2]
+            background_tasks.add_task(
+                send_simple_email, db,
+                to_email=email_norm,
+                subject=subj,
+                html=f"""<p>{greet},</p>
+<p>{body}</p>
+<p><a href="{set_url}">{set_url}</a></p>
+<p>Sjölyckan, Rolsmo</p>""",
+            )
     except Exception as e:
+        db.rollback()
         import logging
-        logging.getLogger(__name__).error(f"Profiluppdatering misslyckades: {e}")
+        logging.getLogger(__name__).error(f"Kontokoppling misslyckades: {e}")
 
 
     # Skicka mejl till gäst och admin
