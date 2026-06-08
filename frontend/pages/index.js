@@ -215,7 +215,7 @@ export default function Home({ locale }) {
           </div>
 
           {/* Boknings-sidebar */}
-          <div ref={bookingRef} style={{ position:'sticky', top:80, alignSelf:'start' }}>
+          <div ref={bookingRef} style={{ alignSelf:'start' }}>
             {/* Kalender på mobil — visas ovanför bokningsrutan */}
             <div className="mobile-calendar">
               <AvailabilityCalendar lang={lang} onSelectDates={handleSelectDates} />
