@@ -187,7 +187,7 @@ async def send_via_brevo(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
-async def send_booking_email_by_id(booking_id: int, email_type: str):
+async def send_booking_email_by_id(booking_id: int, email_type: str, to_admin: bool = False):
     """Hämtar bokning från ny session och skickar mail — undviker DetachedInstanceError."""
     from app.models.database import SessionLocal
     from app.models.models import Booking
@@ -195,7 +195,7 @@ async def send_booking_email_by_id(booking_id: int, email_type: str):
     try:
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
         if booking:
-            await send_booking_email(db, booking, email_type)
+            await send_booking_email(db, booking, email_type, to_admin=to_admin)
     finally:
         db.close()
 
@@ -205,8 +205,11 @@ async def send_simple_email(db, to_email: str, subject: str, html: str):
     from app.models.models import Setting, EmailLog
     from datetime import datetime
     try:
-        provider = db.query(Setting).filter(Setting.key == "email_provider").first()
-        use_brevo = provider and provider.value == "brevo"
+        try:
+            provider = db.query(Setting).filter(Setting.key == "email_provider").first()
+            use_brevo = provider and provider.value == "brevo"
+        except Exception:
+            use_brevo = settings.EMAIL_PROVIDER == "brevo"
         if use_brevo:
             ok = await send_via_brevo(to_email, subject, html)
         else:
