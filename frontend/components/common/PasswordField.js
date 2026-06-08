@@ -72,7 +72,7 @@ export default function PasswordField({
         </button>
       )}
 
-      {showRequirements && (
+      {showRequirements && value.length > 0 && (
         <div style={{ marginTop:6, marginBottom:8, fontSize:11.5, lineHeight:1.5 }}>
           <div style={{ color:'var(--ink-light)', marginBottom:2 }}>{L.heading}</div>
           {checks.map((c, i) => (
