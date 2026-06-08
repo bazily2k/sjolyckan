@@ -99,8 +99,8 @@ export default function AdminUsers() {
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
                 <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
-                  {['Namn','E-post','Roll','Rabatt %','Senast inloggad','Status',''].map(h => (
-                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase' }}>{h}</th>
+                  {['Namn','E-post','Roll','Rabatt %','Senast inloggad','Status',''].map((h,i) => (
+                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase', display: isMobile && i>=2 && i<=5 ? 'none' : '' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -109,7 +109,7 @@ export default function AdminUsers() {
                   <tr key={u.id} style={{ borderBottom:'1px solid var(--sand)' }}>
                     <td style={{ padding:'10px 14px', fontWeight:500 }}>{u.first_name} {u.last_name}</td>
                     <td style={{ padding:'10px 14px', color:'var(--ink-light)' }}>{u.email}</td>
-                    <td style={{ padding:'10px 14px' }}>
+                    <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
                       <select value={u.role} onChange={e => updateRole(u.id, e.target.value)}
                         disabled={u.role === 'admin' && !isAdmin}
                         style={{ padding:'3px 8px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12,
@@ -122,7 +122,7 @@ export default function AdminUsers() {
                         {(isAdmin || u.role === 'admin') && <option value="admin">Admin</option>}
                       </select>
                     </td>
-                    <td style={{ padding:'10px 14px' }}>
+                    <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                         <input type='number' min='0' max='100'
                           defaultValue={u.discount_pct || 0}
@@ -133,10 +133,10 @@ export default function AdminUsers() {
                         <span style={{ fontSize:11, color:'var(--ink-pale)' }}>%</span>
                       </div>
                     </td>
-                    <td style={{ padding:'10px 14px', color:'var(--ink-pale)', fontSize:12 }}>
+                    <td style={{ padding:'10px 14px', color:'var(--ink-pale)', fontSize:12, display: isMobile ? 'none' : '' }}>
                       {u.last_login ? new Date(u.last_login).toLocaleDateString('sv-SE') : '–'}
                     </td>
-                    <td style={{ padding:'10px 14px' }}>
+                    <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
                       <span style={{ fontSize:11, color: u.is_active ? 'var(--forest)' : 'var(--red)' }}>
                         {u.is_active ? '● Aktiv' : '● Inaktiv'}
                       </span>
