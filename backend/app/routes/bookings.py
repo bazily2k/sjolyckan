@@ -411,8 +411,8 @@ async def create_booking_request(
 
 
     # Skicka mejl till gäst och admin
-    background_tasks.add_task(send_booking_email, db, booking, "booking_request")
-    background_tasks.add_task(send_booking_email, db, booking, "admin_new_booking", True)
+    background_tasks.add_task(send_booking_email_by_id, booking.id, "booking_request")
+    background_tasks.add_task(send_booking_email_by_id, booking.id, "admin_new_booking", True)
 
     return {
         "booking_ref": booking.booking_ref,
@@ -507,7 +507,7 @@ async def admin_confirm_booking(
     db.refresh(b)
 
     # Skicka bekräftelse till gäst
-    background_tasks.add_task(send_booking_email, db, b, "booking_confirmed")
+    background_tasks.add_task(send_booking_email_by_id, b.id, "booking_confirmed")
 
     # Om Stripe — skapa betalningslänk för handpenning
     if req.payment_method == PaymentMethod.stripe and settings.STRIPE_SECRET_KEY:
