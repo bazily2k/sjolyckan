@@ -92,6 +92,7 @@ export default function AdminBookings() {
   const [payRef, setPayRef] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [emailAlert, setEmailAlert] = useState(null);
 
   const changeStatus = async (id, status) => {
     const labels = {
