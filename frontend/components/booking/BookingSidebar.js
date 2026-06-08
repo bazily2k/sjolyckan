@@ -82,6 +82,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   const lang = router.locale || 'sv';
   const L = LABELS[lang] || LABELS.sv;
   const { user } = useAuth();
+  const sidebarRef = useRef(null);
 
   const [checkIn, setCheckIn] = useState(initialCheckIn);
   const [checkOut, setCheckOut] = useState(initialCheckOut);
@@ -216,6 +217,14 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
     }, 400);
     return () => clearTimeout(timer);
   }, [checkIn, checkOut, guests, selectedArticles, articleQuantities]);
+
+  // Scrolla till sidebaren när bekräftelsen visas
+  useEffect(() => {
+    if (step === 'confirm' && sidebarRef.current) {
+      sidebarRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [step]);
+
 
   useEffect(() => {
     if (!lang) return;
@@ -355,7 +364,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   }
 
   return (
-    <div style={card}>
+    <div ref={sidebarRef} style={card}>
       <div style={{ marginBottom:16 }}>
         {price ? (
           <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
