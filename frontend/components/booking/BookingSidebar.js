@@ -664,6 +664,13 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
             <button onClick={() => setStep('dates')} style={{ ...bookBtn, background:'var(--sand)', color:'var(--ink)', flex:1 }}>
               {L.back}
             </button>
+            {(!termsAccepted || !gdprAccepted || !houseRulesAccepted) && (
+              <div style={{ fontSize:12, color:'var(--red)', marginBottom:8, padding:'8px 10px', background:'#fdf3f3', borderRadius:'var(--radius-md)', border:'1px solid #f5c6cb' }}>
+                {lang==='de' ? 'Bitte stimmen Sie allen Bedingungen zu, bevor Sie die Anfrage senden.'
+                  : lang==='en' ? 'Please accept all terms and conditions before submitting.'
+                  : 'Kryssa i samtliga godkännanden ovan för att kunna skicka.'}
+              </div>
+            )}
             <button onClick={submit} disabled={loading || !termsAccepted || !gdprAccepted || !houseRulesAccepted} style={{ ...bookBtn, flex:3, opacity:(loading||!termsAccepted||!gdprAccepted||!houseRulesAccepted)?0.7:1 }}>
               {loading?'...':L.submit}
             </button>
