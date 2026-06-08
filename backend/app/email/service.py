@@ -191,11 +191,27 @@ async def send_booking_email_by_id(booking_id: int, email_type: str, to_admin: b
     """Hämtar bokning från ny session och skickar mail — undviker DetachedInstanceError."""
     from app.models.database import SessionLocal
     from app.models.models import Booking
+    booking = None
     db = SessionLocal()
     try:
         booking = db.query(Booking).filter(Booking.id == booking_id).first()
         if booking:
             await send_booking_email(db, booking, email_type, to_admin=to_admin)
+    except Exception as exc:
+        logger.error(f"send_booking_email_by_id({booking_id}, {email_type}) kraschade: {exc}")
+        try:
+            from app.models.models import EmailLog
+            recip = settings.ADMIN_EMAIL if to_admin else (booking.guest_email if booking else "unknown")
+            db.add(EmailLog(
+                booking_id=booking_id,
+                email_type=email_type,
+                recipient=recip,
+                status="failed",
+                error=str(exc)[:500],
+            ))
+            db.commit()
+        except Exception as log_exc:
+            logger.error(f"Kunde inte logga mejlfel: {log_exc}")
     finally:
         db.close()
 
