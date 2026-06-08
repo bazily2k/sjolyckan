@@ -95,7 +95,7 @@ export default function AdminUsers() {
         {msg && <div style={msgBox}>{msg} <button onClick={() => setMsg('')} style={{ border:'none', background:'none', cursor:'pointer' }}>×</button></div>}
         <div style={{ display:'grid', gridTemplateColumns:isAdmin && !isMobile?'1fr 340px':'1fr', gap:24, alignItems:'start' }}>
           {/* Lista */}
-          <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden', overflowX:'auto' }}>
+          <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden', overflowX:'auto', order: isMobile ? 2 : 1 }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
                 <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
@@ -107,8 +107,8 @@ export default function AdminUsers() {
               <tbody>
                 {users.map(u => (
                   <tr key={u.id} style={{ borderBottom:'1px solid var(--sand)' }}>
-                    <td style={{ padding:'10px 14px', fontWeight:500 }}>{u.first_name} {u.last_name}</td>
-                    <td style={{ padding:'10px 14px', color:'var(--ink-light)' }}>{u.email}</td>
+                    <td style={{ padding:'10px 14px', fontWeight:500, whiteSpace:'nowrap' }}>{u.first_name} {u.last_name}</td>
+                    <td style={{ padding:'10px 14px', color:'var(--ink-light)', maxWidth: isMobile ? 150 : 'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</td>
                     <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
                       <select value={u.role} onChange={e => updateRole(u.id, e.target.value)}
                         disabled={u.role === 'admin' && !isAdmin}
@@ -199,7 +199,7 @@ export default function AdminUsers() {
             </div>
           )}
           {isAdmin && (
-          <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', padding:20 }}>
+          <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', padding:20, order: isMobile ? 1 : 2 }}>
             <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, marginBottom:16 }}>Skapa användare</h3>
             <form onSubmit={create}>
               {[
