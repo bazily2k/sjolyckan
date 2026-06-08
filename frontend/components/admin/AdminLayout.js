@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth, isAdmin } from '../../lib/auth';
+import { adminApi } from '../../lib/api';
 
 export default function AdminLayout({ children, title = 'Admin' }) {
   const { user, loading, logout } = useAuth();
@@ -11,6 +12,12 @@ export default function AdminLayout({ children, title = 'Admin' }) {
   useEffect(() => {
     if (!loading && (!user || !isAdmin(user))) router.push('/login');
   }, [user, loading]);
+
+  const [emailAlert, setEmailAlert] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    adminApi.getEmailHealth().then(r => setEmailAlert(r.data.failed_7d > 0)).catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     const check = () => {
@@ -33,7 +40,7 @@ export default function AdminLayout({ children, title = 'Admin' }) {
     { href: '/admin/content',       label: '✏️ Innehåll & bilder' },
     { href: '/admin/settings',      label: '⚙️ Inställningar' },
     { href: '/admin/users',         label: '👥 Användare' },
-    { href: '/admin/email-logs',    label: '📧 E-postlogg' },
+    { href: '/admin/email-logs',    label: '📧 E-postlogg', alert: true },
     { href: '/admin/blocked-dates', label: '🚫 Blockerade datum' },
   ];
 
@@ -77,6 +84,9 @@ export default function AdminLayout({ children, title = 'Admin' }) {
               borderLeft: router.pathname === item.href ? '3px solid var(--water-light)' : '3px solid transparent',
             }}>
               {item.label}
+              {item.alert && emailAlert && (
+                <span style={{ marginLeft:6, background:'#e74c3c', borderRadius:8, padding:'1px 6px', fontSize:10, color:'white', fontWeight:700 }}>!</span>
+              )}
             </a>
           ))}
         </nav>
