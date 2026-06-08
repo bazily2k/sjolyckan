@@ -96,11 +96,34 @@ export default function AdminUsers() {
         <div style={{ display:'grid', gridTemplateColumns:isAdmin && !isMobile?'1fr 340px':'1fr', gap:24, alignItems:'start' }}>
           {/* Lista */}
           <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden', overflowX:'auto', order: isMobile ? 2 : 1 }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+            {isMobile ? (
+              /* Kortlista på mobil */
+              <div>
+                {users.map(u => (
+                  <div key={u.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid var(--sand)' }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:500 }}>{u.first_name} {u.last_name}</div>
+                      <div style={{ fontSize:12, color:'var(--ink-light)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</div>
+                      <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:2 }}>
+                        {u.role === 'admin' ? 'Admin' : u.role === 'staff' ? 'Personal' : u.role === 'friend' ? 'Vän' : 'Gäst'}
+                        {u.discount_pct > 0 ? ` · ${u.discount_pct}% rabatt` : ''}
+                        {!u.is_active ? ' · Inaktiv' : ''}
+                      </div>
+                    </div>
+                    <button onClick={() => startEdit(u)} disabled={u.role === 'admin' && !isAdmin}
+                      style={{ padding:'6px 12px', fontSize:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:(u.role==='admin'&&!isAdmin)?'not-allowed':'pointer', opacity:(u.role==='admin'&&!isAdmin)?0.5:1, flexShrink:0 }}>
+                      Redigera
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Tabell på desktop/surfplatta */
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
                 <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
                   {['Namn','E-post','Roll','Rabatt %','Senast inloggad','Status',''].map((h,i) => (
-                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase', display: isMobile && i>=2 && i<=5 ? 'none' : '' }}>{h}</th>
+                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -147,7 +170,8 @@ export default function AdminUsers() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            )}
           </div>
 
           {/* Redigera användare */}
