@@ -8,7 +8,7 @@ from decimal import Decimal
 from app.models.database import get_db
 from app.models.models import (
     Booking, BookingStatus, PaymentMethod, Payment,
-    PaymentType, PaymentStatus, User
+    PaymentType, PaymentStatus, User, EmailLog
 )
 from app.core.booking_logic import calculate_booking_price, create_booking_record
 from app.core.auth import get_current_user, require_admin
@@ -411,8 +411,8 @@ async def create_booking_request(
 
 
     # Skicka mejl till gäst och admin
-    background_tasks.add_task(send_booking_email_by_id, booking.id, "booking_request")
-    background_tasks.add_task(send_booking_email_by_id, booking.id, "admin_new_booking", True)
+    background_tasks.add_task(send_booking_email, db, booking, "booking_request")
+    background_tasks.add_task(send_booking_email, db, booking, "admin_new_booking", True)
 
     return {
         "booking_ref": booking.booking_ref,
@@ -507,7 +507,7 @@ async def admin_confirm_booking(
     db.refresh(b)
 
     # Skicka bekräftelse till gäst
-    background_tasks.add_task(send_booking_email_by_id, b.id, "booking_confirmed")
+    background_tasks.add_task(send_booking_email, db, b, "booking_confirmed")
 
     # Om Stripe — skapa betalningslänk för handpenning
     if req.payment_method == PaymentMethod.stripe and settings.STRIPE_SECRET_KEY:
@@ -908,3 +908,17 @@ async def create_paypal_order(
             "approve_url": approve_url,
             "amount": amount,
         }
+
+@router.get("/admin/email-health")
+def admin_email_health(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Returnerar antal misslyckade mejl de senaste 7 dagarna."""
+    from datetime import datetime, timedelta
+    since = datetime.utcnow() - timedelta(days=7)
+    failed = db.query(EmailLog).filter(
+        EmailLog.status == "failed",
+        EmailLog.sent_at >= since
+    ).count()
+    total = db.query(EmailLog).filter(
+        EmailLog.sent_at >= since
+    ).count()
+    return {"failed_7d": int(failed), "total_7d": int(total)}
