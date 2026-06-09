@@ -36,6 +36,48 @@ def _ensure_booking_constraints():
 _ensure_booking_constraints()
 
 # Seeda standard-bekvämligheter och husregler om tabellerna är tomma (bevarar tidigare hårdkodat innehåll)
+
+
+def _seed_email_templates():
+    """Seedar systemmallar från .html-filer om de inte redan finns i databasen."""
+    from app.email.service import SUBJECTS, template_dir
+    from jinja2 import Environment, FileSystemLoader
+    env = Environment(loader=FileSystemLoader(str(template_dir)))
+    db = SessionLocal()
+    SYSTEM_TRIGGERS = [
+        ("booking_request",   "Bokningsförfrågan till gäst",   "guest", 1),
+        ("admin_new_booking", "Ny bokning till admin",          "admin", 2),
+        ("booking_confirmed", "Bokningsbekräftelse",            "guest", 3),
+        ("booking_rejected",  "Bokning nekad",                  "guest", 4),
+        ("booking_cancelled", "Avbokning",                      "guest", 5),
+        ("payment_reminder",  "Betalningspåminnelse",           "guest", 6),
+        ("checkin_info",      "Incheckning imorgon",            "guest", 7),
+    ]
+    try:
+        for trigger, name, recipient, order in SYSTEM_TRIGGERS:
+            if db.query(EmailTemplate).filter(EmailTemplate.trigger == trigger).first():
+                continue
+            bodies = {}
+            for lang in ("sv", "en", "de"):
+                try:
+                    bodies[lang] = env.loader.get_source(env, f"{trigger}_{lang}.html")[0]
+                except Exception:
+                    bodies[lang] = bodies.get("sv", "")
+            subjects = SUBJECTS.get(trigger, {})
+            t = EmailTemplate(
+                name=name, trigger=trigger, recipient=recipient,
+                is_system=True, is_active=True, sort_order=order,
+                subject_sv=subjects.get("sv",""), subject_en=subjects.get("en",""),
+                subject_de=subjects.get("de",""),
+                body_sv=bodies["sv"], body_en=bodies["en"], body_de=bodies["de"],
+            )
+            db.add(t)
+        db.commit()
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error(f"_seed_email_templates: {e}")
+    finally:
+        db.close()
+
 def _seed_cms_defaults():
     from app.models.database import SessionLocal
     db = SessionLocal()
@@ -101,6 +143,7 @@ app.include_router(public.router)
 app.include_router(bookings.router)
 app.include_router(admin.router)
 app.include_router(cms_router)
+app.include_router(email_templates_router)
 app.include_router(payments_router)
 
 
