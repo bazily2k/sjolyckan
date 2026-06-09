@@ -53,7 +53,14 @@ export default function AdminUsers() {
       await adminApi.deleteUser(userId);
       setEditingUser(null); setEditMsg(''); setConfirmDeleteUser(false); setMsg('Användare borttagen.');
       load();
-    } catch(e) { setConfirmDeleteUser(false); setEditMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+    } catch(e) {
+      setConfirmDeleteUser(false);
+      const d = e.response?.data?.detail;
+      const msg = typeof d === 'string' ? d
+        : Array.isArray(d) ? d.map(x => x.msg || JSON.stringify(x)).join(', ')
+        : d ? JSON.stringify(d) : e.message;
+      setEditMsg('Fel: ' + msg);
+    }
   };
 
   const resetPassword = async (userId) => {
@@ -221,13 +228,13 @@ export default function AdminUsers() {
                 <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
                   <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Inloggningsinbjudan</div>
                   <div style={{ fontSize:12, color:'var(--ink-pale)', marginBottom:10 }}>Skicka ett nytt e-postmeddelande med länk för att sätta lösenord (7 dagar giltig).</div>
-                  <button onClick={async () => { try { const res = await adminApi.resendSetupEmail(editingUser.id); setSetupMsg('Mejl skickat till ' + res.data.email); } catch(e) { setSetupMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                  <button onClick={async () => { try { const res = await adminApi.resendSetupEmail(editingUser); setSetupMsg('Mejl skickat till ' + res.data.email); } catch(e) { setSetupMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
                     style={{ width:'100%', padding:'8px 0', background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
                     ✉️ Skicka om inloggningsinbjudan
                   </button>
                   {setupMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{setupMsg}</div>}
                 </div>
-                {editingUser && editingUser.role !== 'admin' && (
+                {editingUser && users.find(u => u.id === editingUser)?.role !== 'admin' && (
                   <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
                     {!confirmDeleteUser ? (
                       <button onClick={() => setConfirmDeleteUser(true)}
@@ -238,7 +245,7 @@ export default function AdminUsers() {
                       <div style={{ background:'#fdf3f3', border:'1px solid #f5c6cb', borderRadius:'var(--radius-md)', padding:12 }}>
                         <div style={{ fontSize:13, marginBottom:10 }}>⚠️ Är du säker? Åtgärden kan inte ångras.</div>
                         <div style={{ display:'flex', gap:8 }}>
-                          <button onClick={() => deleteUser(editingUser.id)}
+                          <button onClick={() => deleteUser(editingUser)}
                             style={{ flex:1, padding:'8px 0', background:'var(--red)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, fontWeight:500 }}>
                             Ja, ta bort
                           </button>
