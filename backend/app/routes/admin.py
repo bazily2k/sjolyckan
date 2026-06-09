@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
@@ -490,3 +490,57 @@ def copy_season(season_id: int, db: Session = Depends(get_db), _: User = Depends
     db.commit()
     db.refresh(new_s)
     return new_s
+
+@router.post("/mailersend-webhook")
+async def mailersend_webhook(request: Request, db: Session = Depends(get_db)):
+    """Tar emot bounce-notiser från MailerSend och markerar mejlloggen."""
+    import hmac, hashlib, json as _json
+    body = await request.body()
+
+    # Verifiera signatur om webhook-hemlighet är konfigurerad
+    secret = getattr(settings, "MAILERSEND_WEBHOOK_SECRET", None)
+    if secret:
+        sig = request.headers.get("Signature") or request.headers.get("X-MailerSend-Signature", "")
+        expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            raise HTTPException(status_code=401, detail="Ogiltig signatur")
+
+    try:
+        payload = _json.loads(body)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ogiltig JSON")
+
+    event_type = payload.get("type", "")
+    if event_type not in ("activity.hard_bounced", "activity.soft_bounced",
+                          "activity.spam_complaint", "activity.unsubscribed"):
+        return {"ok": True, "ignored": True}
+
+    data = payload.get("data", {})
+    recipient_email = (data.get("recipient") or {}).get("email", "")
+    message_id = data.get("email", {}).get("id", "")
+
+    if not recipient_email:
+        return {"ok": True}
+
+    # Uppdatera email_logs: markera som studsad
+    updated = db.query(EmailLog).filter(
+        EmailLog.recipient == recipient_email,
+        EmailLog.status == "sent",
+    ).order_by(EmailLog.sent_at.desc()).limit(5).all()
+
+    for log in updated:
+        log.status = "bounced"
+        log.error = f"{event_type} ({recipient_email})"
+
+    # Lägg till ett nytt failed-logginlägg om inget hittas
+    if not updated:
+        db.add(EmailLog(
+            booking_id=None,
+            email_type="bounce",
+            recipient=recipient_email,
+            status="bounced",
+            error=event_type,
+        ))
+
+    db.commit()
+    return {"ok": True, "event": event_type, "recipient": recipient_email}
