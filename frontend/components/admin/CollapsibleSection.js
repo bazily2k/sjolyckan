@@ -1,16 +1,5 @@
 import { useState } from 'react';
 
-/**
- * CollapsibleSection — en hopfällbar ruta för admin-sidor.
- *
- * Props:
- *   title       (string)  — rubrik i header
- *   defaultOpen (bool)    — öppen som standard, default true
- *   children              — innehållet
- *   badge       (string)  — valfri liten etikett bredvid titeln (t.ex. antal)
- *   style       (object)  — extra stilar på ytterdiven
- *   noPad       (bool)    — om true: inget padding på innehållet (t.ex. tabeller)
- */
 export default function CollapsibleSection({
   title, defaultOpen = true, children, badge, style, noPad = false,
 }) {
@@ -18,26 +7,33 @@ export default function CollapsibleSection({
 
   return (
     <div style={{
-      background: 'white',
       border: '1px solid var(--sand-dark)',
       borderRadius: 'var(--radius-lg)',
       overflow: 'hidden',
       marginBottom: 20,
+      background: 'white',
       ...style,
     }}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
+      {/* Header — alltid synlig, klickbar */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen(prev => !prev)}
+        onKeyDown={e => e.key === 'Enter' && setOpen(prev => !prev)}
         style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px', background: open ? 'white' : 'var(--sand)',
-          border: 'none', borderBottom: open ? '1px solid var(--sand-dark)' : 'none',
-          cursor: 'pointer', textAlign: 'left', gap: 8,
-          transition: 'background 0.15s',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '11px 16px',
+          background: open ? '#f0f4f8' : '#e2e8f0',
+          borderBottom: open ? '1px solid var(--sand-dark)' : 'none',
+          cursor: 'pointer',
+          userSelect: 'none',
+          gap: 8,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
             {title}
           </span>
           {badge !== undefined && (
@@ -46,16 +42,15 @@ export default function CollapsibleSection({
             </span>
           )}
         </div>
-        <span style={{ fontSize: 12, color: 'var(--ink-light)', flexShrink: 0, fontWeight: 500 }}>
-          {open ? '▲ Dölj' : '▼ Visa'}
+        <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500, flexShrink: 0 }}>
+          {open ? '▲' : '▼'}
         </span>
-      </button>
+      </div>
 
-      {open && (
-        <div style={noPad ? undefined : { padding: 16 }}>
-          {children}
-        </div>
-      )}
+      {/* Innehåll — display:none för att undvika hydration-problem */}
+      <div style={{ display: open ? 'block' : 'none', padding: noPad ? 0 : 16 }}>
+        {children}
+      </div>
     </div>
   );
 }
