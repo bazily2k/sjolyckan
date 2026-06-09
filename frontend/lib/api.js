@@ -65,6 +65,7 @@ export const adminApi = {
   adminResetPassword: (userId, data) => api.post(`/auth/admin/users/${userId}/reset-password`, data),
   resendSetupEmail: (userId) => api.post(`/auth/admin/users/${userId}/resend-setup-email`),
   getEmailHealth: () => api.get('/admin/email-health'),
+  resendBookingEmail: (bookingId, emailType) => api.post(`/admin/bookings/${bookingId}/resend-email`, { email_type: emailType }),
   updateUserRole: (userId, data) => api.patch(`/auth/admin/users/${userId}/role`, data),
   deleteEmailLog: (id) => api.delete(`/admin/email-logs/${id}`),
   createPaypalOrder: (bookingId, data) => api.post(`/bookings/admin/${bookingId}/paypal-create`, data),
