@@ -218,6 +218,14 @@ export default function AdminUsers() {
                   </button>
                   {setupMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{setupMsg}</div>}
                 </div>
+                {editingUser && editingUser.role !== 'admin' && (
+                  <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
+                    <button onClick={() => deleteUser(editingUser.id)}
+                      style={{ width:'100%', padding:'8px 0', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
+                      🗑 Ta bort användare
+                    </button>
+                  </div>
+                )}
                 </div>
               </div>
             </div>
