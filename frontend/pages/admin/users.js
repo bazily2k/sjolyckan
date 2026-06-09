@@ -48,6 +48,14 @@ export default function AdminUsers() {
       load();
     } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
   };
+  const deleteUser = async (userId) => {
+    try {
+      await adminApi.deleteUser(userId);
+      setEditingUser(null); setEditMsg(''); setConfirmDeleteUser(false); setMsg('Användare borttagen.');
+      load();
+    } catch(e) { setConfirmDeleteUser(false); setEditMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+  };
+
   const resetPassword = async (userId) => {
     if (!isStrongPassword(newPassword)) { setPwMsg('Uppfyller inte lösenordskraven'); return; }
     try {
