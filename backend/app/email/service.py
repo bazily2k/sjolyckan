@@ -149,14 +149,36 @@ async def send_booking_email(
         # Föredra kopplat kontots e-post (kan ha rättats av admin) framför guest_email
         recipient = (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
 
-    subj_template = SUBJECTS.get(email_type, {}).get(lang, "Sjölyckan")
-    subject = subj_template.format(
-        ref=booking.booking_ref,
-        date=str(booking.payment_due_date),
-    )
-
+    # Försök hämta mall från databasen
     actual_type = "admin_new_booking" if to_admin else email_type
-    html = render_booking_email(booking, actual_type, db)
+    subject = None; html = None
+    if db:
+        try:
+            from app.models.email_template import EmailTemplate
+            from jinja2 import Environment
+            tmpl = db.query(EmailTemplate).filter(
+                EmailTemplate.trigger == actual_type,
+                EmailTemplate.is_active == True,
+            ).first()
+            if tmpl:
+                body_src = getattr(tmpl, f"body_{lang}") or tmpl.body_sv or ""
+                subj_src = getattr(tmpl, f"subject_{lang}") or tmpl.subject_sv or ""
+                snap = booking.snapshot or {}
+                ctx = {"booking": booking, "snap": snap, "lang": lang,
+                       "frontend_url": settings.FRONTEND_URL,
+                       "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
+                       "admin_email": settings.ADMIN_EMAIL}
+                env = Environment(autoescape=False)
+                html = env.from_string(body_src).render(**ctx)
+                subject = env.from_string(subj_src).render(**ctx)
+        except Exception as _e:
+            logger.warning(f"DB-malluppslag misslyckades: {_e}")
+    # Fallback till fil
+    if not subject:
+        subj_template = SUBJECTS.get(email_type, {}).get(lang, "Sjölyckan")
+        subject = subj_template.format(ref=booking.booking_ref, date=str(booking.payment_due_date))
+    if not html:
+        html = render_booking_email(booking, actual_type, db)
     ok = await send_email(recipient, subject, html)
     log_email(db, booking.id, email_type, recipient, lang, subject, "sent" if ok else "failed")
     return ok
