@@ -398,7 +398,12 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), a
         existing = db.query(User).filter(User.email == data["email"]).first()
         if existing:
             raise HTTPException(status_code=400, detail="E-postadressen används redan")
+        old_email = user.email
         user.email = data["email"]
+        # Uppdatera guest_email på alla kopplade bokningar (user_id-match ELLER e-postmatch)
+        db.query(Booking).filter(
+            (Booking.user_id == user_id) | (Booking.guest_email == old_email)
+        ).update({"guest_email": data["email"]}, synchronize_session=False)
     db.commit()
     db.refresh(user)
     return {"id": user.id, "email": user.email, "first_name": user.first_name, "last_name": user.last_name}
