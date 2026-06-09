@@ -225,7 +225,8 @@ export default function AdminUsers() {
                     <button onClick={() => resetPassword(editingUser)} style={{ padding:'8px 14px', background:'var(--ink)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Spara</button>
                   </div>
                   {pwMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{pwMsg}</div>}
-                <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
+              </CollapsibleSection>
+              <CollapsibleSection title="Inloggningsinbjudan" defaultOpen={false}>
                   <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Inloggningsinbjudan</div>
                   <div style={{ fontSize:12, color:'var(--ink-pale)', marginBottom:10 }}>Skicka ett nytt e-postmeddelande med länk för att sätta lösenord (7 dagar giltig).</div>
                   <button onClick={async () => { try { const res = await adminApi.resendSetupEmail(editingUser); setSetupMsg('Mejl skickat till ' + res.data.email); } catch(e) { setSetupMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
@@ -233,9 +234,10 @@ export default function AdminUsers() {
                     ✉️ Skicka om inloggningsinbjudan
                   </button>
                   {setupMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{setupMsg}</div>}
-                </div>
-                {editingUser && users.find(u => u.id === editingUser)?.role !== 'admin' && (
-                  <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
+              </CollapsibleSection>
+              {editingUser && users.find(u => u.id === editingUser)?.role !== 'admin' && (
+                <CollapsibleSection title="Ta bort användare" defaultOpen={false}>
+                  <div>
                     {!confirmDeleteUser ? (
                       <button onClick={() => setConfirmDeleteUser(true)}
                         style={{ width:'100%', padding:'8px 0', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
