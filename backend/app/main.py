@@ -42,6 +42,7 @@ _ensure_booking_constraints()
 
 def _seed_email_templates():
     """Seedar systemmallar från .html-filer om de inte redan finns i databasen."""
+    from app.models.database import SessionLocal
     from app.email.service import SUBJECTS, template_dir
     from jinja2 import Environment, FileSystemLoader
     env = Environment(loader=FileSystemLoader(str(template_dir)))
