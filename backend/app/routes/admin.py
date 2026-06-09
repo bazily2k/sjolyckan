@@ -369,19 +369,45 @@ async def resend_email(
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
 
-    # Använd e-posttyp för att avgöra admin/gäst — inte jämförelse med (möjligen gammal) guest_email
+    # Använd e-posttyp för att avgöra admin/gäst
     to_admin = log.email_type.startswith("admin_") or log.recipient == settings.ADMIN_EMAIL
-    # Beräkna faktisk mottagare (kan skilja från log.recipient om email rättats)
     actual_recipient = settings.ADMIN_EMAIL if to_admin else (
         (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
     )
+
+    # Kontrollera om adressen är känd-studsad (suppression-lista-skydd)
+    from datetime import datetime, timedelta
+    recent_bounce = db.query(EmailLog).filter(
+        EmailLog.recipient == actual_recipient,
+        EmailLog.status == "bounced",
+        EmailLog.sent_at >= datetime.utcnow() - timedelta(days=30),
+    ).first()
+
+    if recent_bounce:
+        # Skapa ny loggpost som misslyckat direkt — adressen är på suppression-lista
+        new_log = EmailLog(
+            booking_id=log.booking_id,
+            email_type=log.email_type,
+            recipient=actual_recipient,
+            lang=log.lang,
+            subject=log.subject,
+            status="failed",
+            error=f"Adressen har studsat tidigare ({recent_bounce.error or 'bounce'})",
+        )
+        db.add(new_log)
+        db.commit()
+        return {
+            "status": "bounced",
+            "recipient": actual_recipient,
+            "warning": f"Adressen {actual_recipient} har studsat tidigare. Rätta adressen innan du skickar om.",
+        }
+
     ok = await send_booking_email(db, booking, log.email_type, to_admin=to_admin)
     if ok:
-        from datetime import datetime
         log.status = "sent"
         log.error = None
         log.sent_at = datetime.utcnow()
-        log.recipient = actual_recipient  # uppdatera logg med korrekt adress
+        log.recipient = actual_recipient
         db.commit()
         return {"status": "sent", "recipient": actual_recipient}
     raise HTTPException(status_code=500, detail="Misslyckades skicka mail")
