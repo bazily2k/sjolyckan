@@ -13,6 +13,7 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [pwMsg, setPwMsg] = useState('');
   const [setupMsg, setSetupMsg] = useState('');
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState(false);
   const [editMsg, setEditMsg] = useState('');
   const [msg, setMsg] = useState('');
   const [isMobile, setIsMobile] = useState(false);
@@ -180,7 +181,7 @@ export default function AdminUsers() {
               <div style={{ background:'white', borderRadius:'var(--radius-lg)', padding:24, width:isMobile?'calc(100vw - 32px)':480, maxWidth:'calc(100vw - 32px)', maxHeight:'90vh', overflowY:'auto', boxSizing:'border-box' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
                   <h3 style={{ fontFamily:'var(--font-display)', fontSize:17, margin:0 }}>Redigera användare</h3>
-                  <button onClick={() => { setEditingUser(null); setEditMsg(''); }} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-pale)', lineHeight:1 }}>×</button>
+                  <button onClick={() => { setEditingUser(null); setEditMsg(''); setConfirmDeleteUser(false); }} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-pale)', lineHeight:1 }}>×</button>
                 </div>
                 {[
                   {l:'Förnamn', f:'first_name'}, {l:'Efternamn', f:'last_name'},
@@ -220,10 +221,26 @@ export default function AdminUsers() {
                 </div>
                 {editingUser && editingUser.role !== 'admin' && (
                   <div style={{ borderTop:'1px solid var(--sand-dark)', marginTop:16, paddingTop:16 }}>
-                    <button onClick={() => deleteUser(editingUser.id)}
-                      style={{ width:'100%', padding:'8px 0', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
-                      🗑 Ta bort användare
-                    </button>
+                    {!confirmDeleteUser ? (
+                      <button onClick={() => setConfirmDeleteUser(true)}
+                        style={{ width:'100%', padding:'8px 0', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
+                        🗑 Ta bort användare
+                      </button>
+                    ) : (
+                      <div style={{ background:'#fdf3f3', border:'1px solid #f5c6cb', borderRadius:'var(--radius-md)', padding:12 }}>
+                        <div style={{ fontSize:13, marginBottom:10 }}>⚠️ Är du säker? Åtgärden kan inte ångras.</div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          <button onClick={() => deleteUser(editingUser.id)}
+                            style={{ flex:1, padding:'8px 0', background:'var(--red)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, fontWeight:500 }}>
+                            Ja, ta bort
+                          </button>
+                          <button onClick={() => setConfirmDeleteUser(false)}
+                            style={{ flex:1, padding:'8px 0', background:'var(--sand)', color:'var(--ink)', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
+                            Avbryt
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 </div>
