@@ -369,15 +369,21 @@ async def resend_email(
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
 
-    to_admin = log.recipient != booking.guest_email
+    # Använd e-posttyp för att avgöra admin/gäst — inte jämförelse med (möjligen gammal) guest_email
+    to_admin = log.email_type.startswith("admin_") or log.recipient == settings.ADMIN_EMAIL
+    # Beräkna faktisk mottagare (kan skilja från log.recipient om email rättats)
+    actual_recipient = settings.ADMIN_EMAIL if to_admin else (
+        (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
+    )
     ok = await send_booking_email(db, booking, log.email_type, to_admin=to_admin)
     if ok:
         from datetime import datetime
         log.status = "sent"
         log.error = None
         log.sent_at = datetime.utcnow()
+        log.recipient = actual_recipient  # uppdatera logg med korrekt adress
         db.commit()
-        return {"status": "sent"}
+        return {"status": "sent", "recipient": actual_recipient}
     raise HTTPException(status_code=500, detail="Misslyckades skicka mail")
 
 
