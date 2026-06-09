@@ -550,3 +550,52 @@ async def mailersend_webhook(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
     return {"ok": True, "event": event_type, "recipient": recipient_email}
+
+@router.post("/brevo-webhook")
+async def brevo_webhook(request: Request, db: Session = Depends(get_db)):
+    """Tar emot bounce-notiser från Brevo och markerar mejlloggen."""
+    import json as _json
+
+    body = await request.body()
+    try:
+        payload = _json.loads(body)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ogiltig JSON")
+
+    # Brevo skickar antingen en array eller ett enskilt objekt
+    events = payload if isinstance(payload, list) else [payload]
+
+    BOUNCE_EVENTS = {"hard_bounce", "soft_bounce", "spam", "invalid_email", "blocked"}
+
+    processed = 0
+    for event in events:
+        event_type = event.get("event", "")
+        if event_type not in BOUNCE_EVENTS:
+            continue
+
+        recipient_email = event.get("email", "")
+        if not recipient_email:
+            continue
+
+        # Markera senaste skickade mejl till denna adress som studsad
+        logs = db.query(EmailLog).filter(
+            EmailLog.recipient == recipient_email,
+            EmailLog.status == "sent",
+        ).order_by(EmailLog.sent_at.desc()).limit(5).all()
+
+        for log in logs:
+            log.status = "bounced"
+            log.error = f"brevo:{event_type}"
+
+        if not logs:
+            db.add(EmailLog(
+                booking_id=None,
+                email_type="bounce",
+                recipient=recipient_email,
+                status="bounced",
+                error=f"brevo:{event_type}",
+            ))
+        processed += 1
+
+    db.commit()
+    return {"ok": True, "processed": processed}
