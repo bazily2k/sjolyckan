@@ -93,6 +93,7 @@ export default function AdminBookings() {
   const [actionLoading, setActionLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [emailAlert, setEmailAlert] = useState(null);
+  const [manualTemplates, setManualTemplates] = useState([]);
 
   const changeStatus = async (id, status) => {
     const labels = {
@@ -511,6 +512,17 @@ export default function AdminBookings() {
                         style={{ padding:'8px 14px', background:'var(--forest)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, marginBottom:8, width:'100%' }}>
                         ✉️ Skicka om bokningsbekräftelse
                       </button>
+                    )}
+                    {manualTemplates.length > 0 && selected.status === 'pending' && (
+                      <div style={{ borderTop:'1px solid var(--sand)', paddingTop:8, marginTop:4 }}>
+                        <div style={{ fontSize:11, color:'var(--ink-pale)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.4px' }}>Manuella utskick</div>
+                        {manualTemplates.map(t => (
+                          <button key={t.id} onClick={async () => { try { await adminApi.sendManualTemplate(t.id, selected.id); setMsg(`✉️ '${t.name}' skickat till ${selected.user_email||selected.guest_email}`); } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                            style={{ padding:'8px 14px', background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, marginBottom:6, width:'100%' }}>
+                            ✉️ {t.name}
+                          </button>
+                        ))}
+                      </div>
                     )}
                     <button onClick={() => confirm(selected.id)} disabled={actionLoading}
                       style={{ flex: 1, padding: 10, background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>
