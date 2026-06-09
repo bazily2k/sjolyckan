@@ -506,6 +506,12 @@ export default function AdminBookings() {
                         ✉️ Skicka om inloggningsinbjudan
                       </button>
                     )}
+                    {(selected.status === 'confirmed' || selected.status === 'deposit_paid' || selected.status === 'fully_paid') && (
+                      <button onClick={async () => { try { await adminApi.resendBookingEmail(selected.id, 'booking_confirmed'); setMsg('Bokningsbekräftelse skickad till ' + (selected.user_email || selected.guest_email)); } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                        style={{ padding:'8px 14px', background:'var(--forest)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, marginBottom:8, width:'100%' }}>
+                        ✉️ Skicka om bokningsbekräftelse
+                      </button>
+                    )}
                     <button onClick={() => confirm(selected.id)} disabled={actionLoading}
                       style={{ flex: 1, padding: 10, background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>
                       ✓ Godkänn
