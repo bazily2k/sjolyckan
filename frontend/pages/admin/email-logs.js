@@ -32,11 +32,11 @@ export default function EmailLogsPage() {
   const resendLog = async (log) => {
     setResending(log.id);
     try {
-      await axios.post(`${API}/admin/email-logs/${log.id}/resend`, {}, {
+      const res = await axios.post(`${API}/admin/email-logs/${log.id}/resend`, {}, {
         headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
       });
       setLogs(prev => prev.map(l => l.id === log.id ? { ...l, status: 'sent', error: null } : l));
-      alert('Mail skickat om till ' + log.recipient);
+      alert('Mail skickat om till ' + (res.data?.recipient || log.recipient));
     } catch(e) {
       alert('Fel: ' + (e.response?.data?.detail || e.message));
     } finally {
