@@ -46,8 +46,8 @@ export default function CollapsibleSection({
             </span>
           )}
         </div>
-        <span style={{ fontSize: 11, color: 'var(--ink-pale)', flexShrink: 0 }}>
-          {open ? '▲' : '▼'}
+        <span style={{ fontSize: 12, color: 'var(--ink-light)', flexShrink: 0, fontWeight: 500 }}>
+          {open ? '▲ Dölj' : '▼ Visa'}
         </span>
       </button>
 
