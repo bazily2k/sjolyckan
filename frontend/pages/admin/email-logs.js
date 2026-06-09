@@ -36,7 +36,12 @@ export default function EmailLogsPage() {
         headers: { Authorization: 'Bearer ' + localStorage.getItem('token') }
       });
       setLogs(prev => prev.map(l => l.id === log.id ? { ...l, status: 'sent', error: null } : l));
-      alert('Mail skickat om till ' + (res.data?.recipient || log.recipient));
+      if (res.data?.status === 'bounced') {
+        alert('⚠️ ' + (res.data.warning || 'Adressen har studsat tidigare — rätta adressen innan du skickar om.'));
+      } else {
+        alert('Mail skickat om till ' + (res.data?.recipient || log.recipient));
+      }
+      load();
     } catch(e) {
       alert('Fel: ' + (e.response?.data?.detail || e.message));
     } finally {
