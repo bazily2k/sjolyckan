@@ -226,6 +226,7 @@ export default function AdminUsers() {
                     <button onClick={() => resetPassword(editingUser)} style={{ padding:'8px 14px', background:'var(--ink)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Spara</button>
                   </div>
                   {pwMsg && <div style={{ fontSize:12, color:'var(--forest)', marginTop:6 }}>{pwMsg}</div>}
+                </div>
               </CollapsibleSection>
               <CollapsibleSection title="Inloggningsinbjudan" defaultOpen={false}>
                   <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Inloggningsinbjudan</div>
