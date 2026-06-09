@@ -4,6 +4,7 @@ import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { adminApi, authApi } from '../../lib/api';
 import PasswordField, { isStrongPassword } from '../../components/common/PasswordField';
+import CollapsibleSection from '../../components/admin/CollapsibleSection';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
