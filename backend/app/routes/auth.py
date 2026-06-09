@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
 from app.models.database import get_db
-from app.models.models import User, UserRole
+from app.models.models import User, UserRole, Booking
 from app.core.auth import (
     verify_password, hash_password, create_access_token,
     validate_password_strength, get_current_user, require_superadmin, require_admin
@@ -446,6 +446,28 @@ def admin_resend_setup_email(
         html=f"<p>{greet},</p><p>{body}</p><p><a href=\"{set_url}\">{set_url}</a></p><p>Sjölyckan, Rolsmo</p>",
     )
     return {"ok": True, "email": user.email}
+
+
+
+@router.delete("/admin/users/{user_id}")
+def admin_delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin),
+):
+    """Ta bort en användare. Bevarar bokningar (sätter user_id = NULL)."""
+    if actor.id == user_id:
+        raise HTTPException(status_code=400, detail="Du kan inte ta bort ditt eget konto")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Användaren hittades inte")
+    if user.role == UserRole.admin:
+        raise HTTPException(status_code=403, detail="Adminkonton kan inte tas bort")
+    # Bevara bokningshistorik — nolla länken
+    db.query(Booking).filter(Booking.user_id == user_id).update({"user_id": None})
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
 
 @router.post("/admin/users/{user_id}/reset-password")
 def admin_reset_password(user_id: int, data: dict, db: Session = Depends(get_db), actor: User = Depends(require_admin)):
