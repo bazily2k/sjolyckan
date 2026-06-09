@@ -8,6 +8,8 @@ from app.models.cms_models import Room, GalleryImage, ContentBlock, Amenity, Hou
 from app.routes import bookings, admin, auth, public
 from app.routes.payments import router as payments_router
 from app.routes.cms import router as cms_router
+from app.models.email_template import EmailTemplate
+from app.routes.email_templates import router as email_templates_router
 from app.core.config import settings
 
 # Skapa alla tabeller vid start
@@ -112,6 +114,7 @@ def _seed_cms_defaults():
     finally:
         db.close()
 
+_seed_email_templates()
 _seed_cms_defaults()
 
 # Skapa upload-mappar
