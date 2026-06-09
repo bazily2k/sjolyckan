@@ -2,8 +2,15 @@ import { useState, useEffect } from 'react';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
+import CollapsibleSection from '../../components/admin/CollapsibleSection';
 import { adminApi } from '../../lib/api';
 
+const SETTING_GROUPS = [
+  { title: '🏡 Fastighet', keys: ['property_name','property_address','checkin_time','checkout_time','max_guests','swish_number'] },
+  { title: '📧 E-post', keys: ['email_provider'] },
+  { title: '📄 Dokument', keys: ['attach_terms_pdf','attach_gdpr_pdf'] },
+  { title: '📋 Bokningsinställningar', keys: ['booking_ref_style'] },
+];
 const SETTINGS = [
   { key: 'property_name',    label: 'Stugans namn',     type: 'text' },
   { key: 'property_address', label: 'Adress',            type: 'text' },
@@ -70,38 +77,35 @@ export default function AdminSettings() {
           </div>
         )}
         <div style={{ maxWidth: 600 }}>
-          <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--sand-dark)', overflow: 'hidden' }}>
-            {SETTINGS.map((s, i) => (
-              <div key={s.key} style={{ padding: '16px 20px', borderBottom: i < SETTINGS.length - 1 ? '1px solid var(--sand)' : 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 4 }}>{s.label}</div>
-                  {s.type === 'select' ? (
-                    <select
-                      value={editing[s.key] || s.options[0].value}
-                      onChange={e => setEditing(prev => ({ ...prev, [s.key]: e.target.value }))}
-                      style={{ padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 14, background: 'white', width: '100%' }}
-                    >
-                      {s.options.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      value={editing[s.key] || ''}
-                      onChange={e => setEditing(prev => ({ ...prev, [s.key]: e.target.value }))}
-                      style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 14, outline: 'none' }}
-                    />
-                  )}
-                </div>
-                <button
-                  onClick={() => save(s.key)}
-                  style={{ padding: '8px 16px', background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}
-                >
-                  Spara
-                </button>
-              </div>
-            ))}
-          </div>
+          {SETTING_GROUPS.map(group => {
+            const groupSettings = SETTINGS.filter(s => group.keys.includes(s.key));
+            return (
+              <CollapsibleSection key={group.title} title={group.title} noPad>
+                {groupSettings.map((s, i) => (
+                  <div key={s.key} style={{ padding: '14px 16px', borderBottom: i < groupSettings.length - 1 ? '1px solid var(--sand)' : 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 4 }}>{s.label}</div>
+                      {s.type === 'select' ? (
+                        <select value={editing[s.key] || s.options[0].value}
+                          onChange={e => setEditing(prev => ({ ...prev, [s.key]: e.target.value }))}
+                          style={{ padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 14, background: 'white', width: '100%' }}>
+                          {s.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      ) : (
+                        <input value={editing[s.key] || ''}
+                          onChange={e => setEditing(prev => ({ ...prev, [s.key]: e.target.value }))}
+                          style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 14, outline: 'none' }} />
+                      )}
+                    </div>
+                    <button onClick={() => save(s.key)}
+                      style={{ padding: '8px 16px', background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      Spara
+                    </button>
+                  </div>
+                ))}
+              </CollapsibleSection>
+            );
+          })}
         </div>
       </AdminLayout>
     </>
