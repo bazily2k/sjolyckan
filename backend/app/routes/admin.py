@@ -4,10 +4,48 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date
 from app.models.database import get_db
-from app.models.models import Season, Article, PriceOverride, Setting, User
+from app.models.models import Season, Article, PriceOverride, Setting, User, EmailLog, Booking
 from app.core.auth import require_admin
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+class ResendEmailRequest(BaseModel):
+    email_type: str = "booking_confirmed"
+
+
+@router.get("/email-health")
+def admin_email_health(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Antal misslyckade mejl de senaste 7 dagarna."""
+    from datetime import datetime, timedelta
+    since = datetime.utcnow() - timedelta(days=7)
+    failed = db.query(EmailLog).filter(
+        EmailLog.status == "failed",
+        EmailLog.sent_at >= since
+    ).count()
+    total = db.query(EmailLog).filter(
+        EmailLog.sent_at >= since
+    ).count()
+    return {"failed_7d": int(failed), "total_7d": int(total)}
+
+
+@router.post("/bookings/{booking_id}/resend-email")
+async def resend_booking_email_direct(
+    booking_id: int,
+    payload: ResendEmailRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Skicka om ett specifikt mejl för en bokning."""
+    from app.email.service import send_booking_email
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    to_admin = payload.email_type.startswith("admin_")
+    ok = await send_booking_email(db, booking, payload.email_type, to_admin=to_admin)
+    if ok:
+        return {"status": "sent", "email_type": payload.email_type}
+    raise HTTPException(status_code=500, detail="Mejlet kunde inte skickas")
 
 
 # ══════════════════════════════════════════════════════════
