@@ -64,6 +64,7 @@ export const adminApi = {
   updateUserFull: (userId, data) => api.put(`/auth/admin/users/${userId}`, data),
   adminResetPassword: (userId, data) => api.post(`/auth/admin/users/${userId}/reset-password`, data),
   resendSetupEmail: (userId) => api.post(`/auth/admin/users/${userId}/resend-setup-email`),
+  deleteUser: (userId) => api.delete(`/auth/admin/users/${userId}`),
   getEmailHealth: () => api.get('/admin/email-health'),
   resendBookingEmail: (bookingId, emailType) => api.post(`/admin/bookings/${bookingId}/resend-email`, { email_type: emailType }),
   updateUserRole: (userId, data) => api.patch(`/auth/admin/users/${userId}/role`, data),
