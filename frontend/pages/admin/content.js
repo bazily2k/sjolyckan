@@ -9,11 +9,13 @@ const QUILL_MODULES = {
     ['clean'],
   ],
 };
+const LONG_BLOCKS = ['terms_text','gdpr_text','house_rules_text','about_text'];
 const WYSIWYG_KEYS = ['hero_title', 'hero_subtitle', 'hero_tagline', 'terms_text', 'gdpr_text', 'house_rules_text', 'about_text', 'about_title',
   'checkin_rule', 'checkout_rule', 'max_guests_rule', 'linen_rule', 'pets_rule', 'cleaning_rule'];
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
+import CollapsibleSection from '../../components/admin/CollapsibleSection';
 import 'react-quill-new/dist/quill.snow.css';
 import axios from 'axios';
 
@@ -242,10 +244,10 @@ export default function AdminCMS() {
         {tab === 'content' && (
           <div style={{ maxWidth:800 }}>
             {content.map(block => (
-              <div key={block.key} style={{ background:'white', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-lg)', padding:20, marginBottom:12 }}>
-                <div style={{ fontSize:12, fontWeight:500, color:'var(--ink-pale)', textTransform:'uppercase', letterSpacing:'0.3px', marginBottom:12 }}>
-                  {CONTENT_LABELS[block.key] || block.key}
-                </div>
+              <CollapsibleSection key={block.key}
+                title={CONTENT_LABELS[block.key] || block.key}
+                defaultOpen={!LONG_BLOCKS.includes(block.key)}
+                style={{ marginBottom:12 }}>
                 {['sv','en','de'].map(lang => (
                   <div key={lang} style={{ marginBottom:8 }}>
                     <div style={{ fontSize:11, color:'var(--ink-pale)', marginBottom:3 }}>
@@ -271,7 +273,7 @@ export default function AdminCMS() {
                   </div>
                 ))}
                 <button onClick={() => saveContent(block)} style={saveBtn}>Spara</button>
-              </div>
+              </CollapsibleSection>
             ))}
           </div>
         )}
