@@ -565,7 +565,13 @@ async def brevo_webhook(request: Request, db: Session = Depends(get_db)):
     # Brevo skickar antingen en array eller ett enskilt objekt
     events = payload if isinstance(payload, list) else [payload]
 
-    BOUNCE_EVENTS = {"hard_bounce", "soft_bounce", "spam", "invalid_email", "blocked"}
+    BOUNCE_EVENTS = {
+        "hard_bounce", "hard_bounced", "hardBounce",
+        "soft_bounce", "soft_bounced", "softBounce",
+        "complaint", "spam", "spam_complaint",
+        "invalid", "invalid_email",
+        "blocked",
+    }
 
     processed = 0
     for event in events:
