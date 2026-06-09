@@ -510,14 +510,19 @@ async def mailersend_webhook(request: Request, db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=400, detail="Ogiltig JSON")
 
+    # v2: type på toppnivå, data.recipient.email
     event_type = payload.get("type", "")
     if event_type not in ("activity.hard_bounced", "activity.soft_bounced",
                           "activity.spam_complaint", "activity.unsubscribed"):
         return {"ok": True, "ignored": True}
 
     data = payload.get("data", {})
-    recipient_email = (data.get("recipient") or {}).get("email", "")
-    message_id = data.get("email", {}).get("id", "")
+    # v2: data.recipient.email — fallback på v1: data["email"]
+    recipient_obj = data.get("recipient") or data.get("email") or {}
+    recipient_email = recipient_obj.get("email", "") if isinstance(recipient_obj, dict) else ""
+    # v2 kan också ha recipient direkt som sträng
+    if not recipient_email and isinstance(data.get("recipient"), str):
+        recipient_email = data["recipient"]
 
     if not recipient_email:
         return {"ok": True}
