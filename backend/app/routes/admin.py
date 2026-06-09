@@ -6,6 +6,7 @@ from datetime import date
 from app.models.database import get_db
 from app.models.models import Season, Article, PriceOverride, Setting, User, EmailLog, Booking
 from app.core.auth import require_admin
+from app.core.config import settings
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
