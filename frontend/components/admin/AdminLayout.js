@@ -41,6 +41,7 @@ export default function AdminLayout({ children, title = 'Admin' }) {
     { href: '/admin/settings',      label: '⚙️ Inställningar' },
     { href: '/admin/users',         label: '👥 Användare' },
     { href: '/admin/email-logs',    label: '📧 E-postlogg', alert: true },
+    { href: '/admin/email-templates', label: '✉️ Mailmallar' },
     { href: '/admin/blocked-dates', label: '🚫 Blockerade datum' },
   ];
 
