@@ -615,6 +615,7 @@ def _booking_summary(b: Booking) -> dict:
         "booking_ref": b.booking_ref,
         "guest_name": b.guest_name,
         "guest_email": b.guest_email,
+        "message": b.message,
         "user_id": b.user_id,
         "user_email": b.user.email if b.user_id and b.user else None,
         "guest_country": b.guest_country,
