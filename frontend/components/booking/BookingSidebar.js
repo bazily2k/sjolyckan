@@ -76,7 +76,7 @@ const LABELS = {
   },
 };
 
-export default function BookingSidebar({ articles, initialCheckIn = '', initialCheckOut = '' }) {
+export default function BookingSidebar({ articles, initialCheckIn = '', initialCheckOut = '', onConfirm }) {
   const { t } = useTranslation('common');
   const router = useRouter();
   const lang = router.locale || 'sv';
