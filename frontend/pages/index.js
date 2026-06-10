@@ -21,6 +21,11 @@ export default function Home({ locale }) {
   const router = useRouter();
   const lang = router.locale || locale || 'sv';
   const bookingRef = useRef(null);
+  const handleBookingConfirm = () => {
+    setTimeout(() => {
+      bookingRef.current?.scrollIntoView({ behavior:'smooth', block:'start' });
+    }, 80);
+  };
 
   const [articles, setArticles] = useState([]);
   const [heroImages, setHeroImages] = useState(FALLBACK_IMAGES);
@@ -220,7 +225,7 @@ export default function Home({ locale }) {
             <div className="mobile-calendar">
               <AvailabilityCalendar lang={lang} onSelectDates={handleSelectDates} />
             </div>
-            <BookingSidebar articles={articles} initialCheckIn={bookingDates.checkIn} initialCheckOut={bookingDates.checkOut} />
+            <BookingSidebar articles={articles} initialCheckIn={bookingDates.checkIn} initialCheckOut={bookingDates.checkOut} onConfirm={handleBookingConfirm} />
           </div>
         </div>
       </section>
