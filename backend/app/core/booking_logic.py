@@ -299,6 +299,7 @@ def create_booking_record(db: Session, data: dict, calc: dict) -> Booking:
         guest_email=data["guest_email"],
         guest_phone=data.get("guest_phone"),
         guest_country=data.get("guest_country", "SE"),
+        message=data.get("message"),
         lang=data.get("lang", "sv"),
         guests_count=data.get("guests_count", 2),
         date_from=data["date_from"],
