@@ -169,6 +169,7 @@ class Booking(Base):
     guest_email = Column(String(255), nullable=False)
     guest_phone = Column(String(50))
     guest_country = Column(String(10), default="SE")
+    message = Column(Text, nullable=True)  # kundens meddelande vid bokning
     lang = Column(String(5), default="sv")
 
     # Datum
