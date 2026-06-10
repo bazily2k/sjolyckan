@@ -218,17 +218,6 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
     return () => clearTimeout(timer);
   }, [checkIn, checkOut, guests, selectedArticles, articleQuantities]);
 
-  // Scrolla till toppen av sidebaren när bekräftelsen visas
-  useEffect(() => {
-    if (step === 'confirm' && sidebarRef.current) {
-      // Liten fördröjning så React hinner rendera bekräftelsen först
-      setTimeout(() => {
-        if (!sidebarRef.current) return;
-        const top = sidebarRef.current.getBoundingClientRect().top + window.scrollY - 20;
-        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-      }, 80);
-    }
-  }, [step]);
 
 
   useEffect(() => {
@@ -334,6 +323,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
       });
       setBooking(res.data);
       setStep('confirm');
+      onConfirm?.();
     } catch(e) {
       setErrors({ submit: e.response?.data?.detail || 'Ett fel uppstod. Försök igen.' });
     } finally {
