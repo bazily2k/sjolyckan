@@ -34,6 +34,11 @@
     <tr><td>Antal nätter</td><td>{{ booking.nights }}</td></tr>
   </table>
 
+  {% if booking.message %}
+  <p><strong>Meddelande från gästen:</strong><br>
+  <span style="white-space:pre-line">{{ booking.message }}</span></p>
+  {% endif %}
+
   <table>
     <tr><td>Boende</td><td>{{ "{:,.0f}".format(booking.base_amount) }} kr</td></tr>
     {% for art in snap.articles %}
