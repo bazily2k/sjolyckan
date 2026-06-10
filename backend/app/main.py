@@ -23,6 +23,7 @@ def _ensure_booking_constraints():
         with engine.begin() as conn:
             conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS btree_gist")
             conn.exec_driver_sql("ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_deposit boolean DEFAULT false")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS message text")
             conn.exec_driver_sql(
                 "DO $$ BEGIN "
                 "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'no_overlapping_bookings') THEN "
