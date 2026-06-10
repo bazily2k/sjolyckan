@@ -22,9 +22,12 @@ export default function Home({ locale }) {
   const lang = router.locale || locale || 'sv';
   const bookingRef = useRef(null);
   const handleBookingConfirm = () => {
+    // Vänta 200ms så React hinner rendera bekräftelsen innan vi scrollar
     setTimeout(() => {
-      bookingRef.current?.scrollIntoView({ behavior:'smooth', block:'start' });
-    }, 80);
+      if (!bookingRef.current) return;
+      const top = bookingRef.current.getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }, 200);
   };
 
   const [articles, setArticles] = useState([]);
