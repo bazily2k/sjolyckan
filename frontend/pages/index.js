@@ -223,12 +223,14 @@ export default function Home({ locale }) {
           </div>
 
           {/* Boknings-sidebar */}
-          <div ref={bookingRef} style={{ alignSelf:'start' }}>
+          <div style={{ alignSelf:'start' }}>
             {/* Kalender på mobil — visas ovanför bokningsrutan */}
             <div className="mobile-calendar">
               <AvailabilityCalendar lang={lang} onSelectDates={handleSelectDates} />
             </div>
-            <BookingSidebar articles={articles} initialCheckIn={bookingDates.checkIn} initialCheckOut={bookingDates.checkOut} onConfirm={handleBookingConfirm} />
+            <div ref={bookingRef}>
+              <BookingSidebar articles={articles} initialCheckIn={bookingDates.checkIn} initialCheckOut={bookingDates.checkOut} onConfirm={handleBookingConfirm} />
+            </div>
           </div>
         </div>
       </section>
