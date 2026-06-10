@@ -218,10 +218,15 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
     return () => clearTimeout(timer);
   }, [checkIn, checkOut, guests, selectedArticles, articleQuantities]);
 
-  // Scrolla till sidebaren när bekräftelsen visas
+  // Scrolla till toppen av sidebaren när bekräftelsen visas
   useEffect(() => {
     if (step === 'confirm' && sidebarRef.current) {
-      sidebarRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Liten fördröjning så React hinner rendera bekräftelsen först
+      setTimeout(() => {
+        if (!sidebarRef.current) return;
+        const top = sidebarRef.current.getBoundingClientRect().top + window.scrollY - 20;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      }, 80);
     }
   }, [step]);
 
