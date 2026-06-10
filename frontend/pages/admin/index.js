@@ -335,6 +335,7 @@ export default function AdminBookings() {
                   ['Gäst', selected.guest_name],
                   ['E-post', selected.user_email || selected.guest_email],
                   ['Telefon', selected.guest_phone || '–'],
+                  ['Meddelande', selected.message || '–'],
                   ['Land', selected.guest_country],
                   ['Ankomst', selected.date_from],
                   ['Avresa', selected.date_to],
