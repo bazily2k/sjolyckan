@@ -1,107 +1,136 @@
 import { useState, useEffect } from 'react';
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
-import axios from 'axios';
-
-const API = process.env.NEXT_PUBLIC_API_URL || '/api';
-const getHeaders = () => ({ Authorization: 'Bearer ' + localStorage.getItem('token') });
+import { adminApi } from '../../lib/api';
 
 export default function BlockedDatesPage() {
-  const [blocks, setBlocks] = useState([]);
-  const [form, setForm] = useState({ date_from: '', date_to: '', reason: '' });
-  const [msg, setMsg] = useState('');
+  const [blocks, setBlocks]   = useState([]);
+  const [form, setForm]       = useState({ date_from: '', date_to: '', reason: '' });
+  const [editing, setEditing] = useState(null); // id of block being edited
+  const [msg, setMsg]         = useState('');
 
-  const load = () => axios.get(`${API}/admin/blocked-dates`, { headers: getHeaders() })
-    .then(r => setBlocks(r.data)).catch(() => {});
-
+  const load = () => adminApi.getBlockedDates().then(r => setBlocks(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
 
   const save = async () => {
-    console.log('save called', form);
     if (!form.date_from || !form.date_to) { setMsg('Ange från- och till-datum'); return; }
-    if (form.date_to <= form.date_from) { setMsg('Till-datum måste vara efter från-datum'); return; }
+    if (form.date_to <= form.date_from)   { setMsg('Till-datum måste vara efter från-datum'); return; }
     try {
-      await axios.post(`${API}/admin/blocked-dates`, form, { headers: getHeaders() });
-      setMsg('Datum blockerat!');
+      if (editing) {
+        await adminApi.updateBlockedDate(editing, form);
+        setMsg('Uppdaterat!');
+      } else {
+        await adminApi.createBlockedDate(form);
+        setMsg('Sparat!');
+      }
       setForm({ date_from: '', date_to: '', reason: '' });
+      setEditing(null);
       load();
     } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
   };
 
-  const remove = async (id) => {
-    try {
-      await axios.delete(`${API}/admin/blocked-dates/${id}`, { headers: getHeaders() });
-      setBlocks(b => b.filter(x => x.id !== id));
-    } catch(e) { alert('Fel: ' + e.message); }
+  const startEdit = (b) => {
+    setEditing(b.id);
+    setForm({ date_from: b.date_from, date_to: b.date_to, reason: b.reason || '' });
+    setMsg('');
   };
 
+  const cancelEdit = () => {
+    setEditing(null);
+    setForm({ date_from: '', date_to: '', reason: '' });
+    setMsg('');
+  };
+
+  const del = async (id) => {
+    if (!confirm('Ta bort blockerat datum?')) return;
+    try { await adminApi.deleteBlockedDate(id); load(); }
+    catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+  };
+
+  const inp = { width:'100%', padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13, outline:'none', boxSizing:'border-box' };
+  const lbl = { display:'block', fontSize:11, fontWeight:500, color:'var(--ink-pale)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:4 };
+
   return (
-    <>
-      <Head><title>Blockerade datum — Admin Sjölyckan</title></Head>
-      <AdminLayout title="Blockerade datum">
-        {msg && <div style={msgBox}>{msg} <button onClick={() => setMsg('')} style={{ border:'none', background:'none', cursor:'pointer' }}>×</button></div>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, alignItems: 'start' }}>
-          {/* Lista */}
-          <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--sand-dark)', overflow: 'hidden' }}>
-            {blocks.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-pale)' }}>Inga blockerade datum</div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--sand)', borderBottom: '1px solid var(--sand-dark)' }}>
-                    {['Från', 'Till', 'Anledning', ''].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500, color: 'var(--ink-light)', fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
-                    ))}
+    <AdminLayout title="Blockerade datum">
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 340px', gap:24, alignItems:'start' }}>
+
+        {/* Lista */}
+        <div style={{ background:'white', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
+          <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--sand-dark)', fontSize:14, fontWeight:500 }}>
+            Blockerade perioder
+          </div>
+          {blocks.length === 0 ? (
+            <div style={{ padding:24, color:'var(--ink-pale)', fontSize:13 }}>Inga blockerade datum.</div>
+          ) : (
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr style={{ background:'var(--sand)', fontSize:11, textTransform:'uppercase', letterSpacing:'0.4px', color:'var(--ink-pale)' }}>
+                  <th style={{ padding:'8px 14px', textAlign:'left' }}>Från</th>
+                  <th style={{ padding:'8px 14px', textAlign:'left' }}>Till</th>
+                  <th style={{ padding:'8px 14px', textAlign:'left' }}>Anledning</th>
+                  <th style={{ padding:'8px 14px' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {blocks.map((b, i) => (
+                  <tr key={b.id} style={{ borderTop:'1px solid var(--sand)', background: editing===b.id ? 'var(--water-pale)' : i%2===0 ? 'white' : 'var(--sand)' }}>
+                    <td style={{ padding:'10px 14px', fontSize:13 }}>{b.date_from}</td>
+                    <td style={{ padding:'10px 14px', fontSize:13 }}>{b.date_to}</td>
+                    <td style={{ padding:'10px 14px', fontSize:13, color:'var(--ink-light)' }}>{b.reason || '–'}</td>
+                    <td style={{ padding:'10px 14px', textAlign:'right', whiteSpace:'nowrap' }}>
+                      <button onClick={() => startEdit(b)}
+                        style={{ padding:'4px 10px', background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12, marginRight:6 }}>
+                        ✏️ Redigera
+                      </button>
+                      <button onClick={() => del(b.id)}
+                        style={{ padding:'4px 10px', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}>
+                        🗑
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {blocks.map(b => (
-                    <tr key={b.id} style={{ borderBottom: '1px solid var(--sand)' }}>
-                      <td style={{ padding: '10px 14px' }}>{b.date_from}</td>
-                      <td style={{ padding: '10px 14px' }}>{b.date_to}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--ink-light)' }}>{b.reason || '–'}</td>
-                      <td style={{ padding: '10px 14px' }}>
-                        <button onClick={() => remove(b.id)} style={{ padding: '3px 10px', fontSize: 12, border: '1px solid #f5c6cb', borderRadius: 'var(--radius-md)', background: 'white', color: 'var(--red)', cursor: 'pointer' }}>
-                          Ta bort
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Formulär */}
+        <div style={{ background:'white', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-lg)', padding:20 }}>
+          <div style={{ fontSize:14, fontWeight:500, marginBottom:16 }}>
+            {editing ? '✏️ Redigera period' : '+ Lägg till period'}
+          </div>
+          {msg && <div style={{ padding:'8px 12px', background:'var(--water-pale)', border:'1px solid var(--water)', borderRadius:'var(--radius-md)', fontSize:13, marginBottom:12 }}>{msg}</div>}
+          <div style={{ marginBottom:12 }}>
+            <label style={lbl}>Från</label>
+            <input type="date" value={form.date_from} onChange={e => setForm(f => ({ ...f, date_from: e.target.value }))} style={inp} />
+          </div>
+          <div style={{ marginBottom:12 }}>
+            <label style={lbl}>Till</label>
+            <input type="date" value={form.date_to} onChange={e => setForm(f => ({ ...f, date_to: e.target.value }))} style={inp} />
+          </div>
+          <div style={{ marginBottom:16 }}>
+            <label style={lbl}>Anledning (valfri)</label>
+            <input value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+              placeholder="t.ex. Underhåll, Privat vistelse" style={inp} />
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={save}
+              style={{ flex:1, padding:'9px 0', background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontWeight:500, fontSize:13 }}>
+              {editing ? 'Spara ändringar' : 'Lägg till'}
+            </button>
+            {editing && (
+              <button onClick={cancelEdit}
+                style={{ padding:'9px 14px', background:'var(--sand)', color:'var(--ink)', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>
+                Avbryt
+              </button>
             )}
           </div>
-
-          {/* Lägg till */}
-          <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--sand-dark)', padding: 20 }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, marginBottom: 16 }}>Blockera datum</h3>
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbl}>Från datum</label>
-              <input type="date" value={form.date_from} onChange={e => setForm(f => ({ ...f, date_from: e.target.value }))} style={inp} />
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbl}>Till datum (ej inkluderat)</label>
-              <input type="date" value={form.date_to} onChange={e => setForm(f => ({ ...f, date_to: e.target.value }))} style={inp} />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={lbl}>Anledning (valfritt)</label>
-              <input value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} placeholder="t.ex. Underhåll, Privat vistelse" style={inp} />
-            </div>
-            <button onClick={save} style={{ width: '100%', padding: 10, background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 500 }}>
-              Blockera datum
-            </button>
-          </div>
         </div>
-      </AdminLayout>
-    </>
+      </div>
+    </AdminLayout>
   );
 }
 
-const lbl = { fontSize: 11, fontWeight: 500, color: 'var(--ink-pale)', textTransform: 'uppercase', letterSpacing: '0.3px', display: 'block', marginBottom: 3 };
-const inp = { width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, outline: 'none' };
-const msgBox = { background: 'var(--water-pale)', border: '1px solid var(--water)', borderRadius: 'var(--radius-md)', padding: '10px 16px', marginBottom: 16, fontSize: 13, display: 'flex', justifyContent: 'space-between' };
-
-export async function getServerSideProps({ locale }) {
-  return { props: { ...(await serverSideTranslations(locale || 'sv', ['common'])) } };
+export async function getStaticProps({ locale }) {
+  const { serverSideTranslations } = await import('next-i18next/serverSideTranslations');
+  return { props: { ...(await serverSideTranslations(locale, ['common'])) } };
 }
