@@ -240,7 +240,8 @@ export default function AdminCMS() {
             {content.filter(block => !['checkin_rule','checkout_rule','max_guests_rule','linen_rule','pets_rule','cleaning_rule'].includes(block.key)).map(block => (
               <CollapsibleSection key={block.key}
                 title={CONTENT_LABELS[block.key] || block.key}
-                defaultOpen={!LONG_BLOCKS.includes(block.key)}
+                defaultOpen={false}
+                storageKey={`content-${block.key}`}
                 style={{ marginBottom:12 }}>
                 {['sv','en','de'].map(lang => (
                   <div key={lang} style={{ marginBottom:8 }}>
