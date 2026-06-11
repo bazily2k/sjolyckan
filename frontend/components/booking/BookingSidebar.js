@@ -480,6 +480,17 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
               <span style={{ whiteSpace:'nowrap', marginLeft:8, flexShrink:0 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
             </div>
           ))}
+          {price.articles?.filter(a => a.is_pet_fee).map(a => (
+            <div key={a.article_id} style={{ ...priceRow, alignItems:'flex-start' }}>
+              <span style={{ flex:1, minWidth:0 }}>
+                🐾 {(lang==='de'?a.name_de:lang==='en'?a.name_en:a.name_sv)}
+                <span style={{ display:'block', color:'var(--ink-pale)', fontSize:11, marginTop:2 }}>
+                  {a.quantity} {lang==='de'?'Tier(e)':lang==='en'?'pet(s)':'husdjur'} × {Number(a.line_total/a.quantity).toLocaleString('sv-SE')} kr
+                </span>
+              </span>
+              <span style={{ whiteSpace:'nowrap', marginLeft:8, flexShrink:0 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+            </div>
+          ))}
           <div style={{ ...priceRow, fontWeight:600, borderTop:'1px solid var(--sand-dark)', paddingTop:6, marginTop:4 }}>
             <span>{t('booking.total')}</span><span>{price.total_amount?.toLocaleString('sv-SE')} kr</span>
           </div>
