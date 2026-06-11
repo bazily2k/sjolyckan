@@ -38,7 +38,7 @@ export default function AdminUsers() {
 
   const startEdit = (u) => {
     setEditingUser(u.id);
-    setEditForm({ email: u.email, first_name: u.first_name||'', last_name: u.last_name||'', phone: u.phone||'', country: u.country||'SE', address_line1: u.address_line1||'', postal_code: u.postal_code||'', city: u.city||'' });
+    setEditForm({ email: u.email, first_name: u.first_name||'', last_name: u.last_name||'', phone: u.phone||'', country: u.country||'SE', address_line1: u.address_line1||'', postal_code: u.postal_code||'', city: u.city||'', admin_notes: u.admin_notes||'' });
     setNewPassword(''); setPwMsg('');
   };
   const saveEdit = async () => {
@@ -211,6 +211,12 @@ export default function AdminUsers() {
                       style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13, boxSizing:'border-box' }} />
                   </div>
                 ))}
+                <div style={{ marginBottom:10 }}>
+                  <label style={{ fontSize:11, color:'var(--ink-pale)', display:'block', marginBottom:2 }}>📝 Admin-anteckningar (visas aldrig för kunden)</label>
+                  <textarea value={editForm.admin_notes||''} onChange={e => setEditForm(ef => ({...ef, admin_notes: e.target.value}))}
+                    rows={4} placeholder="T.ex. återkommande gäst, särskilda önskemål, betalningshistorik..."
+                    style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13, boxSizing:'border-box', resize:'vertical', fontFamily:'inherit', background:'#fffbf0' }} />
+                </div>
                 <div style={{ display:'flex', gap:8, marginTop:16 }}>
                   <button onClick={saveEdit} style={{ flex:1, padding:10, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Spara ändringar</button>
                   <button onClick={() => { setEditingUser(null); setEditMsg(''); }} style={{ flex:1, padding:10, background:'var(--sand)', color:'var(--ink)', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13 }}>Avbryt</button>
