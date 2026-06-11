@@ -338,6 +338,21 @@ def create_blocked_date(
     db.refresh(b)
     return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
 
+@router.put("/blocked-dates/{block_id}")
+def update_blocked_date(
+    block_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate
+    b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
+    if not b: raise HTTPException(status_code=404, detail="Hittades inte")
+    for field in ("date_from", "date_to", "reason"):
+        if field in data: setattr(b, field, data[field] or None)
+    db.commit(); db.refresh(b)
+    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
+
 @router.delete("/blocked-dates/{block_id}")
 def delete_blocked_date(
     block_id: int,
