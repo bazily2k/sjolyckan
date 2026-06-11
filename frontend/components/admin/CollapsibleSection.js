@@ -1,9 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function CollapsibleSection({
-  title, defaultOpen = true, children, badge, style, noPad = false,
+  title, defaultOpen = true, children, badge, style, noPad = false, storageKey,
 }) {
+  // Nyckel för att minnas öppet/stängt-läge mellan sessioner (per webbläsare)
+  const key = 'collapse:' + (storageKey || title);
   const [open, setOpen] = useState(defaultOpen);
+
+  // Läs sparat läge efter mount (SSR-säkert)
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(key);
+      if (saved === 'open') setOpen(true);
+      else if (saved === 'closed') setOpen(false);
+    } catch (e) { /* localStorage blockerad — ignorera */ }
+  }, [key]);
+
+  const toggle = () => {
+    setOpen(prev => {
+      const next = !prev;
+      try { window.localStorage.setItem(key, next ? 'open' : 'closed'); } catch (e) {}
+      return next;
+    });
+  };
 
   return (
     <div style={{
@@ -18,8 +37,8 @@ export default function CollapsibleSection({
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setOpen(prev => !prev)}
-        onKeyDown={e => e.key === 'Enter' && setOpen(prev => !prev)}
+        onClick={toggle}
+        onKeyDown={e => e.key === 'Enter' && toggle()}
         style={{
           display: 'flex',
           alignItems: 'center',
