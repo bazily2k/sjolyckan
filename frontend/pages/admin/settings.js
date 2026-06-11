@@ -80,7 +80,7 @@ export default function AdminSettings() {
           {SETTING_GROUPS.map(group => {
             const groupSettings = SETTINGS.filter(s => group.keys.includes(s.key));
             return (
-              <CollapsibleSection key={group.title} title={group.title} noPad>
+              <CollapsibleSection key={group.title} title={group.title} noPad defaultOpen={false} storageKey={`settings-${group.title}`}>
                 {groupSettings.map((s, i) => (
                   <div key={s.key} style={{ padding: '14px 16px', borderBottom: i < groupSettings.length - 1 ? '1px solid var(--sand)' : 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ flex: 1 }}>
