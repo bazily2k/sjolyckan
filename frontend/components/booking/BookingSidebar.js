@@ -218,6 +218,20 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
     return () => clearTimeout(timer);
   }, [checkIn, checkOut, guests, selectedArticles, articleQuantities]);
 
+  // Auto-koppla pet_fee-tillägget när antal husdjur ändras
+  useEffect(() => {
+    const petArticle = articles.find(a => a.is_pet_fee);
+    if (!petArticle) return;
+    const totalPets = dogs + cats;
+    if (totalPets > 0) {
+      setSelectedArticles(prev => prev.includes(petArticle.id) ? prev : [...prev, petArticle.id]);
+      setArticleQuantities(prev => ({ ...prev, [petArticle.id]: totalPets }));
+    } else {
+      setSelectedArticles(prev => prev.filter(id => id !== petArticle.id));
+      setArticleQuantities(prev => { const n = {...prev}; delete n[petArticle.id]; return n; });
+    }
+  }, [dogs, cats, articles]);
+
 
 
   useEffect(() => {
@@ -391,7 +405,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           <div style={{ fontSize:12, fontWeight:500, color:'var(--ink-pale)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:6 }}>
             {t('booking.addons')}
           </div>
-          {articles.map(a => (
+          {articles.filter(a => !a.is_pet_fee).map(a => (
             <div key={a.id} style={{ marginBottom:4 }}>
               <div onClick={() => a.bookable && toggleArticle(a.id, a.price_type)} style={{
                 display:'flex', justifyContent:'space-between', alignItems:'center',
@@ -539,6 +553,11 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
               </div>
             </div>
             <p style={{ fontSize:11, color:'var(--ink-pale)', margin:0 }}>{L.pets_note}</p>
+            {(() => { const pa = articles.find(a => a.is_pet_fee); const tp = dogs+cats; return pa && tp > 0 ? (
+              <p style={{ fontSize:12, color:'var(--water)', margin:'6px 0 0', fontWeight:500 }}>
+                {lang==='de'?'Tiergebühr':lang==='en'?'Pet fee':'Husdjursavgift'}: {(pa.price*tp).toLocaleString('sv-SE')} kr ({tp} {tp===1?(lang==='de'?'Tier':lang==='en'?'pet':'husdjur'):(lang==='de'?'Tiere':lang==='en'?'pets':'husdjur')})
+              </p>
+            ) : null; })()} 
           </div>
 
           {/* Kontaktuppgifter */}
