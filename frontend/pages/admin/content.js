@@ -31,12 +31,6 @@ const CONTENT_LABELS = {
   amenities_title: 'Bekvämligheter-rubrik',
   sleep_title: 'Var du sover-rubrik',
   rules_title: 'Husregler-rubrik',
-  checkin_rule: 'Husregel: Incheckning',
-  checkout_rule: 'Husregel: Utcheckning',
-  max_guests_rule: 'Husregel: Max gäster',
-  linen_rule: 'Husregel: Sängkläder',
-  pets_rule: 'Husregel: Husdjur',
-  cleaning_rule: 'Husregel: Städning',
   house_rules_text: 'Husregler (visas i bokningsformulär, stöder variabel: {{ max_guests }})',
   terms_text: 'Bokningsvillkor (stöder variabler: {{ snap.deposit_pct|int }}, {{ snap.deposit_days }}, {{ snap.payment_days_before }})',
   gdpr_text: 'GDPR / Personuppgiftshantering (stöder variabler: {{ admin_email }}, {{ snap.deposit_pct|int }}, {{ snap.cancellation_deposit_days }}, {{ snap.cancellation_full_days }})',
@@ -243,7 +237,7 @@ export default function AdminCMS() {
         {/* ── TEXTER ── */}
         {tab === 'content' && (
           <div style={{ maxWidth:800 }}>
-            {content.map(block => (
+            {content.filter(block => !['checkin_rule','checkout_rule','max_guests_rule','linen_rule','pets_rule','cleaning_rule'].includes(block.key)).map(block => (
               <CollapsibleSection key={block.key}
                 title={CONTENT_LABELS[block.key] || block.key}
                 defaultOpen={!LONG_BLOCKS.includes(block.key)}
