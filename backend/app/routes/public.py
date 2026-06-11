@@ -29,6 +29,7 @@ def public_articles(lang: str = "sv", db: Session = Depends(get_db)):
             "price_type": a.price_type,
             "icon": a.icon,
             "bookable": a.bookable,
+            "is_pet_fee": a.is_pet_fee,
         })
     return result
 
