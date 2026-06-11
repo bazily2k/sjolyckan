@@ -571,18 +571,13 @@ async def mailersend_webhook(request: Request, db: Session = Depends(get_db)):
         log.status = "bounced"
         log.error = f"{event_type} ({recipient_email})"
 
-    # Lägg till ett nytt failed-logginlägg om inget hittas
+    # Ingen befintlig logg — bara logga till server (booking_id NOT NULL, kan ej skapa fri post)
     if not updated:
-        db.add(EmailLog(
-            booking_id=None,
-            email_type="bounce",
-            recipient=recipient_email,
-            status="bounced",
-            error=event_type,
-        ))
+        import logging as _log
+        _log.getLogger(__name__).warning(f"MailerSend bounce för okänd adress: {recipient_email} ({event_type})")
 
     db.commit()
-    return {"ok": True, "event": event_type, "recipient": recipient_email}
+    return {"ok": True, "event": event_type, "recipient": recipient_email, "updated": len(updated)}
 
 @router.post("/brevo-webhook")
 async def brevo_webhook(request: Request, db: Session = Depends(get_db)):
@@ -627,13 +622,8 @@ async def brevo_webhook(request: Request, db: Session = Depends(get_db)):
             log.error = f"brevo:{event_type}"
 
         if not logs:
-            db.add(EmailLog(
-                booking_id=None,
-                email_type="bounce",
-                recipient=recipient_email,
-                status="bounced",
-                error=f"brevo:{event_type}",
-            ))
+            import logging as _log
+            _log.getLogger(__name__).warning(f"Brevo bounce för okänd adress: {recipient_email} ({event_type})")
         processed += 1
 
     db.commit()
