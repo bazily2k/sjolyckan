@@ -41,7 +41,9 @@ export default function EmailLogsPage() {
       } else {
         alert('Mail skickat om till ' + (res.data?.recipient || log.recipient));
       }
-      load();
+      // Ladda om loggar efter omsändning
+      axios.get(`${API}/admin/email-logs`, { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })
+        .then(r => setLogs(r.data)).catch(() => {});
     } catch(e) {
       alert('Fel: ' + (e.response?.data?.detail || e.message));
     } finally {
