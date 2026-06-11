@@ -143,7 +143,7 @@ def calculate_booking_price(
         if not art:
             continue
         qty = 1
-        if art.price_type == "per_occasion" and article_quantities:
+        if art.price_type in ("per_occasion", "per_pet") and article_quantities:
             qty = int(article_quantities.get(str(aid), article_quantities.get(aid, 1)))
             qty = max(1, qty)
         if art.price_type == "per_night":
@@ -151,6 +151,8 @@ def calculate_booking_price(
         elif art.price_type == "per_guest":
             line_total = art.price * guests_count
         elif art.price_type == "per_occasion":
+            line_total = art.price * qty
+        elif art.price_type == "per_pet":
             line_total = art.price * qty
         else:  # fixed
             line_total = art.price
