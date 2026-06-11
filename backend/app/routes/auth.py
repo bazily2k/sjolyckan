@@ -160,6 +160,7 @@ def list_users(
                 "postal_code": u.postal_code or "",
                 "city": u.city or "",
                 "country": u.country or "SE",
+                "admin_notes": u.admin_notes or "",
                 "lang": u.lang or "sv",
             }
             for u in users
@@ -391,7 +392,7 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db), a
         raise HTTPException(status_code=404, detail="Användare hittades inte")
     if user.role == UserRole.admin and actor.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="Endast admin kan ändra admin-konton")
-    for field in ["first_name", "last_name", "phone", "country", "address_line1", "address_line2", "postal_code", "city"]:
+    for field in ["first_name", "last_name", "phone", "country", "address_line1", "address_line2", "postal_code", "city", "admin_notes"]:
         if field in data:
             setattr(user, field, data[field])
     if "email" in data and data["email"] != user.email:
