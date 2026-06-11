@@ -177,6 +177,7 @@ class ArticleSchema(BaseModel):
     visible: bool = True
     bookable: bool = True
     is_deposit: bool = False
+    is_pet_fee: bool = False
     sort_order: int = 0
     active: bool = True
 
