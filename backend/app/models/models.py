@@ -148,6 +148,7 @@ class Article(Base):
     visible = Column(Boolean, default=True)
     bookable = Column(Boolean, default=True)
     is_deposit = Column(Boolean, default=False)   # återbetalningsbar deposition (utanför handpenning)
+    is_pet_fee = Column(Boolean, default=False)   # husdjursavgift, multipliceras med antal husdjur
     sort_order = Column(Integer, default=0)
     active = Column(Boolean, default=True)
 
