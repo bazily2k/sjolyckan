@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { adminApi } from '../../lib/api';
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 
 export default function BlockedDatesPage() {
   const [blocks, setBlocks]   = useState([]);
@@ -130,7 +131,6 @@ export default function BlockedDatesPage() {
   );
 }
 
-export async function getStaticProps({ locale }) {
-  const { serverSideTranslations } = await import('next-i18next/serverSideTranslations');
-  return { props: { ...(await serverSideTranslations(locale, ['common'])) } };
+export async function getServerSideProps({ locale }) {
+  return { props: { ...(await serverSideTranslations(locale || 'sv', ['common'])) } };
 }
