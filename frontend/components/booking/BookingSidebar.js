@@ -11,7 +11,15 @@ const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 const validators = {
   guest_name: (v) => v.trim().length < 2 ? 'Minst 2 tecken' : '',
   guest_email: (v) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? 'Ogiltig e-postadress' : '',
-  guest_phone: (v) => v && v.replace(/\D/g,'').length < 6 ? 'Ogiltigt telefonnummer' : '',
+  guest_phone: (v, _country, lang) => {
+    if (!v) return '';
+    const msg = {
+      sv: 'Ange med landskod, t.ex. +46701234567',
+      en: 'Include country code, e.g. +46701234567',
+      de: 'Mit Landesvorwahl angeben, z.B. +46701234567',
+    }[lang || 'sv'];
+    return /^\+[1-9]\d{6,14}$/.test(v.trim()) ? '' : msg;
+  },
   address_line1: (v) => v.trim().length < 3 ? 'Ange gatuadress' : '',
   postal_code: (v, country) => {
     const digits = v.replace(/\D/g,'');
@@ -275,7 +283,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   const setChildAge = (i, age) => setChildren(c => c.map((a,idx) => idx===i ? age : a));
 
   const validateField = (field, value) => {
-    if (validators[field]) return validators[field](value, form.guest_country);
+    if (validators[field]) return validators[field](value, form.guest_country, lang);
     return '';
   };
 
@@ -593,7 +601,11 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           </Field>
 
           <Field label={L.phone} error={touched.guest_phone&&errors.guest_phone}>
-            <input type="tel" value={form.guest_phone} onChange={e => handleChange('guest_phone',e.target.value)} onBlur={() => handleBlur('guest_phone')} style={inp} />
+            <input type="tel" value={form.guest_phone} onChange={e => handleChange('guest_phone',e.target.value)} onBlur={() => handleBlur('guest_phone')}
+              placeholder="+46701234567" style={inp} />
+            <span style={{ display:'block', fontSize:11, color:'var(--ink-pale)', marginTop:4 }}>
+              {{sv:'Inkl. landskod, t.ex. +46701234567', en:'Incl. country code, e.g. +46701234567', de:'Inkl. Landesvorwahl, z.B. +46701234567'}[lang]}
+            </span>
           </Field>
 
           <Field label={L.country} required>
