@@ -139,7 +139,7 @@ export default function AdminUsers() {
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
                 <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
-                  {['Namn','E-post','Roll','Rabatt %','Senast inloggad','Status',''].map((h,i) => (
+                  {['Namn','E-post','Roll','Rabatt %','Konto','Senast inloggad','Status',''].map((h,i) => (
                     <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase' }}>{h}</th>
                   ))}
                 </tr>
@@ -172,6 +172,13 @@ export default function AdminUsers() {
                         />
                         <span style={{ fontSize:11, color:'var(--ink-pale)' }}>%</span>
                       </div>
+                    </td>
+                    <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
+                      {u.account_registered ? (
+                        <span style={{ fontSize:11, color:'var(--forest)' }} title="Kunden har själv satt ett lösenord">✓ Registrerat</span>
+                      ) : (
+                        <span style={{ fontSize:11, color:'var(--ink-pale)' }} title="Auto-skapat konto — kunden har inte satt eget lösenord">– Ej registrerat</span>
+                      )}
                     </td>
                     <td style={{ padding:'10px 14px', color:'var(--ink-pale)', fontSize:12, display: isMobile ? 'none' : '' }}>
                       {u.last_login ? new Date(u.last_login).toLocaleDateString('sv-SE') : '–'}
