@@ -58,6 +58,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
         country=req.country,
         lang=req.lang,
         role=UserRole.guest,
+        password_set_by_user=True,
     )
     db.add(user)
     db.commit()
@@ -126,6 +127,7 @@ def create_staff(
         first_name=req.first_name,
         last_name=req.last_name,
         role=req.role,
+        password_set_by_user=True,
     )
     db.add(user)
     db.commit()
@@ -155,6 +157,7 @@ def list_users(
                 "last_login": str(u.last_login) if u.last_login else None,
                 "discount_pct": float(u.discount_pct) if u.discount_pct else 0,
                 "phone": u.phone or "",
+                "account_registered": bool(u.password_set_by_user),
                 "address_line1": u.address_line1 or "",
                 "address_line2": u.address_line2 or "",
                 "postal_code": u.postal_code or "",
@@ -198,26 +201,6 @@ def update_profile(
     return {"ok": True}
 
 
-# ─── Byt lösenord ────────────────────────────────────────
-@router.post("/change-password")
-def change_password(
-    data: dict,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    import bcrypt as _bcrypt
-    current = data.get("current_password", "")
-    new_pass = data.get("new_password", "")
-    if not _bcrypt.checkpw(current.encode(), user.password_hash.encode()):
-        raise HTTPException(status_code=400, detail="Fel nuvarande lösenord")
-    strength = validate_password_strength(new_pass)
-    if not strength["ok"]:
-        raise HTTPException(status_code=400, detail=strength["message"])
-    user.password_hash = hash_password(new_pass)
-    db.commit()
-    return {"ok": True}
-
-
 # ─── Uppdatera profil ────────────────────────────────────
 @router.put("/me")
 def update_profile(
@@ -261,6 +244,7 @@ def change_password(
     if not strength["ok"]:
         raise HTTPException(status_code=400, detail=strength["message"])
     user.password_hash = hash_password(new_pass)
+    user.password_set_by_user = True
     db.commit()
     return {"ok": True}
 
@@ -378,6 +362,7 @@ def reset_password(data: dict, db: Session = Depends(get_db)):
     if user.reset_token_expires < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Länken har gått ut")
     user.password_hash = hash_password(new_password)
+    user.password_set_by_user = True
     user.reset_token = None
     user.reset_token_expires = None
     db.commit()
