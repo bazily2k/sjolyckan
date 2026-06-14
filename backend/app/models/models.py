@@ -67,6 +67,7 @@ class User(Base):
     reset_token_expires = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
     admin_notes = Column(Text, nullable=True)  # interna admin-anteckningar, visas aldrig för kunden
+    password_set_by_user = Column(Boolean, default=False)  # True när kunden själv valt/satt sitt lösenord
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True))
 
