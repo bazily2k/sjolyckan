@@ -110,7 +110,7 @@ export default function AdminUsers() {
       <Head><title>Användare — Admin Sjölyckan</title></Head>
       <AdminLayout title="Användare">
         {msg && <div style={msgBox}>{msg} <button onClick={() => setMsg('')} style={{ border:'none', background:'none', cursor:'pointer' }}>×</button></div>}
-        <div style={{ display:'grid', gridTemplateColumns:isAdmin && !isMobile?'1fr 340px':'1fr', gap:24, alignItems:'start' }}>
+        <div style={{ display:'grid', gridTemplateColumns:isAdmin && !isMobile?'1fr 280px':'1fr', gap:20, alignItems:'start' }}>
           {/* Lista */}
           <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden', overflowX:'auto', order: isMobile ? 2 : 1 }}>
             {isMobile ? (
