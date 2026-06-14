@@ -26,6 +26,13 @@ def _ensure_booking_constraints():
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS message text")
             conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_notes text")
             conn.exec_driver_sql("ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_pet_fee boolean DEFAULT false")
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_set_by_user boolean DEFAULT false")
+            # Backfill: konton utan giltig reset_token har redan satt lösenord (gamla konton innan denna kolumn fanns)
+            conn.exec_driver_sql("""
+                UPDATE users SET password_set_by_user = true
+                WHERE password_set_by_user = false
+                  AND (reset_token IS NULL OR reset_token_expires IS NULL OR reset_token_expires < now())
+            """)
             conn.exec_driver_sql(
                 "DO $$ BEGIN "
                 "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'no_overlapping_bookings') THEN "
