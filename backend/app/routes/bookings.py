@@ -365,6 +365,7 @@ async def create_booking_request(
                 city=city,
                 role=UserRole.guest,
                 is_active=True,
+                password_set_by_user=False,
             )
             db.add(user)
             db.flush()  # ger user.id
