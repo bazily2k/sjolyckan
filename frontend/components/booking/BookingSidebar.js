@@ -34,15 +34,15 @@ const validators = {
 };
 
 const COUNTRIES = [
-  { code:'SE', label:'Sverige', postalLabel:'Postnummer', postalPlaceholder:'123 45', cityLabel:'Ort' },
-  { code:'DE', label:'Deutschland', postalLabel:'Postleitzahl', postalPlaceholder:'12345', cityLabel:'Stadt' },
-  { code:'NO', label:'Norge', postalLabel:'Postnummer', postalPlaceholder:'1234', cityLabel:'Sted' },
-  { code:'DK', label:'Danmark', postalLabel:'Postnummer', postalPlaceholder:'1234', cityLabel:'By' },
-  { code:'FI', label:'Finland', postalLabel:'Postinumero', postalPlaceholder:'12345', cityLabel:'Kaupunki' },
-  { code:'GB', label:'United Kingdom', postalLabel:'Postcode', postalPlaceholder:'SW1A 1AA', cityLabel:'City' },
-  { code:'NL', label:'Nederland', postalLabel:'Postcode', postalPlaceholder:'1234 AB', cityLabel:'Stad' },
-  { code:'FR', label:'France', postalLabel:'Code postal', postalPlaceholder:'75001', cityLabel:'Ville' },
-  { code:'OTHER', label:'Annat land', postalLabel:'Postnummer', postalPlaceholder:'', cityLabel:'Ort' },
+  { code:'SE', labels:{sv:'Sverige', en:'Sweden', de:'Schweden'}, postalLabel:'Postnummer', postalPlaceholder:'123 45', cityLabel:'Ort' },
+  { code:'DE', labels:{sv:'Tyskland', en:'Germany', de:'Deutschland'}, postalLabel:'Postleitzahl', postalPlaceholder:'12345', cityLabel:'Stadt' },
+  { code:'NO', labels:{sv:'Norge', en:'Norway', de:'Norwegen'}, postalLabel:'Postnummer', postalPlaceholder:'1234', cityLabel:'Sted' },
+  { code:'DK', labels:{sv:'Danmark', en:'Denmark', de:'Dänemark'}, postalLabel:'Postnummer', postalPlaceholder:'1234', cityLabel:'By' },
+  { code:'FI', labels:{sv:'Finland', en:'Finland', de:'Finnland'}, postalLabel:'Postinumero', postalPlaceholder:'12345', cityLabel:'Kaupunki' },
+  { code:'GB', labels:{sv:'Storbritannien', en:'United Kingdom', de:'Vereinigtes Königreich'}, postalLabel:'Postcode', postalPlaceholder:'SW1A 1AA', cityLabel:'City' },
+  { code:'NL', labels:{sv:'Nederländerna', en:'Netherlands', de:'Niederlande'}, postalLabel:'Postcode', postalPlaceholder:'1234 AB', cityLabel:'Stad' },
+  { code:'FR', labels:{sv:'Frankrike', en:'France', de:'Frankreich'}, postalLabel:'Code postal', postalPlaceholder:'75001', cityLabel:'Ville' },
+  { code:'OTHER', labels:{sv:'Annat land', en:'Other country', de:'Anderes Land'}, postalLabel:'Postnummer', postalPlaceholder:'', cityLabel:'Ort' },
 ];
 
 const LABELS = {
@@ -610,7 +610,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
 
           <Field label={L.country} required>
             <select value={form.guest_country} onChange={e => { handleChange('guest_country',e.target.value); setErrors(er=>({...er,postal_code:''})); }} style={inp}>
-              {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+              {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.labels[lang] || c.labels.en}</option>)}
             </select>
           </Field>
 
