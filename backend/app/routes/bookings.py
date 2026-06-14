@@ -1,7 +1,8 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
 from datetime import date
 from decimal import Decimal
@@ -27,6 +28,12 @@ class BookingRequest(BaseModel):
     guest_name: str
     guest_email: EmailStr
     guest_phone: Optional[str] = None
+
+    @validator('guest_phone')
+    def validate_phone_format(cls, v):
+        if v and not re.match(r'^\+[1-9]\d{6,14}$', v.strip()):
+            raise ValueError('Telefonnummer måste anges med landskod, t.ex. +46701234567')
+        return v
     guest_country: str = "SE"
     guest_address: Optional[str] = None
     lang: str = "sv"
