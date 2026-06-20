@@ -286,7 +286,7 @@ export default function AdminBookings() {
                 const sc = STATUS_COLORS[b.status] || {};
                 return (
                   <tr key={b.id} style={{ borderBottom: '1px solid var(--sand)', cursor: 'pointer' }}
-                    onClick={() => adminApi.getBooking(b.id).then(r => setSelected(r.data))}>
+                    onClick={() => { adminApi.getBooking(b.id).then(r => { setSelected(r.data); setBookingAddons([]); setAddonNote(''); adminApi.getBookingAddons(r.data.id).then(ar => setBookingAddons(ar.data)).catch(()=>{}); }); }}>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--water)' }}>{b.booking_ref}</td>
                     <td style={{ padding: '10px 14px' }}>{b.guest_name}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--ink-light)' }}>{b.date_from} – {b.date_to}</td>
