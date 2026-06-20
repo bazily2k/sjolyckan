@@ -938,7 +938,7 @@ async def create_addon_request(
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
     if booking.status not in (
-        BookingStatus.confirmed, BookingStatus.deposit_paid, BookingStatus.fully_paid
+        BookingStatus.confirmed, BookingStatus.deposit_paid, BookingStatus.paid
     ):
         raise HTTPException(status_code=400, detail="Tillägg kan bara läggas till på bekräftade bokningar")
     if not req.article_ids:
