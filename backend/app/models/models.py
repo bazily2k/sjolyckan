@@ -234,6 +234,7 @@ class Booking(Base):
 
     # Relationer
     user = relationship("User", back_populates="bookings")
+    addons = relationship("BookingAddon", back_populates="booking")
     articles = relationship("BookingArticle", back_populates="booking")
     payments = relationship("Payment", back_populates="booking")
     email_logs = relationship("EmailLog", back_populates="booking")
@@ -314,3 +315,19 @@ class BlockedDate(Base):
     date_to = Column(Date, nullable=False)
     reason = Column(String(500))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class BookingAddon(Base):
+    """Tilläggsbegäran kopplad till en bekräftad bokning."""
+    __tablename__ = "booking_addons"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    booking_id   = Column(Integer, ForeignKey("bookings.id"), nullable=False)
+    booking_ref  = Column(String(20), nullable=False, index=True)
+    status       = Column(String(20), default="pending")   # pending | confirmed | rejected
+    articles     = Column(JSON, nullable=False, default=list)  # snapshot
+    total_amount = Column(Numeric(10, 2), default=0)
+    message      = Column(Text, nullable=True)
+    admin_note   = Column(Text, nullable=True)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+
+    booking = relationship("Booking", back_populates="addons")
