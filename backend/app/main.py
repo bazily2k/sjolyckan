@@ -26,6 +26,21 @@ def _ensure_booking_constraints():
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS message text")
             conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_notes text")
             conn.exec_driver_sql("ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_pet_fee boolean DEFAULT false")
+            # Booking addons
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS booking_addons (
+                    id SERIAL PRIMARY KEY,
+                    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+                    booking_ref VARCHAR(20) NOT NULL,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    articles JSONB DEFAULT '[]'::jsonb,
+                    total_amount NUMERIC(10,2) DEFAULT 0,
+                    message TEXT,
+                    admin_note TEXT,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                )
+            """)
+            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_booking_addons_booking_ref ON booking_addons(booking_ref)")
             conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_set_by_user boolean DEFAULT false")
             # Backfill: konton utan giltig reset_token har redan satt lösenord (gamla konton innan denna kolumn fanns)
             conn.exec_driver_sql("""
