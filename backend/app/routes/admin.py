@@ -643,3 +643,121 @@ async def brevo_webhook(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
     return {"ok": True, "processed": processed}
+
+# ─── Tilläggsbegäran (admin) ──────────────────────────────────────────────────
+@router.get("/addon-requests")
+def list_addon_requests(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import BookingAddon
+    addons = db.query(BookingAddon).order_by(BookingAddon.created_at.desc()).all()
+    result = []
+    for a in addons:
+        b = a.booking
+        result.append({
+            "id": a.id, "booking_ref": a.booking_ref, "status": a.status,
+            "articles": a.articles, "total_amount": float(a.total_amount),
+            "message": a.message, "admin_note": a.admin_note,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+            "guest_name": b.guest_name if b else "", "guest_email": b.guest_email if b else "",
+            "lang": b.lang if b else "sv",
+        })
+    return result
+
+
+@router.post("/addon-requests/{addon_id}/confirm")
+async def confirm_addon(addon_id: int, data: dict = {}, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Godkänn tilläggsbegäran — lägg till artiklar på bokningen och skicka betalningslänk."""
+    from app.models.models import BookingAddon, BookingArticle
+    from app.email.service import send_email
+    from decimal import Decimal
+    from datetime import datetime
+
+    addon = db.query(BookingAddon).filter(BookingAddon.id == addon_id).first()
+    if not addon: raise HTTPException(status_code=404, detail="Hittades inte")
+    if addon.status != "pending": raise HTTPException(status_code=400, detail="Redan hanterad")
+
+    booking = addon.booking
+    addon.admin_note = data.get("admin_note", "")
+    addon.status = "confirmed"
+
+    # Lägg till artiklar på bokningen
+    for art in addon.articles:
+        ba = BookingArticle(
+            booking_id=booking.id,
+            article_id=art["article_id"],
+            quantity=art["quantity"],
+            unit_price=Decimal(str(art["price"])),
+            line_total=Decimal(str(art["line_total"])),
+            name_sv=art["name_sv"], name_en=art.get("name_en",""), name_de=art.get("name_de",""),
+            price_type=art.get("price_type","fixed"),
+        )
+        db.add(ba)
+
+    # Uppdatera bokningens totalbelopp
+    booking.total_amount = (booking.total_amount or Decimal("0")) + Decimal(str(addon.total_amount))
+    db.commit()
+
+    # Skicka bekräftelsemail till gäst med betalningslänk
+    lang = booking.lang or "sv"
+    pay_url = f"{settings.FRONTEND_URL}/pay/{booking.booking_ref}"
+    rows = "".join(
+        f"<tr><td>{a['name_' + lang] or a['name_sv']}</td><td>{a['quantity']} st</td><td>{a['line_total']:,.0f} kr</td></tr>"
+        for a in addon.articles
+    )
+    subjects = {"sv":"Ditt tillägg är godkänt","en":"Your add-on is approved","de":"Ihr Zusatz wurde genehmigt"}
+    intros = {
+        "sv": f"Hej {booking.guest_name.split()[0]}! Ditt tilläggsval för bokning <strong>{booking.booking_ref}</strong> är godkänt.",
+        "en": f"Hi {booking.guest_name.split()[0]}! Your add-on for booking <strong>{booking.booking_ref}</strong> has been approved.",
+        "de": f"Hallo {booking.guest_name.split()[0]}! Ihr Zusatz für Buchung <strong>{booking.booking_ref}</strong> wurde genehmigt.",
+    }
+    pay_labels = {"sv":"Betala nu","en":"Pay now","de":"Jetzt bezahlen"}
+    html = f"""<h2>{subjects[lang]}</h2>
+    <p>{intros[lang]}</p>
+    <table border="1" cellpadding="6">
+    <tr><th>Tillägg</th><th>Antal</th><th>Belopp</th></tr>
+    {rows}
+    <tr><td colspan="2"><strong>Totalt</strong></td><td><strong>{float(addon.total_amount):,.0f} kr</strong></td></tr>
+    </table>
+    {"<p><em>" + (addon.admin_note or "") + "</em></p>" if addon.admin_note else ""}
+    <p><a href="{pay_url}" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none">{pay_labels[lang]} →</a></p>"""
+
+    recipient = (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
+    await send_email(recipient, subjects[lang], html)
+    return {"ok": True}
+
+
+@router.post("/addon-requests/{addon_id}/reject")
+async def reject_addon(addon_id: int, data: dict = {}, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import BookingAddon
+    from app.email.service import send_email
+
+    addon = db.query(BookingAddon).filter(BookingAddon.id == addon_id).first()
+    if not addon: raise HTTPException(status_code=404, detail="Hittades inte")
+    if addon.status != "pending": raise HTTPException(status_code=400, detail="Redan hanterad")
+
+    addon.status = "rejected"
+    addon.admin_note = data.get("admin_note", "")
+    db.commit()
+
+    booking = addon.booking
+    lang = booking.lang or "sv"
+    subjects = {"sv":"Angående ditt tilläggsval","en":"Regarding your add-on request","de":"Bezüglich Ihrer Zusatzanfrage"}
+    intros = {
+        "sv": f"Hej {booking.guest_name.split()[0]}! Tyvärr kan vi inte bekräfta ditt tilläggsval för bokning <strong>{booking.booking_ref}</strong> just nu.",
+        "en": f"Hi {booking.guest_name.split()[0]}! Unfortunately we cannot confirm your add-on for booking <strong>{booking.booking_ref}</strong> at this time.",
+        "de": f"Hallo {booking.guest_name.split()[0]}! Leider können wir Ihren Zusatz für Buchung <strong>{booking.booking_ref}</strong> derzeit nicht bestätigen.",
+    }
+    html = f"""<h2>{subjects[lang]}</h2>
+    <p>{intros[lang]}</p>
+    {"<p><em>" + (addon.admin_note or "") + "</em></p>" if addon.admin_note else ""}
+    <p>Kontakta oss om du har frågor.</p>"""
+
+    recipient = (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
+    await send_email(recipient, subjects[lang], html)
+    return {"ok": True}
+
+
+@router.get("/bookings/{booking_id}/addon-requests")
+def get_booking_addons(booking_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import BookingAddon
+    addons = db.query(BookingAddon).filter(BookingAddon.booking_id == booking_id).order_by(BookingAddon.created_at.desc()).all()
+    return [{"id":a.id,"status":a.status,"articles":a.articles,"total_amount":float(a.total_amount),"message":a.message,"admin_note":a.admin_note,"created_at":a.created_at.isoformat() if a.created_at else None} for a in addons]
