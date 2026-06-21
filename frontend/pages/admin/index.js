@@ -94,8 +94,6 @@ export default function AdminBookings() {
   const [msg, setMsg] = useState('');
   const [emailAlert, setEmailAlert] = useState(null);
   const [manualTemplates, setManualTemplates] = useState([]);
-  const [bookingAddons, setBookingAddons] = useState([]);
-  const [addonNote, setAddonNote] = useState('');
 
   const changeStatus = async (id, status) => {
     const labels = {
@@ -616,9 +614,17 @@ export default function AdminBookings() {
                   <div style={{ fontSize:11, fontWeight:500, color:'var(--ink-pale)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:8 }}>Tilläggsbegäran</div>
                   {bookingAddons.map(a => (
                     <div key={a.id} style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', marginBottom:8 }}>
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                        <span style={{ fontSize:12, fontWeight:500 }}>{a.articles?.map(x=>x.name_sv).join(', ')}</span>
-                        <span style={{ fontSize:12, fontWeight:600 }}>{Number(a.total_amount).toLocaleString('sv-SE')} kr</span>
+                      <div style={{ marginBottom:6 }}>
+                        {a.articles?.map((x,i) => (
+                          <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:2 }}>
+                            <span>{x.quantity > 1 ? `${x.quantity} × ` : ''}{x.name_sv}</span>
+                            <span style={{ color:'var(--ink-pale)' }}>{Number(x.line_total).toLocaleString('sv-SE')} kr</span>
+                          </div>
+                        ))}
+                        <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:600, borderTop:'1px solid var(--sand-dark)', marginTop:4, paddingTop:4 }}>
+                          <span>Totalt</span>
+                          <span>{Number(a.total_amount).toLocaleString('sv-SE')} kr</span>
+                        </div>
                       </div>
                       {a.message && <div style={{ fontSize:11, color:'var(--ink-pale)', marginBottom:6 }}>"{a.message}"</div>}
                       {a.status === 'pending' ? (
