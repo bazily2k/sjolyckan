@@ -685,7 +685,7 @@ async def confirm_addon(addon_id: int, data: dict = {}, db: Session = Depends(ge
             booking_id=booking.id,
             article_id=art["article_id"],
             quantity=art["quantity"],
-            unit_price=Decimal(str(art["price"])),
+            price_snapshot=Decimal(str(art["price"])),
             line_total=Decimal(str(art["line_total"])),
             name_sv=art["name_sv"], name_en=art.get("name_en",""), name_de=art.get("name_de",""),
             price_type=art.get("price_type","fixed"),
