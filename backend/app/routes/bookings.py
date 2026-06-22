@@ -751,6 +751,8 @@ def admin_delete_booking(
     db.query(EmailLog).filter(EmailLog.booking_id == booking_id).delete()
     db.query(BookingArticle).filter(BookingArticle.booking_id == booking_id).delete()
     db.query(Payment).filter(Payment.booking_id == booking_id).delete()
+    from app.models.models import BookingAddon
+    db.query(BookingAddon).filter(BookingAddon.booking_id == booking_id).delete()
     db.delete(booking)
     db.commit()
     return {"ok": True}
