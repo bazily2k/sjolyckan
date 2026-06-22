@@ -692,6 +692,7 @@ def _booking_detail(b: Booking) -> dict:
                 "articles": a.articles,
                 "total_amount": float(a.total_amount),
                 "message": a.message,
+                "admin_note": a.admin_note,
                 "created_at": str(a.created_at) if a.created_at else None,
             } for a in (b.addons if hasattr(b, "addons") else [])
         ],
