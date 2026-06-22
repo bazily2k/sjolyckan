@@ -417,7 +417,14 @@ export default function MyPage({ locale }) {
                                     <span style={{ fontSize:11, padding:'1px 6px', borderRadius:8, background: a.status==='confirmed'?'var(--forest)':'#f0a500', color:'white' }}>
                                       {a.status==='confirmed'?'✓':'⏳'}
                                     </span>
-                                  {a.admin_note && <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:4, fontStyle:'italic' }}>"{a.admin_note}"</div>}
+                                  {a.admin_note && (
+                                    <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:4 }}>
+                                      <span style={{ fontWeight:500 }}>
+                                        {lang==='de'?'Antwort des Gastgebers: ':lang==='en'?'Host replied: ':' Värd svarade: '}
+                                      </span>
+                                      <span style={{ fontStyle:'italic' }}>"{a.admin_note}"</span>
+                                    </div>
+                                  )}
                                     <span style={{ fontWeight:500 }}>{Number(a.total_amount).toLocaleString('sv-SE')} kr</span>
                                   </div>
                                   {a.articles?.map((x,j) => (
