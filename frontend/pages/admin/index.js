@@ -94,6 +94,8 @@ export default function AdminBookings() {
   const [msg, setMsg] = useState('');
   const [emailAlert, setEmailAlert] = useState(null);
   const [manualTemplates, setManualTemplates] = useState([]);
+  const [bookingAddons, setBookingAddons] = useState([]);
+  const [addonNote, setAddonNote] = useState('');
 
   const changeStatus = async (id, status) => {
     const labels = {
