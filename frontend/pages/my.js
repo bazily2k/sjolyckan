@@ -407,6 +407,43 @@ export default function MyPage({ locale }) {
                               )}
                             </div>
                           )}
+                          {/* Tilläggsbegäran */}
+                          {b.addons?.filter(a => a.status !== 'rejected').length > 0 && (
+                            <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--sand-dark)' }}>
+                              <div style={{ fontSize:11, fontWeight:500, color:'var(--ink-pale)', textTransform:'uppercase', letterSpacing:'0.3px', marginBottom:6 }}>{L.addons}</div>
+                              {b.addons.filter(a => a.status !== 'rejected').map((a,i) => (
+                                <div key={i} style={{ marginBottom:8 }}>
+                                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'var(--ink-pale)', marginBottom:2 }}>
+                                    <span style={{ fontSize:11, padding:'1px 6px', borderRadius:8, background: a.status==='confirmed'?'var(--forest)':'#f0a500', color:'white' }}>
+                                      {a.status==='confirmed'?'✓':'⏳'}
+                                    </span>
+                                  {a.admin_note && (
+                                    <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:4 }}>
+                                      <span style={{ fontWeight:500 }}>
+                                        {lang==='de'?'Antwort des Gastgebers: ':lang==='en'?'Host replied: ':' Värd svarade: '}
+                                      </span>
+                                      <span style={{ fontStyle:'italic' }}>"{a.admin_note}"</span>
+                                    </div>
+                                  )}
+                                    <span style={{ fontWeight:500 }}>{Number(a.total_amount).toLocaleString('sv-SE')} kr</span>
+                                  </div>
+                                  {a.articles?.map((x,j) => (
+                                    <div key={j} style={{ display:'flex', justifyContent:'space-between', fontSize:12 }}>
+                                      <span>{x.quantity > 1 ? `${x.quantity} × ` : ''}{x[`name_${lang}`] || x.name_sv}</span>
+                                      <span style={{ color:'var(--ink-pale)' }}>{Number(x.line_total).toLocaleString('sv-SE')} kr</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {/* Komplettera bokning */}
+                          {(b.status === 'confirmed' || b.status === 'deposit_paid' || b.status === 'fully_paid') && (
+                            <a href={`/addon?ref=${b.booking_ref}`}
+                              style={{ display:'block', textAlign:'center', marginTop:12, padding:'10px 0', background:'var(--water-pale)', color:'var(--water)', border:'1px solid var(--water)', borderRadius:'var(--radius-md)', fontSize:13, fontWeight:500, textDecoration:'none' }}>
+                              + {lang==='de'?'Buchung ergänzen':lang==='en'?'Add to booking':'Komplettera bokning'}
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>

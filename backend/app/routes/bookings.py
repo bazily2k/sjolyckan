@@ -685,6 +685,17 @@ def _booking_detail(b: Booking) -> dict:
                 "status": e.status,
             } for e in b.email_logs
         ],
+        "addons": [
+            {
+                "id": a.id,
+                "status": a.status,
+                "articles": a.articles,
+                "total_amount": float(a.total_amount),
+                "message": a.message,
+                "admin_note": a.admin_note,
+                "created_at": str(a.created_at) if a.created_at else None,
+            } for a in (b.addons if hasattr(b, "addons") else [])
+        ],
     })
     return d
 
@@ -741,6 +752,8 @@ def admin_delete_booking(
     db.query(EmailLog).filter(EmailLog.booking_id == booking_id).delete()
     db.query(BookingArticle).filter(BookingArticle.booking_id == booking_id).delete()
     db.query(Payment).filter(Payment.booking_id == booking_id).delete()
+    from app.models.models import BookingAddon
+    db.query(BookingAddon).filter(BookingAddon.booking_id == booking_id).delete()
     db.delete(booking)
     db.commit()
     return {"ok": True}
@@ -917,3 +930,100 @@ async def create_paypal_order(
             "approve_url": approve_url,
             "amount": amount,
         }
+
+# ─── Tilläggsbegäran ──────────────────────────────────────────────────────────
+class AddonRequest(BaseModel):
+    booking_ref: str
+    article_ids: List[int] = []
+    article_quantities: dict = {}
+    message: Optional[str] = None
+
+@router.post("/addon-request")
+async def create_addon_request(
+    req: AddonRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Kund lägger till tillägg på en bekräftad bokning."""
+    from app.models.models import BookingAddon, Article, BookingStatus
+
+    booking = db.query(Booking).filter(Booking.booking_ref == req.booking_ref).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    if booking.status not in (
+        BookingStatus.confirmed, BookingStatus.deposit_paid, BookingStatus.paid
+    ):
+        raise HTTPException(status_code=400, detail="Tillägg kan bara läggas till på bekräftade bokningar")
+    if not req.article_ids:
+        raise HTTPException(status_code=400, detail="Välj minst ett tillägg")
+
+    articles_snap = []
+    total = 0
+    for aid in req.article_ids:
+        art = db.query(Article).filter(Article.id == aid, Article.active == True, Article.bookable == True).first()
+        if not art:
+            continue
+        qty = int(req.article_quantities.get(str(aid), req.article_quantities.get(aid, 1)) or 1)
+        if art.price_type == "per_night":
+            line_total = float(art.price) * booking.nights * qty
+        elif art.price_type == "per_guest":
+            line_total = float(art.price) * booking.guests_count * qty
+        elif art.price_type in ("per_occasion", "per_pet"):
+            line_total = float(art.price) * qty
+        else:
+            line_total = float(art.price)
+        total += line_total
+        articles_snap.append({
+            "article_id": art.id, "name_sv": art.name_sv, "name_en": art.name_en,
+            "name_de": art.name_de, "price": float(art.price), "price_type": art.price_type,
+            "quantity": qty, "line_total": line_total,
+        })
+
+    addon = BookingAddon(
+        booking_id=booking.id,
+        booking_ref=booking.booking_ref,
+        articles=articles_snap,
+        total_amount=total,
+        message=req.message,
+    )
+    db.add(addon); db.commit(); db.refresh(addon)
+
+    # Notifiera admin
+    background_tasks.add_task(_notify_addon_admin, addon.id)
+
+    return {
+        "ok": True,
+        "addon_id": addon.id,
+        "booking_ref": booking.booking_ref,
+        "total_amount": float(total),
+        "articles": articles_snap,
+    }
+
+
+async def _notify_addon_admin(addon_id: int):
+    """Skickar adminmail om ny tilläggsbegäran."""
+    from app.models.database import SessionLocal
+    from app.email.service import send_email
+    from app.core.config import settings
+    db = SessionLocal()
+    try:
+        from app.models.models import BookingAddon
+        addon = db.query(BookingAddon).filter(BookingAddon.id == addon_id).first()
+        if not addon: return
+        booking = addon.booking
+        rows = "".join(
+            f"<tr><td>{a['name_sv']}</td><td>{a['quantity']} st</td><td>{a['line_total']:,.0f} kr</td></tr>"
+            for a in addon.articles
+        )
+        html = f"""<h2>Ny tilläggsbegäran</h2>
+        <p>Bokning: <strong>{booking.booking_ref}</strong> — {booking.guest_name}</p>
+        <table border="1" cellpadding="6">
+        <tr><th>Tillägg</th><th>Antal</th><th>Belopp</th></tr>
+        {rows}
+        <tr><td colspan="2"><strong>Totalt</strong></td><td><strong>{float(addon.total_amount):,.0f} kr</strong></td></tr>
+        </table>
+        {"<p><em>" + addon.message + "</em></p>" if addon.message else ""}
+        <p><a href="{settings.FRONTEND_URL}/admin">Hantera i admin →</a></p>"""
+        await send_email(settings.ADMIN_EMAIL, f"Ny tilläggsbegäran — {booking.booking_ref}", html)
+    finally:
+        db.close()

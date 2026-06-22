@@ -209,3 +209,23 @@ def get_terms(
         "house_rules_text": render(getattr(house_rules, field, "") if house_rules else ""),
         "admin_email": app_settings.ADMIN_EMAIL,
     }
+
+@router.get("/booking-lookup")
+def booking_lookup(ref: str, db: Session = Depends(get_db)):
+    """Kund anger bokningsnummer för att starta tilläggsbegäran."""
+    from app.models.models import Booking, BookingStatus
+    b = db.query(Booking).filter(Booking.booking_ref == ref.strip().upper()).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    if b.status not in (BookingStatus.confirmed, BookingStatus.deposit_paid, BookingStatus.paid):
+        raise HTTPException(status_code=400, detail="Bokningen är inte bekräftad")
+    return {
+        "booking_ref": b.booking_ref,
+        "guest_name": b.guest_name,
+        "date_from": str(b.date_from),
+        "date_to": str(b.date_to),
+        "nights": b.nights,
+        "guests_count": b.guests_count,
+        "lang": b.lang or "sv",
+        "status": b.status.value,
+    }

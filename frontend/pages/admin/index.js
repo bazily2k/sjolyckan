@@ -94,6 +94,8 @@ export default function AdminBookings() {
   const [msg, setMsg] = useState('');
   const [emailAlert, setEmailAlert] = useState(null);
   const [manualTemplates, setManualTemplates] = useState([]);
+  const [bookingAddons, setBookingAddons] = useState([]);
+  const [addonNote, setAddonNote] = useState('');
 
   const changeStatus = async (id, status) => {
     const labels = {
@@ -286,7 +288,7 @@ export default function AdminBookings() {
                 const sc = STATUS_COLORS[b.status] || {};
                 return (
                   <tr key={b.id} style={{ borderBottom: '1px solid var(--sand)', cursor: 'pointer' }}
-                    onClick={() => adminApi.getBooking(b.id).then(r => setSelected(r.data))}>
+                    onClick={() => { adminApi.getBooking(b.id).then(r => { setSelected(r.data); setBookingAddons([]); setAddonNote(''); adminApi.getBookingAddons(r.data.id).then(ar => setBookingAddons(ar.data)).catch(()=>{}); }); }}>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--water)' }}>{b.booking_ref}</td>
                     <td style={{ padding: '10px 14px' }}>{b.guest_name}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--ink-light)' }}>{b.date_from} – {b.date_to}</td>
@@ -608,6 +610,47 @@ export default function AdminBookings() {
                 </div>
               )}
 
+              {/* Tilläggsbegäran */}
+              {bookingAddons.length > 0 && (
+                <div style={{ borderTop:'1px solid var(--sand-dark)', paddingTop:12, marginTop:16 }}>
+                  <div style={{ fontSize:11, fontWeight:500, color:'var(--ink-pale)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:8 }}>Tilläggsbegäran</div>
+                  {bookingAddons.map(a => (
+                    <div key={a.id} style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', marginBottom:8 }}>
+                      <div style={{ marginBottom:6 }}>
+                        {a.articles?.map((x,i) => (
+                          <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:2 }}>
+                            <span>{x.quantity > 1 ? `${x.quantity} × ` : ''}{x.name_sv}</span>
+                            <span style={{ color:'var(--ink-pale)' }}>{Number(x.line_total).toLocaleString('sv-SE')} kr</span>
+                          </div>
+                        ))}
+                        <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:600, borderTop:'1px solid var(--sand-dark)', marginTop:4, paddingTop:4 }}>
+                          <span>Totalt</span>
+                          <span>{Number(a.total_amount).toLocaleString('sv-SE')} kr</span>
+                        </div>
+                      </div>
+                      {a.message && <div style={{ fontSize:11, color:'var(--ink-pale)', marginBottom:6 }}>"{a.message}"</div>}
+                      {a.status === 'pending' ? (
+                        <>
+                          <textarea value={addonNote} onChange={e=>setAddonNote(e.target.value)}
+                            placeholder='Meddelande till kunden (valfritt)' rows={2}
+                            style={{ width:'100%', fontSize:12, padding:'6px 8px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', resize:'vertical', boxSizing:'border-box', marginBottom:6, fontFamily:'inherit' }} />
+                          <div style={{ display:'flex', gap:6 }}>
+                            <button onClick={async()=>{ try{ await adminApi.confirmAddon(a.id,{admin_note:addonNote}); setMsg('Tillägg godkänt!'); adminApi.getBookingAddons(selected.id).then(r=>setBookingAddons(r.data)).catch(()=>{}); }catch(e){setMsg('Fel: '+(e.response?.data?.detail||e.message));}}} style={{ flex:1, padding:'6px 0', background:'var(--forest)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}>✓ Godkänn</button>
+                            <button onClick={async()=>{ try{ await adminApi.rejectAddon(a.id,{admin_note:addonNote}); setMsg('Tillägg nekat.'); adminApi.getBookingAddons(selected.id).then(r=>setBookingAddons(r.data)).catch(()=>{}); }catch(e){setMsg('Fel: '+(e.response?.data?.detail||e.message));}}} style={{ flex:1, padding:'6px 0', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}>✗ Neka</button>
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <span style={{ fontSize:11, padding:'2px 8px', borderRadius:10, background: a.status==='confirmed'?'var(--forest)':'var(--red)', color:'white' }}>
+                            {a.status==='confirmed'?'✓ Godkänd':'✗ Nekad'}
+                          </span>
+                          {a.admin_note && <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:6, fontStyle:'italic' }}>Ditt svar: "{a.admin_note}"</div>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               {/* Villkor & husregler */}
               {selected.terms_snapshot && (
                 <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 12, marginTop: 16 }}>
