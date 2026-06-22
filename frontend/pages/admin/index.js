@@ -640,9 +640,12 @@ export default function AdminBookings() {
                           </div>
                         </>
                       ) : (
-                        <span style={{ fontSize:11, padding:'2px 8px', borderRadius:10, background: a.status==='confirmed'?'var(--forest)':'var(--red)', color:'white' }}>
-                          {a.status==='confirmed'?'✓ Godkänd':'✗ Nekad'}
-                        </span>
+                        <div>
+                          <span style={{ fontSize:11, padding:'2px 8px', borderRadius:10, background: a.status==='confirmed'?'var(--forest)':'var(--red)', color:'white' }}>
+                            {a.status==='confirmed'?'✓ Godkänd':'✗ Nekad'}
+                          </span>
+                          {a.admin_note && <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:6, fontStyle:'italic' }}>Ditt svar: "{a.admin_note}"</div>}
+                        </div>
                       )}
                     </div>
                   ))}
