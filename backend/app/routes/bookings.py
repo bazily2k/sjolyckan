@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from app.models.database import get_db
 from app.models.models import (
