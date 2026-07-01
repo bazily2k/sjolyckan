@@ -1037,10 +1037,8 @@ async def _notify_addon_admin(addon_id: int):
 
 # ─── E-postverifiering ────────────────────────────────────────────────────────
 @router.get("/verify-email")
-def verify_email(token: str, db: Session = Depends(get_db)):
+def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Kund klickar länken i verifieringsmail — aktiverar bokningen."""
-    from datetime import datetime
-    from app.core.config import settings
     b = db.query(Booking).filter(Booking.email_verify_token == token).first()
     if not b:
         raise HTTPException(status_code=404, detail="Ogiltig länk")
@@ -1053,11 +1051,9 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     b.email_verify_token = None
     b.email_verify_expires = None
     db.commit()
-    # Skicka booking_request till kund och admin
-    import asyncio
-    from app.email.service import send_booking_email_by_id
-    asyncio.create_task(send_booking_email_by_id(b.id, "booking_request"))
-    asyncio.create_task(send_booking_email_by_id(b.id, "admin_new_booking", True))
+    # Skicka booking_request till kund och admin (via BackgroundTasks — fungerar i sync-route)
+    background_tasks.add_task(send_booking_email_by_id, b.id, "booking_request")
+    background_tasks.add_task(send_booking_email_by_id, b.id, "admin_new_booking", True)
     return {"ok": True, "booking_ref": b.booking_ref}
 
 
