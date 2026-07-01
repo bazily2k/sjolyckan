@@ -517,12 +517,6 @@ export default function AdminBookings() {
                         ✉️ Skicka om bokningsbekräftelse
                       </button>
                     )}
-                    {selected.status === 'pending_email_verify' && (
-                      <button onClick={async () => { try { await adminApi.resendVerifyEmail(selected.id); setMsg('Verifieringsmail skickat till ' + (selected.user_email || selected.guest_email)); } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
-                        style={{ padding:'8px 14px', background:'#7c4dbb', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, marginBottom:8, width:'100%' }}>
-                        ✉️ Skicka om verifieringsmail
-                      </button>
-                    )}
                     {manualTemplates.length > 0 && selected.status === 'pending' && (
                       <div style={{ borderTop:'1px solid var(--sand)', paddingTop:8, marginTop:4 }}>
                         <div style={{ fontSize:11, color:'var(--ink-pale)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.4px' }}>Manuella utskick</div>
@@ -543,6 +537,18 @@ export default function AdminBookings() {
                       ✗ Neka
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Väntar på e-bekräftelse */}
+              {selected.status === 'pending_email_verify' && (
+                <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Väntar på e-postbekräftelse</div>
+                  <p style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 10 }}>Gästen har ännu inte bekräftat sin e-postadress. Bokningsförfrågan skickas in först efter bekräftelse.</p>
+                  <button onClick={async () => { try { await adminApi.resendVerifyEmail(selected.id); setMsg('Verifieringsmail skickat till ' + (selected.user_email || selected.guest_email)); } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                    style={{ padding:'8px 14px', background:'#7c4dbb', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, width:'100%' }}>
+                    ✉️ Skicka om verifieringsmail
+                  </button>
                 </div>
               )}
 
