@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from app.models.database import get_db
 from app.models.models import (
@@ -423,7 +423,7 @@ async def create_booking_request(
     # Sätt verifieringstoken — booking_request-mail skickas efter verifiering
     token = secrets.token_urlsafe(32)
     booking.email_verify_token = token
-    booking.email_verify_expires = datetime.utcnow() + timedelta(hours=48)
+    booking.email_verify_expires = datetime.now(timezone.utc) + timedelta(hours=48)
     booking.status = BookingStatus.pending_email_verify
     db.commit()
     # Skicka verifieringsmail
@@ -1042,7 +1042,7 @@ def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = De
     b = db.query(Booking).filter(Booking.email_verify_token == token).first()
     if not b:
         raise HTTPException(status_code=404, detail="Ogiltig länk")
-    if b.email_verify_expires and b.email_verify_expires < datetime.utcnow():
+    if b.email_verify_expires and b.email_verify_expires < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Länken har gått ut")
     if b.status != BookingStatus.pending_email_verify:
         # Redan verifierad
