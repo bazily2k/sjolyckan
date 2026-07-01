@@ -75,6 +75,7 @@ export const adminApi = {
   deleteUser: (userId) => api.delete(`/auth/admin/users/${userId}`),
   getEmailHealth: () => api.get('/admin/email-health'),
   resendBookingEmail: (bookingId, emailType) => api.post(`/admin/bookings/${bookingId}/resend-email`, { email_type: emailType }),
+  resendVerifyEmail: (bookingId) => api.post(`/admin/bookings/${bookingId}/resend-verify-email`),
   getEmailTemplates:        ()         => api.get('/admin/email-templates'),
   getEmailTemplate:         (id)       => api.get(`/admin/email-templates/${id}`),
   createEmailTemplate:      (data)     => api.post('/admin/email-templates', data),
