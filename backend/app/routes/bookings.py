@@ -1,4 +1,5 @@
 import re
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -419,8 +420,14 @@ async def create_booking_request(
 
 
     # Skicka mejl till gäst och admin
-    background_tasks.add_task(send_booking_email_by_id, booking.id, "booking_request")
-    background_tasks.add_task(send_booking_email_by_id, booking.id, "admin_new_booking", True)
+    # Sätt verifieringstoken — booking_request-mail skickas efter verifiering
+    token = secrets.token_urlsafe(32)
+    booking.email_verify_token = token
+    booking.email_verify_expires = datetime.utcnow() + timedelta(hours=48)
+    booking.status = BookingStatus.pending_email_verify
+    db.commit()
+    # Skicka verifieringsmail
+    background_tasks.add_task(_send_email_verify, booking.id)
 
     return {
         "booking_ref": booking.booking_ref,
@@ -1025,5 +1032,75 @@ async def _notify_addon_admin(addon_id: int):
         {"<p><em>" + addon.message + "</em></p>" if addon.message else ""}
         <p><a href="{settings.FRONTEND_URL}/admin">Hantera i admin →</a></p>"""
         await send_email(settings.ADMIN_EMAIL, f"Ny tilläggsbegäran — {booking.booking_ref}", html)
+    finally:
+        db.close()
+
+# ─── E-postverifiering ────────────────────────────────────────────────────────
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    """Kund klickar länken i verifieringsmail — aktiverar bokningen."""
+    from datetime import datetime
+    from app.core.config import settings
+    b = db.query(Booking).filter(Booking.email_verify_token == token).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Ogiltig länk")
+    if b.email_verify_expires and b.email_verify_expires < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Länken har gått ut")
+    if b.status != BookingStatus.pending_email_verify:
+        # Redan verifierad
+        return {"ok": True, "already_verified": True, "booking_ref": b.booking_ref}
+    b.status = BookingStatus.pending
+    b.email_verify_token = None
+    b.email_verify_expires = None
+    db.commit()
+    # Skicka booking_request till kund och admin
+    import asyncio
+    from app.email.service import send_booking_email_by_id
+    asyncio.create_task(send_booking_email_by_id(b.id, "booking_request"))
+    asyncio.create_task(send_booking_email_by_id(b.id, "admin_new_booking", True))
+    return {"ok": True, "booking_ref": b.booking_ref}
+
+
+async def _send_email_verify(booking_id: int):
+    """Skickar verifieringsmail till kunden."""
+    from app.models.database import SessionLocal
+    from app.email.service import send_email
+    from app.core.config import settings
+    db = SessionLocal()
+    try:
+        b = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not b: return
+        verify_url = f"{settings.FRONTEND_URL}/verify-email?token={b.email_verify_token}"
+        lang = b.lang or "sv"
+        subjects = {
+            "sv": "Bekräfta din e-postadress — Sjölyckan",
+            "en": "Confirm your email address — Sjölyckan",
+            "de": "Bestätigen Sie Ihre E-Mail-Adresse — Sjölyckan",
+        }
+        intros = {
+            "sv": f"Hej {b.guest_name.split()[0]}! Klicka på knappen nedan för att bekräfta din e-postadress och skicka in din bokningsförfrågan.",
+            "en": f"Hi {b.guest_name.split()[0]}! Click the button below to confirm your email address and submit your booking request.",
+            "de": f"Hallo {b.guest_name.split()[0]}! Klicken Sie auf den Button unten, um Ihre E-Mail-Adresse zu bestätigen und Ihre Buchungsanfrage einzureichen.",
+        }
+        btn_labels = {"sv": "Bekräfta e-postadress", "en": "Confirm email address", "de": "E-Mail-Adresse bestätigen"}
+        expire_notes = {
+            "sv": "Länken är giltig i 48 timmar.",
+            "en": "The link is valid for 48 hours.",
+            "de": "Der Link ist 48 Stunden gültig.",
+        }
+        html = f"""
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <h2 style="font-family:Georgia,serif">{subjects[lang]}</h2>
+          <p>{intros[lang]}</p>
+          <p style="margin:24px 0">
+            <a href="{verify_url}" style="background:#2c5f8a;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:500">
+              {btn_labels[lang]}
+            </a>
+          </p>
+          <p style="color:#888;font-size:13px">{expire_notes[lang]}</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+          <p style="color:#888;font-size:12px">Sjölyckan · Rolsmo, Småland</p>
+        </div>"""
+        await send_email(b.guest_email, subjects[lang], html)
     finally:
         db.close()
