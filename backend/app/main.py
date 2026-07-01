@@ -42,6 +42,10 @@ def _ensure_booking_constraints():
             """)
             conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_booking_addons_booking_ref ON booking_addons(booking_ref)")
             conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_set_by_user boolean DEFAULT false")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_token VARCHAR(64)")
+            conn.exec_driver_sql("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'pending_email_verify' AND enumtypid = 'bookingstatus'::regtype) THEN ALTER TYPE bookingstatus ADD VALUE 'pending_email_verify'; END IF; END $$")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_expires TIMESTAMPTZ")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_reminder_sent BOOLEAN DEFAULT false")
             # Backfill: konton utan giltig reset_token har redan satt lösenord (gamla konton innan denna kolumn fanns)
             conn.exec_driver_sql("""
                 UPDATE users SET password_set_by_user = true
