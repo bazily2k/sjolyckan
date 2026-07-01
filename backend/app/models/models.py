@@ -23,6 +23,7 @@ class BookingStatus(str, enum.Enum):
     paid = "paid"                 # Fullbetald
     cancelled = "cancelled"       # Avbokad
     expired = "expired"           # Betalfrist passerad
+    pending_email_verify = "pending_email_verify"  # Väntar på e-postbekräftelse
 
 
 class PaymentMethod(str, enum.Enum):
@@ -231,6 +232,11 @@ class Booking(Base):
     gdpr_accepted = Column(Boolean, default=False)
     house_rules_accepted = Column(Boolean, default=False)
     terms_snapshot = Column(JSON, nullable=True)
+
+    # E-postverifiering
+    email_verify_token = Column(String(64), nullable=True)
+    email_verify_expires = Column(DateTime(timezone=True), nullable=True)
+    email_verify_reminder_sent = Column(Boolean, default=False)
 
     # Relationer
     user = relationship("User", back_populates="bookings")
