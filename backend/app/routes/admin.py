@@ -57,7 +57,7 @@ async def resend_verify_email(
 ):
     """Skicka om verifieringsmail för en bokning som väntar på e-bekräftelse."""
     import secrets
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from app.routes.bookings import _send_email_verify
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
     if not booking:
@@ -65,7 +65,7 @@ async def resend_verify_email(
     if booking.status != BookingStatus.pending_email_verify:
         raise HTTPException(status_code=400, detail="Bokningen väntar inte på e-postbekräftelse")
     booking.email_verify_token = secrets.token_urlsafe(32)
-    booking.email_verify_expires = datetime.utcnow() + timedelta(hours=48)
+    booking.email_verify_expires = datetime.now(timezone.utc) + timedelta(hours=48)
     booking.email_verify_reminder_sent = False
     db.commit()
     await _send_email_verify(booking.id)
