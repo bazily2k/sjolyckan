@@ -12,6 +12,8 @@ const STATUS = {
   paid: { bg: '#d4edda', color: '#155724', label: 'Betald' },
   expired: { bg: '#e2e3e5', color: '#383d41', label: 'Förfallen' },
 };
+const BLOCK_BG = '#f1d9d9';
+const BLOCK_FG = '#7d2b2b';
 const WEEKDAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
 const MONTHS = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december'];
 
@@ -23,7 +25,7 @@ function ymd(d) {
 }
 function monthCells(year, month) {
   const first = new Date(year, month, 1);
-  const startWeekday = (first.getDay() + 6) % 7; // måndag först
+  const startWeekday = (first.getDay() + 6) % 7;
   const days = new Date(year, month + 1, 0).getDate();
   const cells = [];
   for (let i = 0; i < startWeekday; i++) cells.push(null);
@@ -56,21 +58,21 @@ function BookingCard({ b }) {
   const articles = (b.articles || []).filter(a => a.quantity > 0);
   const addons = b.addons || [];
   return (
-    <div style={{ background: 'white', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', padding: 16, marginBottom: 12 }}>
+    <div style={{ background: 'white', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', padding: 18, marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 17 }}>{b.guest_name}</div>
-        <span style={{ background: s.bg, color: s.color, borderRadius: 12, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>{s.label}</span>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 19 }}>{b.guest_name}</div>
+        <span style={{ background: s.bg, color: s.color, borderRadius: 12, padding: '3px 12px', fontSize: 13, fontWeight: 600 }}>{s.label}</span>
       </div>
-      <div style={{ fontSize: 13, color: 'var(--ink-light)', marginTop: 4 }}>
+      <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>
         {b.booking_ref} · {b.date_from} – {b.date_to} · {b.nights} nätter
       </div>
-      <div style={{ fontSize: 14, marginTop: 8 }}>👥 {personsLine(b)}</div>
-      <div style={{ fontSize: 13, color: 'var(--ink-light)', marginTop: 4 }}>
+      <div style={{ fontSize: 15, marginTop: 9 }}>👥 {personsLine(b)}</div>
+      <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>
         ✉️ {b.guest_email}{b.guest_phone ? ` · 📞 ${b.guest_phone}` : ''}{b.guest_country ? ` · ${b.guest_country}` : ''}
       </div>
       {(articles.length > 0 || addons.length > 0) && (
-        <div style={{ marginTop: 8, fontSize: 13 }}>
-          <div style={{ fontWeight: 600, marginBottom: 2 }}>Tillägg</div>
+        <div style={{ marginTop: 10, fontSize: 14 }}>
+          <div style={{ fontWeight: 600, marginBottom: 3 }}>Tillägg</div>
           {articles.map((a, i) => (
             <div key={'a' + i}>• {a.name_sv} ×{a.quantity}{a.line_total ? ` (${kr(a.line_total)} kr)` : ''}</div>
           ))}
@@ -80,16 +82,26 @@ function BookingCard({ b }) {
         </div>
       )}
       {b.message && (
-        <div style={{ marginTop: 8, fontSize: 13, background: 'var(--sand)', borderRadius: 6, padding: '8px 10px' }}>
+        <div style={{ marginTop: 10, fontSize: 14, background: 'var(--sand)', borderRadius: 6, padding: '10px 12px' }}>
           <span style={{ fontWeight: 600 }}>Kundens meddelande:</span> {b.message}
         </div>
       )}
       {b.admin_note && (
-        <div style={{ marginTop: 6, fontSize: 13, background: '#fff4e5', borderRadius: 6, padding: '8px 10px' }}>
+        <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}>
           <span style={{ fontWeight: 600 }}>Admin-notering:</span> {b.admin_note}
         </div>
       )}
-      <div style={{ marginTop: 8, fontSize: 13, fontWeight: 600 }}>Totalt: {kr(b.total_amount)} kr</div>
+      <div style={{ marginTop: 10, fontSize: 14, fontWeight: 600 }}>Totalt: {kr(b.total_amount)} kr</div>
+    </div>
+  );
+}
+
+function BlockedCard({ bl }) {
+  return (
+    <div style={{ background: 'white', border: '1px solid var(--sand-dark)', borderLeft: '4px solid #c0392b', borderRadius: 'var(--radius-md)', padding: 18, marginBottom: 14 }}>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 19 }}>🚫 Blockerad period</div>
+      <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>{bl.date_from} – {bl.date_to}</div>
+      {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar:</span> {bl.reason}</div>}
     </div>
   );
 }
@@ -103,12 +115,19 @@ export default function AdminCalendar() {
   useEffect(() => {
     adminApi.getCalendar()
       .then(r => setData(r.data))
-      .catch(() => setData({ bookings: [], start: null, end: null }))
+      .catch(() => setData({ bookings: [], blocked: [], start: null, end: null }))
       .finally(() => setLoading(false));
   }, []);
 
   const bookings = data?.bookings || [];
+  const blocked = data?.blocked || [];
   const bookingsOn = (dstr) => bookings.filter(b => dstr >= b.date_from && dstr < b.date_to);
+  const blockedOn = (dstr) => blocked.filter(bl => dstr >= bl.date_from && dstr < bl.date_to);
+
+  const listItems = [
+    ...bookings.map(b => ({ key: 'b' + b.id, date: b.date_from, node: <BookingCard b={b} /> })),
+    ...blocked.map(bl => ({ key: 'x' + bl.id, date: bl.date_from, node: <BlockedCard bl={bl} /> })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
 
   return (
     <AdminLayout title="Kalender">
@@ -117,7 +136,7 @@ export default function AdminCalendar() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {[['month', '🗓️ Månad'], ['list', '📋 Lista']].map(([v, label]) => (
           <button key={v} onClick={() => setView(v)} style={{
-            padding: '8px 16px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13,
+            padding: '9px 18px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 14,
             border: '1px solid var(--sand-dark)',
             background: view === v ? 'var(--water)' : 'white',
             color: view === v ? 'white' : 'var(--ink)',
@@ -127,13 +146,13 @@ export default function AdminCalendar() {
 
       {loading && <div style={{ color: 'var(--ink-light)' }}>Laddar kalender…</div>}
 
-      {!loading && bookings.length === 0 && (
-        <div style={{ color: 'var(--ink-light)' }}>Inga bokningar i perioden.</div>
+      {!loading && bookings.length === 0 && blocked.length === 0 && (
+        <div style={{ color: 'var(--ink-light)' }}>Inga bokningar eller blockerade datum i perioden.</div>
       )}
 
-      {!loading && view === 'list' && bookings.length > 0 && (
-        <div style={{ maxWidth: 640 }}>
-          {[...bookings].sort((a, b) => a.date_from.localeCompare(b.date_from)).map(b => <BookingCard key={b.id} b={b} />)}
+      {!loading && view === 'list' && listItems.length > 0 && (
+        <div style={{ maxWidth: 660 }}>
+          {listItems.map(it => <div key={it.key}>{it.node}</div>)}
         </div>
       )}
 
@@ -142,41 +161,53 @@ export default function AdminCalendar() {
           {selected && (
             <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--sand)', paddingBottom: 8, marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--water)' }}>Stäng ×</button>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--water)' }}>Stäng ×</button>
               </div>
-              <div style={{ maxWidth: 640 }}><BookingCard b={selected} /></div>
+              <div style={{ maxWidth: 660 }}>
+                {selected._type === 'blocked' ? <BlockedCard bl={selected} /> : <BookingCard b={selected} />}
+              </div>
             </div>
           )}
           {monthsBetween(data.start, data.end).map(({ year, month }) => (
-            <div key={`${year}-${month}`} style={{ marginBottom: 32 }}>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 12, textTransform: 'capitalize' }}>{MONTHS[month]} {year}</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
+            <div key={`${year}-${month}`} style={{ marginBottom: 36 }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, marginBottom: 14, textTransform: 'capitalize' }}>{MONTHS[month]} {year}</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 5 }}>
                 {WEEKDAYS.map(w => (
-                  <div key={w} style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)', textAlign: 'center', padding: '4px 0' }}>{w}</div>
+                  <div key={w} style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-light)', textAlign: 'center', padding: '6px 0' }}>{w}</div>
                 ))}
                 {monthCells(year, month).map((cell, i) => {
-                  if (!cell) return <div key={i} style={{ minHeight: 72 }} />;
+                  if (!cell) return <div key={i} style={{ minHeight: 112 }} />;
                   const dstr = ymd(cell);
                   const occ = bookingsOn(dstr);
+                  const blk = blockedOn(dstr);
                   return (
                     <div key={i} style={{
-                      minHeight: 72, border: '1px solid var(--sand-dark)', borderRadius: 6,
-                      padding: 4, background: 'white', fontSize: 12, overflow: 'hidden',
+                      minHeight: 112, border: '1px solid var(--sand-dark)', borderRadius: 6,
+                      padding: 6, background: 'white', fontSize: 13, overflow: 'hidden',
                     }}>
-                      <div style={{ color: 'var(--ink-light)', fontWeight: 600, marginBottom: 2 }}>{cell.getDate()}</div>
+                      <div style={{ color: 'var(--ink-light)', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{cell.getDate()}</div>
+                      {blk.map(bl => (
+                        <div key={'b' + bl.id} onClick={() => setSelected({ ...bl, _type: 'blocked' })} title="Blockerad – klicka för detaljer" style={{
+                          background: BLOCK_BG, color: BLOCK_FG, borderRadius: 4, padding: '4px 6px',
+                          marginBottom: 4, cursor: 'pointer', lineHeight: 1.3,
+                        }}>
+                          <div style={{ fontWeight: 600 }}>🚫 Blockerad</div>
+                          {bl.reason && <div style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bl.reason}</div>}
+                        </div>
+                      ))}
                       {occ.map(b => {
                         const s = st(b.status);
                         const addonCount = (b.articles || []).filter(a => a.quantity > 0).length + (b.addons || []).length;
                         return (
                           <div key={b.id} onClick={() => setSelected(b)} title="Klicka för detaljer" style={{
-                            background: s.bg, color: s.color, borderRadius: 4, padding: '3px 5px',
-                            marginBottom: 3, cursor: 'pointer', lineHeight: 1.25,
+                            background: s.bg, color: s.color, borderRadius: 4, padding: '4px 6px',
+                            marginBottom: 4, cursor: 'pointer', lineHeight: 1.3,
                           }}>
                             <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.guest_name}</div>
-                            <div style={{ fontSize: 11 }}>
+                            <div style={{ fontSize: 12 }}>
                               👥{b.guests_count}{b.pets_count ? ` 🐾${b.pets_count}` : ''}{addonCount ? ` 🎁${addonCount}` : ''}
                             </div>
-                            {(b.message || b.admin_note) && <div style={{ fontSize: 11 }}>💬</div>}
+                            {(b.message || b.admin_note) && <div style={{ fontSize: 12 }}>💬</div>}
                           </div>
                         );
                       })}
