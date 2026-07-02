@@ -181,6 +181,8 @@ class Booking(Base):
     date_to = Column(Date, nullable=False)
     nights = Column(Integer, nullable=False)
     guests_count = Column(Integer, default=2)
+    adults_count = Column(Integer, nullable=True)      # antal vuxna (null för äldre bokningar)
+    children_count = Column(Integer, nullable=True)    # antal barn (null för äldre bokningar)
 
     # ── SNAPSHOT av villkor vid bokningstillfället ──────
     # Dessa ändras ALDRIG efter att bokningen bekräftats
