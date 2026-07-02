@@ -422,15 +422,22 @@ async def create_booking_request(
         logging.getLogger(__name__).error(f"Kontokoppling misslyckades: {e}")
 
 
-    # Skicka mejl till gäst och admin
-    # Sätt verifieringstoken — booking_request-mail skickas efter verifiering
-    token = secrets.token_urlsafe(32)
-    booking.email_verify_token = token
-    booking.email_verify_expires = datetime.now(timezone.utc) + timedelta(hours=48)
-    booking.status = BookingStatus.pending_email_verify
-    db.commit()
-    # Skicka verifieringsmail
-    background_tasks.add_task(_send_email_verify, booking.id)
+    # Skicka mejl till gäst och admin.
+    # Hoppa över e-postverifiering om kundens konto redan är verifierat (en gång räcker).
+    _email = (req.guest_email or "").strip().lower()
+    _existing = db.query(User).filter(User.email == _email).first() if _email else None
+    if _existing and _existing.email_verified:
+        booking.status = BookingStatus.pending
+        db.commit()
+        background_tasks.add_task(send_booking_email_by_id, booking.id, "booking_request")
+        background_tasks.add_task(send_booking_email_by_id, booking.id, "admin_new_booking", True)
+    else:
+        token = secrets.token_urlsafe(32)
+        booking.email_verify_token = token
+        booking.email_verify_expires = datetime.now(timezone.utc) + timedelta(hours=48)
+        booking.status = BookingStatus.pending_email_verify
+        db.commit()
+        background_tasks.add_task(_send_email_verify, booking.id)
 
     return {
         "booking_ref": booking.booking_ref,
@@ -1053,6 +1060,11 @@ def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = De
     b.status = BookingStatus.pending
     b.email_verify_token = None
     b.email_verify_expires = None
+    # Markera kundens konto som e-postverifierat — framtida bokningar slipper verifiering
+    if b.guest_email:
+        _u = db.query(User).filter(User.email == b.guest_email.strip().lower()).first()
+        if _u:
+            _u.email_verified = True
     db.commit()
     # Skicka booking_request till kund och admin (via BackgroundTasks — fungerar i sync-route)
     background_tasks.add_task(send_booking_email_by_id, b.id, "booking_request")
