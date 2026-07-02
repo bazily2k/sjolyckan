@@ -551,10 +551,20 @@ def admin_calendar(
             ],
         }
 
+    from app.models.models import BlockedDate
+    blocks = db.query(BlockedDate).filter(
+        BlockedDate.date_from < end_d,
+        BlockedDate.date_to > start_d,
+    ).order_by(BlockedDate.date_from).all()
+
     return {
         "start": str(start_d),
         "end": str(end_d),
         "bookings": [_cal(b) for b in bookings],
+        "blocked": [
+            {"id": bl.id, "date_from": str(bl.date_from), "date_to": str(bl.date_to), "reason": bl.reason}
+            for bl in blocks
+        ],
     }
 
 
