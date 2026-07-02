@@ -183,6 +183,7 @@ class Booking(Base):
     guests_count = Column(Integer, default=2)
     adults_count = Column(Integer, nullable=True)      # antal vuxna (null för äldre bokningar)
     children_count = Column(Integer, nullable=True)    # antal barn (null för äldre bokningar)
+    pets_count = Column(Integer, nullable=True)        # antal husdjur (hundar + katter)
 
     # ── SNAPSHOT av villkor vid bokningstillfället ──────
     # Dessa ändras ALDRIG efter att bokningen bekräftats
