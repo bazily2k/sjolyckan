@@ -306,6 +306,7 @@ def create_booking_record(db: Session, data: dict, calc: dict) -> Booking:
         guests_count=data.get("guests_count", 2),
         adults_count=data.get("adults_count"),
         children_count=data.get("children_count"),
+        pets_count=data.get("pets_count"),
         date_from=data["date_from"],
         date_to=data["date_to"],
         nights=calc["nights"],
