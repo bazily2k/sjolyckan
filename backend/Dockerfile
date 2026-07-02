@@ -1,24 +1,22 @@
-FROM python:3.12-slim
-
+FROM node:20-alpine AS deps
 WORKDIR /app
+COPY package*.json ./
+RUN npm install
 
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
-    curl \
-    libglib2.0-0 \
-    libpango-1.0-0 \
-    libpangoft2-1.0-0 \
-    libpangocairo-1.0-0 \
-    libcairo2 \
-    libffi-dev \
-    shared-mime-info \
-    fonts-liberation \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+FROM node:20-alpine AS builder
+WORKDIR /app
+ARG CACHEBUST=1
+RUN echo "Bust: $CACHEBUST"
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN npm run build
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+EXPOSE 3000
+CMD ["node", "server.js"]
