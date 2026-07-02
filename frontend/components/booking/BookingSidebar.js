@@ -341,6 +341,8 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
         date_from: checkIn,
         date_to: checkOut,
         guests_count: guests,
+        adults_count: adults,
+        children_count: children.length,
         article_ids: selectedArticles,
         article_quantities: articleQuantities,
         terms_accepted: termsAccepted,
