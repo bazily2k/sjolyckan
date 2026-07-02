@@ -39,6 +39,8 @@ class BookingRequest(BaseModel):
     guest_address: Optional[str] = None
     lang: str = "sv"
     guests_count: int = 2
+    adults_count: Optional[int] = None
+    children_count: Optional[int] = None
     date_from: date
     date_to: date
     article_ids: List[int] = []
