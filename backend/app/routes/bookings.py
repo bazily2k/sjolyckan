@@ -474,6 +474,90 @@ def admin_list_bookings(
     }
 
 
+# ─── Admin/Personal: Kalender ───────────────────────────
+@router.get("/admin/calendar")
+def admin_calendar(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    show_hidden: bool = False,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Kalenderdata för admin och personal: bokningar som överlappar [start, end).
+
+    Standardintervall: innevarande månad t.o.m. 12 månader framåt.
+    Avbokade bokningar exkluderas alltid; dolda exkluderas om inte show_hidden.
+    """
+    today = date.today()
+    try:
+        start_d = date.fromisoformat(start) if start else today.replace(day=1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ogiltigt startdatum")
+    if end:
+        try:
+            end_d = date.fromisoformat(end)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ogiltigt slutdatum")
+    else:
+        y = start_d.year + (start_d.month - 1 + 12) // 12
+        m = (start_d.month - 1 + 12) % 12 + 1
+        end_d = date(y, m, 1)
+
+    q = db.query(Booking).filter(
+        Booking.status != BookingStatus.cancelled,
+        Booking.date_from < end_d,
+        Booking.date_to > start_d,
+    )
+    if not show_hidden:
+        q = q.filter(Booking.hidden == False)
+    bookings = q.order_by(Booking.date_from).all()
+
+    def _cal(b: Booking) -> dict:
+        return {
+            "id": b.id,
+            "booking_ref": b.booking_ref,
+            "status": b.status.value,
+            "guest_name": b.guest_name,
+            "guest_email": b.guest_email,
+            "guest_phone": b.guest_phone,
+            "guest_country": b.guest_country,
+            "date_from": str(b.date_from),
+            "date_to": str(b.date_to),
+            "nights": b.nights,
+            "guests_count": b.guests_count,
+            "adults_count": b.adults_count,
+            "children_count": b.children_count,
+            "pets_count": b.pets_count,
+            "message": b.message,
+            "admin_note": b.admin_note,
+            "total_amount": float(b.total_amount),
+            "articles": [
+                {
+                    "name_sv": a.name_sv,
+                    "name_en": a.name_en,
+                    "name_de": a.name_de,
+                    "quantity": a.quantity,
+                    "line_total": float(a.line_total) if a.line_total is not None else 0.0,
+                } for a in b.articles
+            ],
+            "addons": [
+                {
+                    "id": ad.id,
+                    "status": ad.status,
+                    "articles": ad.articles,
+                    "total_amount": float(ad.total_amount),
+                    "message": ad.message,
+                } for ad in b.addons
+            ],
+        }
+
+    return {
+        "start": str(start_d),
+        "end": str(end_d),
+        "bookings": [_cal(b) for b in bookings],
+    }
+
+
 # ─── Admin: Hämta enskild bokning ───────────────────────
 @router.get("/admin/{booking_id}")
 def admin_get_booking(
