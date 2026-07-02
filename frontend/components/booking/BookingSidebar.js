@@ -343,6 +343,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
         guests_count: guests,
         adults_count: adults,
         children_count: children.length,
+        pets_count: dogs + cats,
         article_ids: selectedArticles,
         article_quantities: articleQuantities,
         terms_accepted: termsAccepted,
