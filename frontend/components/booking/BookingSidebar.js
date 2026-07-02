@@ -11,6 +11,11 @@ const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 const validators = {
   guest_name: (v) => v.trim().length < 2 ? 'Minst 2 tecken' : '',
   guest_email: (v) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? 'Ogiltig e-postadress' : '',
+  guest_email_confirm: (v, _country, lang, form) => {
+    if (!v) return { sv:'Bekräfta e-postadressen', en:'Confirm your email address', de:'E-Mail-Adresse bestätigen' }[lang || 'sv'];
+    if (v !== form?.guest_email) return { sv:'E-postadresserna matchar inte', en:'Email addresses do not match', de:'E-Mail-Adressen stimmen nicht überein' }[lang || 'sv'];
+    return '';
+  },
   guest_phone: (v, _country, lang) => {
     if (!v) return '';
     const msg = {
@@ -122,7 +127,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
 
   const [form, setForm] = useState({
     guest_name:'', guest_email:'', guest_phone:'',
-    guest_country:'SE', address_line1:'', address_line2:'',
+    guest_email_confirm:'', guest_country:'SE', address_line1:'', address_line2:'',
     postal_code:'', city:'', message:'',
   });
   const [errors, setErrors] = useState({});
@@ -283,7 +288,7 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
   const setChildAge = (i, age) => setChildren(c => c.map((a,idx) => idx===i ? age : a));
 
   const validateField = (field, value) => {
-    if (validators[field]) return validators[field](value, form.guest_country, lang);
+    if (validators[field]) return validators[field](value, form.guest_country, lang, form);
     return '';
   };
 
@@ -336,6 +341,9 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
         date_from: checkIn,
         date_to: checkOut,
         guests_count: guests,
+        adults_count: adults,
+        children_count: children.length,
+        pets_count: dogs + cats,
         article_ids: selectedArticles,
         article_quantities: articleQuantities,
         terms_accepted: termsAccepted,
@@ -598,6 +606,11 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           <Field label={L.email} error={touched.guest_email&&errors.guest_email} required>
             <input type="email" value={form.guest_email} onChange={e => handleChange('guest_email',e.target.value)} onBlur={() => handleBlur('guest_email')}
               style={{ ...inp, borderColor:errors.guest_email&&touched.guest_email?'var(--red)':'var(--sand-dark)' }} />
+          </Field>
+          <Field label={{sv:'Bekräfta e-post',en:'Confirm email',de:'E-Mail bestätigen'}[lang]} error={touched.guest_email_confirm&&errors.guest_email_confirm} required>
+            <input type="email" value={form.guest_email_confirm} onChange={e => handleChange('guest_email_confirm',e.target.value)} onBlur={() => handleBlur('guest_email_confirm')}
+              onPaste={e => e.preventDefault()}
+              style={{ ...inp, borderColor:errors.guest_email_confirm&&touched.guest_email_confirm?'var(--red)':'var(--sand-dark)' }} />
           </Field>
 
           <Field label={L.phone} error={touched.guest_phone&&errors.guest_phone}>

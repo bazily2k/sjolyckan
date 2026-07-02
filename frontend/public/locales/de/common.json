@@ -49,8 +49,8 @@
     "invalid_email": "Ungültige E-Mail-Adresse"
   },
   "confirm": {
-    "title": "Buchungsanfrage gesendet!",
-    "subtitle": "Wir melden uns in Kürze per E-Mail.",
+    "title": "Bestätigen Sie Ihre E-Mail-Adresse!",
+    "subtitle": "Wir haben Ihnen eine Bestätigungs-E-Mail gesendet. Klicken Sie auf den Link in der E-Mail, um Ihre Buchungsanfrage einzureichen.",
     "ref": "Referenznummer",
     "total": "Gesamtbetrag",
     "deposit": "Zu zahlende Anzahlung",

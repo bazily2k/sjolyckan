@@ -49,8 +49,8 @@
     "invalid_email": "Ogiltig e-postadress"
   },
   "confirm": {
-    "title": "Bokningsförfrågan skickad!",
-    "subtitle": "Vi återkommer inom kort via e-post.",
+    "title": "Bekräfta din e-postadress!",
+    "subtitle": "Vi har skickat ett verifieringsmail till dig. Klicka på länken i mailet för att skicka in din bokningsförfrågan.",
     "ref": "Referensnummer",
     "total": "Totalt belopp",
     "deposit": "Handpenning att betala",

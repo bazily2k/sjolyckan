@@ -1,10 +1,11 @@
 import re
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from app.models.database import get_db
 from app.models.models import (
@@ -38,6 +39,9 @@ class BookingRequest(BaseModel):
     guest_address: Optional[str] = None
     lang: str = "sv"
     guests_count: int = 2
+    adults_count: Optional[int] = None
+    children_count: Optional[int] = None
+    pets_count: Optional[int] = None
     date_from: date
     date_to: date
     article_ids: List[int] = []
@@ -418,9 +422,22 @@ async def create_booking_request(
         logging.getLogger(__name__).error(f"Kontokoppling misslyckades: {e}")
 
 
-    # Skicka mejl till gäst och admin
-    background_tasks.add_task(send_booking_email_by_id, booking.id, "booking_request")
-    background_tasks.add_task(send_booking_email_by_id, booking.id, "admin_new_booking", True)
+    # Skicka mejl till gäst och admin.
+    # Hoppa över e-postverifiering om kundens konto redan är verifierat (en gång räcker).
+    _email = (req.guest_email or "").strip().lower()
+    _existing = db.query(User).filter(User.email == _email).first() if _email else None
+    if _existing and _existing.email_verified:
+        booking.status = BookingStatus.pending
+        db.commit()
+        background_tasks.add_task(send_booking_email_by_id, booking.id, "booking_request")
+        background_tasks.add_task(send_booking_email_by_id, booking.id, "admin_new_booking", True)
+    else:
+        token = secrets.token_urlsafe(32)
+        booking.email_verify_token = token
+        booking.email_verify_expires = datetime.now(timezone.utc) + timedelta(hours=48)
+        booking.status = BookingStatus.pending_email_verify
+        db.commit()
+        background_tasks.add_task(_send_email_verify, booking.id)
 
     return {
         "booking_ref": booking.booking_ref,
@@ -454,6 +471,100 @@ def admin_list_bookings(
         'total': total,
         'skip': skip,
         'limit': limit,
+    }
+
+
+# ─── Admin/Personal: Kalender ───────────────────────────
+@router.get("/admin/calendar")
+def admin_calendar(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    show_hidden: bool = False,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Kalenderdata för admin och personal: bokningar som överlappar [start, end).
+
+    Standardintervall: innevarande månad t.o.m. 12 månader framåt.
+    Avbokade bokningar exkluderas alltid; dolda exkluderas om inte show_hidden.
+    """
+    today = date.today()
+    try:
+        start_d = date.fromisoformat(start) if start else today.replace(day=1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ogiltigt startdatum")
+    if end:
+        try:
+            end_d = date.fromisoformat(end)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Ogiltigt slutdatum")
+    else:
+        y = start_d.year + (start_d.month - 1 + 12) // 12
+        m = (start_d.month - 1 + 12) % 12 + 1
+        end_d = date(y, m, 1)
+
+    q = db.query(Booking).filter(
+        Booking.status != BookingStatus.cancelled,
+        Booking.date_from < end_d,
+        Booking.date_to > start_d,
+    )
+    if not show_hidden:
+        q = q.filter(Booking.hidden == False)
+    bookings = q.order_by(Booking.date_from).all()
+
+    def _cal(b: Booking) -> dict:
+        return {
+            "id": b.id,
+            "booking_ref": b.booking_ref,
+            "status": b.status.value,
+            "guest_name": b.guest_name,
+            "guest_email": b.guest_email,
+            "guest_phone": b.guest_phone,
+            "guest_country": b.guest_country,
+            "date_from": str(b.date_from),
+            "date_to": str(b.date_to),
+            "nights": b.nights,
+            "guests_count": b.guests_count,
+            "adults_count": b.adults_count,
+            "children_count": b.children_count,
+            "pets_count": b.pets_count,
+            "message": b.message,
+            "admin_note": b.admin_note,
+            "total_amount": float(b.total_amount),
+            "articles": [
+                {
+                    "name_sv": a.name_sv,
+                    "name_en": a.name_en,
+                    "name_de": a.name_de,
+                    "quantity": a.quantity,
+                    "line_total": float(a.line_total) if a.line_total is not None else 0.0,
+                } for a in b.articles
+            ],
+            "addons": [
+                {
+                    "id": ad.id,
+                    "status": ad.status,
+                    "articles": ad.articles,
+                    "total_amount": float(ad.total_amount),
+                    "message": ad.message,
+                } for ad in b.addons
+            ],
+        }
+
+    from app.models.models import BlockedDate
+    blocks = db.query(BlockedDate).filter(
+        BlockedDate.date_from < end_d,
+        BlockedDate.date_to > start_d,
+    ).order_by(BlockedDate.date_from).all()
+
+    return {
+        "start": str(start_d),
+        "end": str(end_d),
+        "bookings": [_cal(b) for b in bookings],
+        "blocked": [
+            {"id": bl.id, "date_from": str(bl.date_from), "date_to": str(bl.date_to), "reason": bl.reason}
+            for bl in blocks
+        ],
     }
 
 
@@ -1025,5 +1136,76 @@ async def _notify_addon_admin(addon_id: int):
         {"<p><em>" + addon.message + "</em></p>" if addon.message else ""}
         <p><a href="{settings.FRONTEND_URL}/admin">Hantera i admin →</a></p>"""
         await send_email(settings.ADMIN_EMAIL, f"Ny tilläggsbegäran — {booking.booking_ref}", html)
+    finally:
+        db.close()
+
+# ─── E-postverifiering ────────────────────────────────────────────────────────
+@router.get("/verify-email")
+def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Kund klickar länken i verifieringsmail — aktiverar bokningen."""
+    b = db.query(Booking).filter(Booking.email_verify_token == token).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Ogiltig länk")
+    if b.email_verify_expires and b.email_verify_expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Länken har gått ut")
+    if b.status != BookingStatus.pending_email_verify:
+        # Redan verifierad
+        return {"ok": True, "already_verified": True, "booking_ref": b.booking_ref}
+    b.status = BookingStatus.pending
+    b.email_verify_token = None
+    b.email_verify_expires = None
+    # Markera kundens konto som e-postverifierat — framtida bokningar slipper verifiering
+    if b.guest_email:
+        _u = db.query(User).filter(User.email == b.guest_email.strip().lower()).first()
+        if _u:
+            _u.email_verified = True
+    db.commit()
+    # Skicka booking_request till kund och admin (via BackgroundTasks — fungerar i sync-route)
+    background_tasks.add_task(send_booking_email_by_id, b.id, "booking_request")
+    background_tasks.add_task(send_booking_email_by_id, b.id, "admin_new_booking", True)
+    return {"ok": True, "booking_ref": b.booking_ref}
+
+
+async def _send_email_verify(booking_id: int):
+    """Skickar verifieringsmail till kunden."""
+    from app.models.database import SessionLocal
+    from app.email.service import send_email
+    from app.core.config import settings
+    db = SessionLocal()
+    try:
+        b = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not b: return
+        verify_url = f"{settings.FRONTEND_URL}/verify-email?token={b.email_verify_token}"
+        lang = b.lang or "sv"
+        subjects = {
+            "sv": "Bekräfta din e-postadress — Sjölyckan",
+            "en": "Confirm your email address — Sjölyckan",
+            "de": "Bestätigen Sie Ihre E-Mail-Adresse — Sjölyckan",
+        }
+        intros = {
+            "sv": f"Hej {b.guest_name.split()[0]}! Klicka på knappen nedan för att bekräfta din e-postadress och skicka in din bokningsförfrågan.",
+            "en": f"Hi {b.guest_name.split()[0]}! Click the button below to confirm your email address and submit your booking request.",
+            "de": f"Hallo {b.guest_name.split()[0]}! Klicken Sie auf den Button unten, um Ihre E-Mail-Adresse zu bestätigen und Ihre Buchungsanfrage einzureichen.",
+        }
+        btn_labels = {"sv": "Bekräfta e-postadress", "en": "Confirm email address", "de": "E-Mail-Adresse bestätigen"}
+        expire_notes = {
+            "sv": "Länken är giltig i 48 timmar.",
+            "en": "The link is valid for 48 hours.",
+            "de": "Der Link ist 48 Stunden gültig.",
+        }
+        html = f"""
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+          <h2 style="font-family:Georgia,serif">{subjects[lang]}</h2>
+          <p>{intros[lang]}</p>
+          <p style="margin:24px 0">
+            <a href="{verify_url}" style="background:#2c5f8a;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:500">
+              {btn_labels[lang]}
+            </a>
+          </p>
+          <p style="color:#888;font-size:13px">{expire_notes[lang]}</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+          <p style="color:#888;font-size:12px">Sjölyckan · Rolsmo, Småland</p>
+        </div>"""
+        await send_email(b.guest_email, subjects[lang], html)
     finally:
         db.close()

@@ -13,6 +13,7 @@ const STATUS_COLORS = {
   paid: { bg: '#d4edda', color: '#155724', label: 'Betald' },
   cancelled: { bg: '#f8d7da', color: '#721c24', label: 'Avbokad' },
   expired: { bg: '#e2e3e5', color: '#383d41', label: 'Förfallen' },
+  pending_email_verify: { bg: '#e7d9f7', color: '#5a3a86', label: 'Väntar på e-post' },
 };
 
 export default function AdminBookings() {
@@ -237,7 +238,7 @@ export default function AdminBookings() {
         {/* Filter */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {['', 'pending', 'confirmed', 'deposit_paid', 'paid', 'cancelled'].map(s => (
+            {['', 'pending_email_verify', 'pending', 'confirmed', 'deposit_paid', 'paid', 'cancelled'].map(s => (
               <button key={s} onClick={() => setFilter(s)} style={{
                 padding: '6px 14px', borderRadius: 20, border: '1px solid var(--sand-dark)',
                 background: filter === s ? 'var(--water)' : 'white',
@@ -536,6 +537,18 @@ export default function AdminBookings() {
                       ✗ Neka
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Väntar på e-bekräftelse */}
+              {selected.status === 'pending_email_verify' && (
+                <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Väntar på e-postbekräftelse</div>
+                  <p style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 10 }}>Gästen har ännu inte bekräftat sin e-postadress. Bokningsförfrågan skickas in först efter bekräftelse.</p>
+                  <button onClick={async () => { try { await adminApi.resendVerifyEmail(selected.id); setMsg('Verifieringsmail skickat till ' + (selected.user_email || selected.guest_email)); } catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); } }}
+                    style={{ padding:'8px 14px', background:'#7c4dbb', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:13, width:'100%' }}>
+                    ✉️ Skicka om verifieringsmail
+                  </button>
                 </div>
               )}
 

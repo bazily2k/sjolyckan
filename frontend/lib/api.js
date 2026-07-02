@@ -38,6 +38,7 @@ export const bookingApi = {
   request: (data) => api.post('/bookings/request', data),
 };
 export const adminApi = {
+  getCalendar: (start, end) => api.get('/bookings/admin/calendar', { params: { start, end } }),
   listBookings: (status, showHidden) =>
     api.get(`/bookings/admin/list${status ? `?status=${status}` : ''}${showHidden ? (status ? '&show_hidden=true' : '?show_hidden=true') : ''}`),
   getBooking: (id) => api.get(`/bookings/admin/${id}`),
@@ -75,6 +76,7 @@ export const adminApi = {
   deleteUser: (userId) => api.delete(`/auth/admin/users/${userId}`),
   getEmailHealth: () => api.get('/admin/email-health'),
   resendBookingEmail: (bookingId, emailType) => api.post(`/admin/bookings/${bookingId}/resend-email`, { email_type: emailType }),
+  resendVerifyEmail: (bookingId) => api.post(`/admin/bookings/${bookingId}/resend-verify-email`),
   getEmailTemplates:        ()         => api.get('/admin/email-templates'),
   getEmailTemplate:         (id)       => api.get(`/admin/email-templates/${id}`),
   createEmailTemplate:      (data)     => api.post('/admin/email-templates', data),

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date
 from app.models.database import get_db
-from app.models.models import Season, Article, PriceOverride, Setting, User, EmailLog, Booking
+from app.models.models import Season, Article, PriceOverride, Setting, User, EmailLog, Booking, BookingStatus
 from app.core.auth import require_admin
 from app.core.config import settings
 
@@ -47,6 +47,29 @@ async def resend_booking_email_direct(
     if ok:
         return {"status": "sent", "email_type": payload.email_type}
     raise HTTPException(status_code=500, detail="Mejlet kunde inte skickas")
+
+
+@router.post("/bookings/{booking_id}/resend-verify-email")
+async def resend_verify_email(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Skicka om verifieringsmail för en bokning som väntar på e-bekräftelse."""
+    import secrets
+    from datetime import datetime, timedelta, timezone
+    from app.routes.bookings import _send_email_verify
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    if booking.status != BookingStatus.pending_email_verify:
+        raise HTTPException(status_code=400, detail="Bokningen väntar inte på e-postbekräftelse")
+    booking.email_verify_token = secrets.token_urlsafe(32)
+    booking.email_verify_expires = datetime.now(timezone.utc) + timedelta(hours=48)
+    booking.email_verify_reminder_sent = False
+    db.commit()
+    await _send_email_verify(booking.id)
+    return {"status": "sent", "booking_ref": booking.booking_ref}
 
 
 # ══════════════════════════════════════════════════════════

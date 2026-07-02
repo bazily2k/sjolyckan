@@ -23,6 +23,7 @@ class BookingStatus(str, enum.Enum):
     paid = "paid"                 # Fullbetald
     cancelled = "cancelled"       # Avbokad
     expired = "expired"           # Betalfrist passerad
+    pending_email_verify = "pending_email_verify"  # Väntar på e-postbekräftelse
 
 
 class PaymentMethod(str, enum.Enum):
@@ -68,6 +69,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     admin_notes = Column(Text, nullable=True)  # interna admin-anteckningar, visas aldrig för kunden
     password_set_by_user = Column(Boolean, default=False)  # True när kunden själv valt/satt sitt lösenord
+    email_verified = Column(Boolean, default=False)  # True när kunden bekräftat sin e-post via bokning
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True))
 
@@ -180,6 +182,9 @@ class Booking(Base):
     date_to = Column(Date, nullable=False)
     nights = Column(Integer, nullable=False)
     guests_count = Column(Integer, default=2)
+    adults_count = Column(Integer, nullable=True)      # antal vuxna (null för äldre bokningar)
+    children_count = Column(Integer, nullable=True)    # antal barn (null för äldre bokningar)
+    pets_count = Column(Integer, nullable=True)        # antal husdjur (hundar + katter)
 
     # ── SNAPSHOT av villkor vid bokningstillfället ──────
     # Dessa ändras ALDRIG efter att bokningen bekräftats
@@ -231,6 +236,11 @@ class Booking(Base):
     gdpr_accepted = Column(Boolean, default=False)
     house_rules_accepted = Column(Boolean, default=False)
     terms_snapshot = Column(JSON, nullable=True)
+
+    # E-postverifiering
+    email_verify_token = Column(String(64), nullable=True)
+    email_verify_expires = Column(DateTime(timezone=True), nullable=True)
+    email_verify_reminder_sent = Column(Boolean, default=False)
 
     # Relationer
     user = relationship("User", back_populates="bookings")

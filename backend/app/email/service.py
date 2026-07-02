@@ -171,6 +171,8 @@ async def send_booking_email(
                 env = Environment(autoescape=False)
                 html = env.from_string(body_src).render(**ctx)
                 subject = env.from_string(subj_src).render(**ctx)
+                # DB-mallar renderas med Jinja ({{ }}); ersätt även gamla {ref}/{date}-platshållare
+                subject = subject.replace("{ref}", booking.booking_ref or "").replace("{date}", str(booking.payment_due_date or ""))
         except Exception as _e:
             logger.warning(f"DB-malluppslag misslyckades: {_e}")
     # Fallback till fil

@@ -35,6 +35,7 @@ export default function AdminLayout({ children, title = 'Admin' }) {
 
   const navItems = [
     { href: '/admin',               label: '📋 Bokningar' },
+    { href: '/admin/calendar',      label: '🗓️ Kalender' },
     { href: '/admin/seasons',       label: '📅 Säsonger & priser' },
     { href: '/admin/articles',      label: '🎯 Tillägg' },
     { href: '/admin/content',       label: '✏️ Innehåll & bilder' },

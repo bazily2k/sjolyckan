@@ -4,7 +4,7 @@ Skickar påminnelser och markerar förfallna bokningar.
 """
 import asyncio
 import logging
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.models.database import SessionLocal
@@ -75,6 +75,22 @@ async def run_daily_checks():
                 if booking.status in (BookingStatus.paid, BookingStatus.deposit_paid):
                     logger.info(f"Bokning {booking.booking_ref}: skickar välkomstmejl")
                     await send_booking_email(db, booking, "checkin_info")
+
+        # ── Påminnelse: obekräftad e-postadress ──────
+        now = datetime.now(timezone.utc)
+        unverified = db.query(Booking).filter(
+            Booking.status == BookingStatus.pending_email_verify,
+            Booking.email_verify_reminder_sent == False,
+            Booking.email_verify_expires.isnot(None),
+        ).all()
+        for b in unverified:
+            if (b.email_verify_expires and now < b.email_verify_expires
+                    and now >= b.email_verify_expires - timedelta(hours=24)):
+                logger.info(f"Bokning {b.booking_ref}: paminnelse om e-postbekraftelse")
+                b.email_verify_reminder_sent = True
+                db.commit()
+                from app.routes.bookings import _send_email_verify
+                await _send_email_verify(b.id)
 
     except Exception as e:
         logger.error(f"Fel i dagliga kontroller: {e}")
