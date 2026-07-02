@@ -41,6 +41,7 @@ class BookingRequest(BaseModel):
     guests_count: int = 2
     adults_count: Optional[int] = None
     children_count: Optional[int] = None
+    pets_count: Optional[int] = None
     date_from: date
     date_to: date
     article_ids: List[int] = []
