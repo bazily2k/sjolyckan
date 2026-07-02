@@ -49,6 +49,7 @@ def _ensure_booking_constraints():
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS adults_count integer")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS children_count integer")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pets_count integer")
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean DEFAULT false")
             # Backfill: konton utan giltig reset_token har redan satt lösenord (gamla konton innan denna kolumn fanns)
             conn.exec_driver_sql("""
                 UPDATE users SET password_set_by_user = true
