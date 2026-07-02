@@ -176,23 +176,23 @@ export default function AdminCalendar() {
                   <div key={w} style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-light)', textAlign: 'center', padding: '6px 0' }}>{w}</div>
                 ))}
                 {monthCells(year, month).map((cell, i) => {
-                  if (!cell) return <div key={i} style={{ minHeight: 112 }} />;
+                  if (!cell) return <div key={i} style={{ minHeight: 132 }} />;
                   const dstr = ymd(cell);
                   const occ = bookingsOn(dstr);
                   const blk = blockedOn(dstr);
                   return (
                     <div key={i} style={{
-                      minHeight: 112, border: '1px solid var(--sand-dark)', borderRadius: 6,
-                      padding: 6, background: 'white', fontSize: 13, overflow: 'hidden',
+                      minHeight: 132, border: '1px solid var(--sand-dark)', borderRadius: 6,
+                      padding: 6, background: 'white', fontSize: 15, overflow: 'hidden',
                     }}>
-                      <div style={{ color: 'var(--ink-light)', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{cell.getDate()}</div>
+                      <div style={{ color: 'var(--ink-light)', fontWeight: 600, fontSize: 18, marginBottom: 4 }}>{cell.getDate()}</div>
                       {blk.map(bl => (
                         <div key={'b' + bl.id} onClick={() => setSelected({ ...bl, _type: 'blocked' })} title="Blockerad – klicka för detaljer" style={{
                           background: BLOCK_BG, color: BLOCK_FG, borderRadius: 4, padding: '4px 6px',
                           marginBottom: 4, cursor: 'pointer', lineHeight: 1.3,
                         }}>
                           <div style={{ fontWeight: 600 }}>🚫 Blockerad</div>
-                          {bl.reason && <div style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bl.reason}</div>}
+                          {bl.reason && <div style={{ fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bl.reason}</div>}
                         </div>
                       ))}
                       {occ.map(b => {
@@ -204,10 +204,10 @@ export default function AdminCalendar() {
                             marginBottom: 4, cursor: 'pointer', lineHeight: 1.3,
                           }}>
                             <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.guest_name}</div>
-                            <div style={{ fontSize: 12 }}>
+                            <div style={{ fontSize: 14 }}>
                               👥{b.guests_count}{b.pets_count ? ` 🐾${b.pets_count}` : ''}{addonCount ? ` 🎁${addonCount}` : ''}
                             </div>
-                            {(b.message || b.admin_note) && <div style={{ fontSize: 12 }}>💬</div>}
+                            {(b.message || b.admin_note) && <div style={{ fontSize: 14 }}>💬</div>}
                           </div>
                         );
                       })}
