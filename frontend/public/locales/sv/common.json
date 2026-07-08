@@ -51,6 +51,7 @@
   "confirm": {
     "title": "Bekräfta din e-postadress!",
     "subtitle": "Vi har skickat ett verifieringsmail till dig. Klicka på länken i mailet för att skicka in din bokningsförfrågan.",
+    "spam_note": "Hittar du inte mailet? Kontrollera din skräppost.",
     "ref": "Referensnummer",
     "total": "Totalt belopp",
     "deposit": "Handpenning att betala",
