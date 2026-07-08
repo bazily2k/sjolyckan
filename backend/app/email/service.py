@@ -43,6 +43,7 @@ async def send_email(to: str, subject: str, html: str) -> bool:
                     "to": [{"email": to}],
                     "subject": subject,
                     "html": html,
+                    "reply_to": {"email": settings.MAIL_REPLY_TO or settings.ADMIN_EMAIL or settings.MAIL_FROM},
                 },
                 timeout=30,
             )
@@ -198,6 +199,7 @@ async def send_via_brevo(to_email: str, subject: str, html: str) -> bool:
         from_email = settings.BREVO_FROM if settings.BREVO_FROM else settings.MAIL_FROM
         msg['From'] = f"{settings.MAIL_FROM_NAME} <{from_email}>"
         msg['To'] = to_email
+        msg['Reply-To'] = settings.MAIL_REPLY_TO or settings.ADMIN_EMAIL or settings.MAIL_FROM
         msg.attach(MIMEText(html, 'html', 'utf-8'))
         with smtplib.SMTP(settings.BREVO_SMTP_SERVER, settings.BREVO_SMTP_PORT) as server:
             server.ehlo()
