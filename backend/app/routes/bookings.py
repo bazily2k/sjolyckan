@@ -1193,6 +1193,11 @@ async def _send_email_verify(booking_id: int):
             "en": "The link is valid for 48 hours.",
             "de": "Der Link ist 48 Stunden gültig.",
         }
+        contact_notes = {
+            "sv": "Har du frågor? Svara på detta mejl så återkommer vi.",
+            "en": "Questions? Just reply to this email and we'll get back to you.",
+            "de": "Fragen? Antworten Sie einfach auf diese E-Mail.",
+        }
         html = f"""
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
           <h2 style="font-family:Georgia,serif">{subjects[lang]}</h2>
@@ -1203,6 +1208,7 @@ async def _send_email_verify(booking_id: int):
             </a>
           </p>
           <p style="color:#888;font-size:13px">{expire_notes[lang]}</p>
+          <p style="color:#888;font-size:13px">{contact_notes[lang]}</p>
           <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
           <p style="color:#888;font-size:12px">Sjölyckan · Rolsmo, Småland</p>
         </div>"""
