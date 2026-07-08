@@ -51,6 +51,7 @@
   "confirm": {
     "title": "Confirm your email address!",
     "subtitle": "We have sent a verification email to you. Click the link in the email to submit your booking request.",
+    "spam_note": "Can't find the email? Please check your spam folder.",
     "ref": "Reference number",
     "total": "Total amount",
     "deposit": "Deposit to pay",
