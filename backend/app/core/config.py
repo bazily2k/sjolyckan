@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     MAILSEND_API_KEY: str
     MAIL_FROM: str = "noreply@rolsmo23.com"
     MAIL_FROM_NAME: str = "Sjölyckan, Rolsmo"
+    MAIL_REPLY_TO: str = ""  # Svar-till-adress; tom = faller tillbaka på ADMIN_EMAIL
 
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
