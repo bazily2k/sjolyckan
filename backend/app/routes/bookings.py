@@ -438,6 +438,7 @@ async def create_booking_request(
         booking.status = BookingStatus.pending_email_verify
         db.commit()
         background_tasks.add_task(_send_email_verify, booking.id)
+        background_tasks.add_task(_send_admin_pending_verify, booking.id)
 
     return {
         "booking_ref": booking.booking_ref,
@@ -1164,6 +1165,45 @@ def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = De
     background_tasks.add_task(send_booking_email_by_id, b.id, "booking_request")
     background_tasks.add_task(send_booking_email_by_id, b.id, "admin_new_booking", True)
     return {"ok": True, "booking_ref": b.booking_ref}
+
+
+async def _send_admin_pending_verify(booking_id: int):
+    """Notifiera admin om ny bokningsförfrågan som väntar på kundens e-postbekräftelse."""
+    from app.models.database import SessionLocal
+    from app.email.service import send_email
+    from app.core.config import settings
+    db = SessionLocal()
+    try:
+        b = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not b:
+            return
+        persons = f"{b.guests_count} gäster"
+        if b.adults_count is not None or b.children_count is not None:
+            persons = f"{b.adults_count or 0} vuxna, {b.children_count or 0} barn"
+            if b.pets_count:
+                persons += f", {b.pets_count} husdjur"
+        html = f"""<h2>Ny bokningsförfrågan — väntar på e-postbekräftelse</h2>
+        <p>Bokning: <strong>{b.booking_ref}</strong> — {b.guest_name}</p>
+        <p><strong>Kunden har ännu inte bekräftat sin e-postadress.</strong>
+        Bokningsförfrågan blir aktiv först när kunden klickat på verifieringslänken.
+        Länken är giltig i 48 timmar.</p>
+        <table border="1" cellpadding="6">
+        <tr><td>E-post</td><td>{b.guest_email}</td></tr>
+        <tr><td>Telefon</td><td>{b.guest_phone or "-"}</td></tr>
+        <tr><td>Ankomst</td><td>{b.date_from}</td></tr>
+        <tr><td>Avresa</td><td>{b.date_to}</td></tr>
+        <tr><td>Nätter</td><td>{b.nights}</td></tr>
+        <tr><td>Gäster</td><td>{persons}</td></tr>
+        <tr><td>Belopp</td><td>{float(b.total_amount):,.0f} kr</td></tr>
+        </table>
+        {"<p><em>" + b.message + "</em></p>" if b.message else ""}
+        <p>Du kan skicka om verifieringsmailet från admin om kunden inte hittar det.</p>
+        <p><a href="{settings.FRONTEND_URL}/admin">Hantera i admin →</a></p>"""
+        await send_email(settings.ADMIN_EMAIL, f"Väntar på e-bekräftelse — {b.booking_ref}", html)
+    except Exception as exc:
+        logger.error(f"Kunde inte skicka admin-notis (pending verify) för {booking_id}: {exc}")
+    finally:
+        db.close()
 
 
 async def _send_email_verify(booking_id: int):
