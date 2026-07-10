@@ -27,7 +27,7 @@
   </div>
 
   <p>Hallo {{ booking.guest_name }},</p>
-  <p>Wir freuen uns, Ihre Buchung zu bestätigen of Sjölyckan at Rolsmosjön!</p>
+  <p>Wir freuen uns, Ihre Buchung am Rolsmosjön zu bestätigen!</p>
 
   <table>
     <tr><td>Anreise</td><td>{{ booking.date_from.strftime('%d %B %Y') }}</td></tr>
@@ -37,33 +37,35 @@
   </table>
 
   <table>
-    <tr><td>Unterkunft ({{ booking.nights }} nights)</td><td>{{ "{:,.0f}".format(booking.base_amount) }} SEK</td></tr>
+    <tr><td>Unterkunft ({{ booking.nights }} Nächte)</td><td>{{ "{:,.0f}".format(booking.base_amount) }} SEK</td></tr>
     {% for art in snap.articles %}
-    <tr><td>{{ art.name_en }}</td><td>{{ "{:,.0f}".format(art.line_total) }} SEK</td></tr>
+    <tr><td>{{ art.name_de }}</td><td>{{ "{:,.0f}".format(art.line_total) }} SEK</td></tr>
     {% endfor %}
     <tr class="total"><td>Gesamt</td><td>{{ "{:,.0f}".format(booking.total_amount) }} SEK</td></tr>
   </table>
 
+  {% if booking.deposit_amount and booking.deposit_amount > 0 %}
   <div class="box yellow">
     <h3>💳 Anzahlung</h3>
-    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') }}</strong></p>
+    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') if booking.deposit_due_date else '' }}</strong></p>
     {% if booking.payment_method and booking.payment_method.value == 'stripe' %}
-    <p>Please pay by card using the link sent separately.</p>
+    <p>Bitte zahlen Sie per Karte über den separat gesendeten Link.</p>
     {% else %}
-    <p>We will contact you with payment details.</p>
+    <p>Wir kontaktieren Sie mit den Zahlungsinformationen.</p>
     {% endif %}
   </div>
+  {% endif %}
 
   <div class="box blue">
     <h3>📅 Restzahlung</h3>
-    <p>Remaining balance <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.payment_due_date.strftime('%d %B %Y') }}</strong></p>
+    <p>Restbetrag <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
   </div>
 
   <div class="box">
     <h3>🏠 Anreise Information</h3>
-    <p>Anreise from 3:00 PM · Abreise by 12:00 PM<br>
-    Smart lock — door code sent the day before arrival.<br>
-    Bitte eigene Bettwäsche mitbringen (unless booked as an add-on).</p>
+    <p>Anreise ab 15:00 Uhr · Abreise bis 12:00 Uhr<br>
+    Smart-Schloss — Code wird am Tag vor der Anreise gesendet.<br>
+    Bitte eigene Bettwäsche mitbringen (sofern nicht als Zusatzleistung gebucht).</p>
   </div>
 
   <p>Fragen? Kontaktieren Sie uns unter <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
