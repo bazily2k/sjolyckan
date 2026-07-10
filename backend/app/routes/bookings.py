@@ -66,6 +66,8 @@ class AdminConfirmRequest(BaseModel):
     payment_method: PaymentMethod
     payment_methods: Optional[str] = None  # kommaseparerad: swish,paypal,stripe
     admin_note: Optional[str] = None
+    deposit_due_date: Optional[date] = None   # åsidosätter beräknat datum
+    payment_due_date: Optional[date] = None   # åsidosätter beräknat datum
 
 
 class AdminPaymentRequest(BaseModel):
@@ -604,24 +606,38 @@ async def admin_confirm_booking(
     b.admin_note = req.admin_note
     b.confirmed_at = datetime.utcnow()
 
-    # Skapa betalningsposter
-    deposit = Payment(
-        booking_id=b.id,
-        type=PaymentType.deposit,
-        method=req.payment_method,
-        amount=b.deposit_amount,
-        status=PaymentStatus.pending,
-        due_date=b.deposit_due_date,
-    )
+    # Admin kan justera förfallodatum vid godkännande
+    if req.payment_due_date:
+        b.payment_due_date = req.payment_due_date
+
+    has_deposit = b.deposit_amount and b.deposit_amount > 0
+    if has_deposit:
+        if req.deposit_due_date:
+            b.deposit_due_date = req.deposit_due_date
+    else:
+        # Ingen handpenning — inget förfallodatum ska visas för kunden
+        b.deposit_due_date = None
+
+    # Skapa betalningsposter (handpenning bara om beloppet är > 0)
+    deposit = None
+    if has_deposit:
+        deposit = Payment(
+            booking_id=b.id,
+            type=PaymentType.deposit,
+            method=req.payment_method,
+            amount=b.deposit_amount,
+            status=PaymentStatus.pending,
+            due_date=b.deposit_due_date,
+        )
+        db.add(deposit)
     final = Payment(
         booking_id=b.id,
         type=PaymentType.final,
         method=req.payment_method,
-        amount=b.total_amount - b.deposit_amount,
+        amount=b.total_amount - (b.deposit_amount or 0),
         status=PaymentStatus.pending,
         due_date=b.payment_due_date,
     )
-    db.add(deposit)
     db.add(final)
     db.commit()
     db.refresh(b)
@@ -630,7 +646,7 @@ async def admin_confirm_booking(
     background_tasks.add_task(send_booking_email_by_id, b.id, "booking_confirmed")
 
     # Om Stripe — skapa betalningslänk för handpenning
-    if req.payment_method == PaymentMethod.stripe and settings.STRIPE_SECRET_KEY:
+    if has_deposit and req.payment_method == PaymentMethod.stripe and settings.STRIPE_SECRET_KEY:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=[{
