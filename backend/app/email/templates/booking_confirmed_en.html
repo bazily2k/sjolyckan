@@ -47,9 +47,10 @@
     <tr class="total"><td>Total</td><td>{{ "{:,.0f}".format(booking.total_amount) }} SEK</td></tr>
   </table>
 
+  {% if booking.deposit_amount and booking.deposit_amount > 0 %}
   <div class="box yellow">
     <h3>💳 Deposit</h3>
-    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> is due by <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') }}</strong></p>
+    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> is due by <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') if booking.deposit_due_date else '' }}</strong></p>
     {% set methods = (booking.payment_methods or 'paypal').split(',') %}
     {% if 'swish' in methods and swish_number %}
     <p>Swish to: <strong>{{ swish_number }}</strong><br>Reference: <strong>{{ booking.booking_ref }}</strong></p>
@@ -61,6 +62,7 @@
       Or copy link: {{ frontend_url }}/pay/{{ booking.booking_ref }}
     </p>
   </div>
+  {% endif %}
 
   <div class="box blue">
     <h3>📅 Final Payment</h3>
