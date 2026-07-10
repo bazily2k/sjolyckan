@@ -47,9 +47,10 @@
     <tr class="total"><td>Totalt att betala</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
   </table>
 
+  {% if booking.deposit_amount and booking.deposit_amount > 0 %}
   <div class="box yellow">
     <h3>💳 Handpenning</h3>
-    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') }}</strong></p>
+    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') if booking.deposit_due_date else '' }}</strong></p>
     {% if booking.payment_method.value == 'swish' %}
     <p>Swisha till: <strong>{{ swish_number }}</strong><br>Ange bokningsnummer <strong>{{ booking.booking_ref }}</strong> som meddelande.</p>
     <p style="font-size:13px;color:#555;margin-top:8px">Du kan också betala med PayPal eller kort:</p>
@@ -61,10 +62,11 @@
       Välj betalmetod: {{ frontend_url }}/pay/{{ booking.booking_ref }}
     </p>
   </div>
+  {% endif %}
 
   <div class="box blue">
     <h3>📅 Slutbetalning</h3>
-    <p>Återstående belopp <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.payment_due_date.strftime('%d %B %Y') }}</strong></p>
+    <p>Återstående belopp <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
   </div>
 
   <div class="box">

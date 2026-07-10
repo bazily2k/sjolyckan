@@ -47,9 +47,10 @@
     <tr class="total"><td>Gesamt</td><td>{{ "{:,.0f}".format(booking.total_amount) }} SEK</td></tr>
   </table>
 
+  {% if booking.deposit_amount and booking.deposit_amount > 0 %}
   <div class="box yellow">
     <h3>💳 Anzahlung</h3>
-    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') }}</strong></p>
+    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') if booking.deposit_due_date else '' }}</strong></p>
     {% set methods = (booking.payment_methods or 'paypal').split(',') %}
     {% if 'swish' in methods and swish_number %}
     <p>Swish an: <strong>{{ swish_number }}</strong><br>Verwendungszweck: <strong>{{ booking.booking_ref }}</strong></p>
@@ -61,10 +62,11 @@
       Link kopieren: {{ frontend_url }}/pay/{{ booking.booking_ref }}
     </p>
   </div>
+  {% endif %}
 
   <div class="box blue">
     <h3>📅 Restzahlung</h3>
-    <p>Remaining balance <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.payment_due_date.strftime('%d %B %Y') }}</strong></p>
+    <p>Remaining balance <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} SEK</strong> ist fällig bis <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
   </div>
 
   <div class="box">
