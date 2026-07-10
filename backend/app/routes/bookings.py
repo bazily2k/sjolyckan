@@ -66,6 +66,8 @@ class AdminConfirmRequest(BaseModel):
     payment_method: PaymentMethod
     payment_methods: Optional[str] = None  # kommaseparerad: swish,paypal,stripe
     admin_note: Optional[str] = None
+    deposit_due_date: Optional[date] = None   # åsidosätter beräknat datum
+    payment_due_date: Optional[date] = None   # åsidosätter beräknat datum
 
 
 class AdminPaymentRequest(BaseModel):
@@ -438,6 +440,7 @@ async def create_booking_request(
         booking.status = BookingStatus.pending_email_verify
         db.commit()
         background_tasks.add_task(_send_email_verify, booking.id)
+        background_tasks.add_task(_send_admin_pending_verify, booking.id)
 
     return {
         "booking_ref": booking.booking_ref,
@@ -603,24 +606,38 @@ async def admin_confirm_booking(
     b.admin_note = req.admin_note
     b.confirmed_at = datetime.utcnow()
 
-    # Skapa betalningsposter
-    deposit = Payment(
-        booking_id=b.id,
-        type=PaymentType.deposit,
-        method=req.payment_method,
-        amount=b.deposit_amount,
-        status=PaymentStatus.pending,
-        due_date=b.deposit_due_date,
-    )
+    # Admin kan justera förfallodatum vid godkännande
+    if req.payment_due_date:
+        b.payment_due_date = req.payment_due_date
+
+    has_deposit = b.deposit_amount and b.deposit_amount > 0
+    if has_deposit:
+        if req.deposit_due_date:
+            b.deposit_due_date = req.deposit_due_date
+    else:
+        # Ingen handpenning — inget förfallodatum ska visas för kunden
+        b.deposit_due_date = None
+
+    # Skapa betalningsposter (handpenning bara om beloppet är > 0)
+    deposit = None
+    if has_deposit:
+        deposit = Payment(
+            booking_id=b.id,
+            type=PaymentType.deposit,
+            method=req.payment_method,
+            amount=b.deposit_amount,
+            status=PaymentStatus.pending,
+            due_date=b.deposit_due_date,
+        )
+        db.add(deposit)
     final = Payment(
         booking_id=b.id,
         type=PaymentType.final,
         method=req.payment_method,
-        amount=b.total_amount - b.deposit_amount,
+        amount=b.total_amount - (b.deposit_amount or 0),
         status=PaymentStatus.pending,
         due_date=b.payment_due_date,
     )
-    db.add(deposit)
     db.add(final)
     db.commit()
     db.refresh(b)
@@ -629,7 +646,7 @@ async def admin_confirm_booking(
     background_tasks.add_task(send_booking_email_by_id, b.id, "booking_confirmed")
 
     # Om Stripe — skapa betalningslänk för handpenning
-    if req.payment_method == PaymentMethod.stripe and settings.STRIPE_SECRET_KEY:
+    if has_deposit and req.payment_method == PaymentMethod.stripe and settings.STRIPE_SECRET_KEY:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=[{
@@ -1166,6 +1183,45 @@ def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = De
     return {"ok": True, "booking_ref": b.booking_ref}
 
 
+async def _send_admin_pending_verify(booking_id: int):
+    """Notifiera admin om ny bokningsförfrågan som väntar på kundens e-postbekräftelse."""
+    from app.models.database import SessionLocal
+    from app.email.service import send_email
+    from app.core.config import settings
+    db = SessionLocal()
+    try:
+        b = db.query(Booking).filter(Booking.id == booking_id).first()
+        if not b:
+            return
+        persons = f"{b.guests_count} gäster"
+        if b.adults_count is not None or b.children_count is not None:
+            persons = f"{b.adults_count or 0} vuxna, {b.children_count or 0} barn"
+            if b.pets_count:
+                persons += f", {b.pets_count} husdjur"
+        html = f"""<h2>Ny bokningsförfrågan — väntar på e-postbekräftelse</h2>
+        <p>Bokning: <strong>{b.booking_ref}</strong> — {b.guest_name}</p>
+        <p><strong>Kunden har ännu inte bekräftat sin e-postadress.</strong>
+        Bokningsförfrågan blir aktiv först när kunden klickat på verifieringslänken.
+        Länken är giltig i 48 timmar.</p>
+        <table border="1" cellpadding="6">
+        <tr><td>E-post</td><td>{b.guest_email}</td></tr>
+        <tr><td>Telefon</td><td>{b.guest_phone or "-"}</td></tr>
+        <tr><td>Ankomst</td><td>{b.date_from}</td></tr>
+        <tr><td>Avresa</td><td>{b.date_to}</td></tr>
+        <tr><td>Nätter</td><td>{b.nights}</td></tr>
+        <tr><td>Gäster</td><td>{persons}</td></tr>
+        <tr><td>Belopp</td><td>{float(b.total_amount):,.0f} kr</td></tr>
+        </table>
+        {"<p><em>" + b.message + "</em></p>" if b.message else ""}
+        <p>Du kan skicka om verifieringsmailet från admin om kunden inte hittar det.</p>
+        <p><a href="{settings.FRONTEND_URL}/admin">Hantera i admin →</a></p>"""
+        await send_email(settings.ADMIN_EMAIL, f"Väntar på e-bekräftelse — {b.booking_ref}", html)
+    except Exception as exc:
+        logger.error(f"Kunde inte skicka admin-notis (pending verify) för {booking_id}: {exc}")
+    finally:
+        db.close()
+
+
 async def _send_email_verify(booking_id: int):
     """Skickar verifieringsmail till kunden."""
     from app.models.database import SessionLocal
@@ -1193,6 +1249,11 @@ async def _send_email_verify(booking_id: int):
             "en": "The link is valid for 48 hours.",
             "de": "Der Link ist 48 Stunden gültig.",
         }
+        contact_notes = {
+            "sv": "Har du frågor? Svara på detta mejl så återkommer vi.",
+            "en": "Questions? Just reply to this email and we'll get back to you.",
+            "de": "Fragen? Antworten Sie einfach auf diese E-Mail.",
+        }
         html = f"""
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
           <h2 style="font-family:Georgia,serif">{subjects[lang]}</h2>
@@ -1203,6 +1264,7 @@ async def _send_email_verify(booking_id: int):
             </a>
           </p>
           <p style="color:#888;font-size:13px">{expire_notes[lang]}</p>
+          <p style="color:#888;font-size:13px">{contact_notes[lang]}</p>
           <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
           <p style="color:#888;font-size:12px">Sjölyckan · Rolsmo, Småland</p>
         </div>"""

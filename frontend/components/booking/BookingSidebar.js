@@ -370,6 +370,10 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           <div style={{ fontSize:40, marginBottom:8 }}>✓</div>
           <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:4 }}>{t('confirm.title')}</h3>
           <p style={{ fontSize:13, color:'var(--ink-light)' }}>{t('confirm.subtitle')}</p>
+          <p style={{ fontSize:14, fontWeight:700, color:'var(--ink)', marginTop:12, padding:'10px 12px',
+            background:'#fff4e5', border:'1px solid #e0a94f', borderRadius:'var(--radius-md)' }}>
+            ⚠️ {t('confirm.spam_note')}
+          </p>
         </div>
         <div style={{ background:'var(--water-pale)', borderRadius:'var(--radius-md)', padding:16, fontSize:13 }}>
           <div style={infoRow}><span>{t('confirm.ref')}</span><strong>{booking.booking_ref}</strong></div>

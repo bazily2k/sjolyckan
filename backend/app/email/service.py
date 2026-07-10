@@ -14,6 +14,23 @@ jinja_env = Environment(
     autoescape=select_autoescape(["html"]),
 )
 
+def html_to_text(html: str) -> str:
+    """Enkel HTML->text för mailens textalternativ (multipart).
+
+    Mail utan textdel rankas sämre av skräppostfilter.
+    """
+    import re, html as _html
+    t = re.sub(r"(?is)<(script|style).*?</\1>", "", html or "")
+    t = re.sub(r"(?i)<br\s*/?>", "\n", t)
+    t = re.sub(r"(?i)</(p|div|tr|h[1-6]|li)>", "\n", t)
+    t = re.sub(r"(?i)</(td|th)>", "\t", t)
+    t = re.sub(r"(?s)<[^>]+>", "", t)
+    t = _html.unescape(t)
+    t = re.sub(r"[ \t]+", " ", t)
+    t = re.sub(r"\n\s*\n\s*\n+", "\n\n", t)
+    return "\n".join(line.strip() for line in t.splitlines()).strip()
+
+
 async def send_email(to: str, subject: str, html: str) -> bool:
     # Välj leverantör baserat på inställning i DB eller .env
     provider = settings.EMAIL_PROVIDER
@@ -43,6 +60,8 @@ async def send_email(to: str, subject: str, html: str) -> bool:
                     "to": [{"email": to}],
                     "subject": subject,
                     "html": html,
+                    "text": html_to_text(html),
+                    "reply_to": {"email": settings.MAIL_REPLY_TO or settings.ADMIN_EMAIL or settings.MAIL_FROM},
                 },
                 timeout=30,
             )
@@ -198,6 +217,8 @@ async def send_via_brevo(to_email: str, subject: str, html: str) -> bool:
         from_email = settings.BREVO_FROM if settings.BREVO_FROM else settings.MAIL_FROM
         msg['From'] = f"{settings.MAIL_FROM_NAME} <{from_email}>"
         msg['To'] = to_email
+        msg['Reply-To'] = settings.MAIL_REPLY_TO or settings.ADMIN_EMAIL or settings.MAIL_FROM
+        msg.attach(MIMEText(html_to_text(html), 'plain', 'utf-8'))
         msg.attach(MIMEText(html, 'html', 'utf-8'))
         with smtplib.SMTP(settings.BREVO_SMTP_SERVER, settings.BREVO_SMTP_PORT) as server:
             server.ehlo()

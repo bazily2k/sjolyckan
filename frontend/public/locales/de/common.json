@@ -51,6 +51,7 @@
   "confirm": {
     "title": "Bestätigen Sie Ihre E-Mail-Adresse!",
     "subtitle": "Wir haben Ihnen eine Bestätigungs-E-Mail gesendet. Klicken Sie auf den Link in der E-Mail, um Ihre Buchungsanfrage einzureichen.",
+    "spam_note": "E-Mail nicht gefunden? Bitte prüfen Sie Ihren Spam-Ordner.",
     "ref": "Referenznummer",
     "total": "Gesamtbetrag",
     "deposit": "Zu zahlende Anzahlung",

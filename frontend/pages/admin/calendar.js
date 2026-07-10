@@ -44,6 +44,20 @@ function monthsBetween(startStr, endStr) {
   }
   return out;
 }
+// En bokning belägger: ankomstdag = eftermiddag, mellandagar = hela dygnet,
+// avresedag = förmiddag (gästen lämnar kl 12).
+function occupiesMorning(b, dstr) {
+  return dstr > b.date_from && dstr <= b.date_to;
+}
+function occupiesAfternoon(b, dstr) {
+  return dstr >= b.date_from && dstr < b.date_to;
+}
+function phaseLabel(b, dstr) {
+  if (dstr === b.date_from) return '→ Ankomst';
+  if (dstr === b.date_to) return '← Avresa (till 12:00)';
+  return null;
+}
+
 function personsLine(b) {
   if (b.adults_count != null || b.children_count != null) {
     const parts = [`${b.adults_count ?? 0} vuxna`, `${b.children_count ?? 0} barn`];
@@ -64,7 +78,10 @@ function BookingCard({ b }) {
         <span style={{ background: s.bg, color: s.color, borderRadius: 12, padding: '3px 12px', fontSize: 13, fontWeight: 600 }}>{s.label}</span>
       </div>
       <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>
-        {b.booking_ref} · {b.date_from} – {b.date_to} · {b.nights} nätter
+        {b.booking_ref} · {b.nights} nätter
+      </div>
+      <div style={{ fontSize: 14, marginTop: 4 }}>
+        → Ankomst <strong>{b.date_from}</strong> (från 15:00) &nbsp;·&nbsp; ← Avresa <strong>{b.date_to}</strong> (till 12:00)
       </div>
       <div style={{ fontSize: 15, marginTop: 9 }}>👥 {personsLine(b)}</div>
       <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>
@@ -121,7 +138,8 @@ export default function AdminCalendar() {
 
   const bookings = data?.bookings || [];
   const blocked = data?.blocked || [];
-  const bookingsOn = (dstr) => bookings.filter(b => dstr >= b.date_from && dstr < b.date_to);
+  const morningOn = (dstr) => bookings.filter(b => occupiesMorning(b, dstr));
+  const afternoonOn = (dstr) => bookings.filter(b => occupiesAfternoon(b, dstr));
   const blockedOn = (dstr) => blocked.filter(bl => dstr >= bl.date_from && dstr < bl.date_to);
 
   const listItems = [
@@ -178,8 +196,29 @@ export default function AdminCalendar() {
                 {monthCells(year, month).map((cell, i) => {
                   if (!cell) return <div key={i} style={{ minHeight: 132 }} />;
                   const dstr = ymd(cell);
-                  const occ = bookingsOn(dstr);
                   const blk = blockedOn(dstr);
+                  const morn = morningOn(dstr);
+                  const aft = afternoonOn(dstr);
+
+                  const chip = (b, half) => {
+                    const st_ = st(b.status);
+                    const addonCount = (b.articles || []).filter(a => a.quantity > 0).length + (b.addons || []).length;
+                    const ph = phaseLabel(b, dstr);
+                    return (
+                      <div key={half + b.id} onClick={() => setSelected(b)} title="Klicka för detaljer" style={{
+                        background: st_.bg, color: st_.color, borderRadius: 4, padding: '3px 6px',
+                        marginBottom: 3, cursor: 'pointer', lineHeight: 1.25,
+                      }}>
+                        <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.guest_name}</div>
+                        {ph && <div style={{ fontSize: 13, fontWeight: 500 }}>{ph}</div>}
+                        <div style={{ fontSize: 14 }}>
+                          👥{b.guests_count}{b.pets_count ? ` 🐾${b.pets_count}` : ''}{addonCount ? ` 🎁${addonCount}` : ''}
+                        </div>
+                        {(b.message || b.admin_note) && <div style={{ fontSize: 14 }}>💬</div>}
+                      </div>
+                    );
+                  };
+
                   return (
                     <div key={i} style={{
                       minHeight: 132, border: '1px solid var(--sand-dark)', borderRadius: 6,
@@ -187,7 +226,7 @@ export default function AdminCalendar() {
                     }}>
                       <div style={{ color: 'var(--ink-light)', fontWeight: 600, fontSize: 18, marginBottom: 4 }}>{cell.getDate()}</div>
                       {blk.map(bl => (
-                        <div key={'b' + bl.id} onClick={() => setSelected({ ...bl, _type: 'blocked' })} title="Blockerad – klicka för detaljer" style={{
+                        <div key={'x' + bl.id} onClick={() => setSelected({ ...bl, _type: 'blocked' })} title="Blockerad – klicka för detaljer" style={{
                           background: BLOCK_BG, color: BLOCK_FG, borderRadius: 4, padding: '4px 6px',
                           marginBottom: 4, cursor: 'pointer', lineHeight: 1.3,
                         }}>
@@ -195,22 +234,18 @@ export default function AdminCalendar() {
                           {bl.reason && <div style={{ fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bl.reason}</div>}
                         </div>
                       ))}
-                      {occ.map(b => {
-                        const s = st(b.status);
-                        const addonCount = (b.articles || []).filter(a => a.quantity > 0).length + (b.addons || []).length;
-                        return (
-                          <div key={b.id} onClick={() => setSelected(b)} title="Klicka för detaljer" style={{
-                            background: s.bg, color: s.color, borderRadius: 4, padding: '4px 6px',
-                            marginBottom: 4, cursor: 'pointer', lineHeight: 1.3,
-                          }}>
-                            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.guest_name}</div>
-                            <div style={{ fontSize: 14 }}>
-                              👥{b.guests_count}{b.pets_count ? ` 🐾${b.pets_count}` : ''}{addonCount ? ` 🎁${addonCount}` : ''}
-                            </div>
-                            {(b.message || b.admin_note) && <div style={{ fontSize: 14 }}>💬</div>}
-                          </div>
-                        );
-                      })}
+                      {/* Förmiddag (t.o.m. 12:00) */}
+                      <div style={{ borderBottom: '1px dashed var(--sand-dark)', paddingBottom: 3, marginBottom: 3, minHeight: 20 }}>
+                        {morn.length > 0
+                          ? morn.map(b => chip(b, 'm'))
+                          : <div style={{ fontSize: 12, color: 'var(--sand-dark)' }}>fm</div>}
+                      </div>
+                      {/* Eftermiddag / natt */}
+                      <div style={{ minHeight: 20 }}>
+                        {aft.length > 0
+                          ? aft.map(b => chip(b, 'a'))
+                          : <div style={{ fontSize: 12, color: 'var(--sand-dark)' }}>em</div>}
+                      </div>
                     </div>
                   );
                 })}

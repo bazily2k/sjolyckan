@@ -87,8 +87,13 @@ def public_availability(
             booked_dates.add(d)
             d += timedelta(days=1)
 
+    # Preliminära: väntar på godkännande ELLER på kundens e-postbekräftelse.
+    # Båda blockerar nya bokningar (se kollisionskoll), så de ska inte visas som lediga.
     pending_bookings = db.query(Booking).filter(
-        Booking.status == BookingStatus.pending,
+        Booking.status.in_([
+            BookingStatus.pending,
+            BookingStatus.pending_email_verify,
+        ]),
         Booking.date_from < end,
         Booking.date_to > start,
     ).all()

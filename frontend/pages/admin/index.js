@@ -32,6 +32,8 @@ export default function AdminBookings() {
   const [addArticleLoading, setAddArticleLoading] = useState(false);
   const [addArticleQty, setAddArticleQty] = useState(1);
   const [adminNote, setAdminNote] = useState('');
+  const [depositDue, setDepositDue] = useState('');
+  const [paymentDue, setPaymentDue] = useState('');
   const [statusNote, setStatusNote] = useState('');
   const [sortBy, setSortBy] = useState('booking_ref');
   const [sortDir, setSortDir] = useState('desc');
@@ -195,10 +197,25 @@ export default function AdminBookings() {
     }
   };
 
+  // Förifyll förfallodatum när en bokning öppnas
+  useEffect(() => {
+    if (selected) {
+      setDepositDue(selected.deposit_due_date || '');
+      setPaymentDue(selected.payment_due_date || '');
+    }
+  }, [selected?.id]);
+
   const confirm = async (id) => {
     setActionLoading(true);
     try {
-      await adminApi.confirmBooking(id, { payment_method: payMethods[0] || payMethod, payment_methods: payMethods.join(','), admin_note: adminNote });
+      const hasDeposit = Number(selected?.deposit_amount || 0) > 0;
+      await adminApi.confirmBooking(id, {
+        payment_method: payMethods[0] || payMethod,
+        payment_methods: payMethods.join(','),
+        admin_note: adminNote,
+        deposit_due_date: hasDeposit && depositDue ? depositDue : null,
+        payment_due_date: paymentDue || null,
+      });
       setMsg('Bokning bekräftad — bekräftelsemejl skickat!');
       load(); setSelected(null);
     } catch (e) {
@@ -501,6 +518,26 @@ export default function AdminBookings() {
                       </label>
                     ))}
                   </div>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Förfallodatum</div>
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                    {Number(selected.deposit_amount || 0) > 0 && (
+                      <label style={{ fontSize: 12, color: 'var(--ink-light)', flex: 1, minWidth: 140 }}>
+                        Handpenning förfaller
+                        <input type="date" value={depositDue} onChange={e => setDepositDue(e.target.value)}
+                          style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                      </label>
+                    )}
+                    <label style={{ fontSize: 12, color: 'var(--ink-light)', flex: 1, minWidth: 140 }}>
+                      Slutbetalning förfaller
+                      <input type="date" value={paymentDue} onChange={e => setPaymentDue(e.target.value)}
+                        style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                    </label>
+                  </div>
+                  {Number(selected.deposit_amount || 0) === 0 && (
+                    <p style={{ fontSize: 12, color: 'var(--ink-light)', marginBottom: 12, fontStyle: 'italic' }}>
+                      Ingen handpenning på denna bokning — endast slutbetalning gäller.
+                    </p>
+                  )}
                   <textarea placeholder="Admin-notering (syns ej för gästen)" value={adminNote}
                     onChange={e => setAdminNote(e.target.value)}
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, height: 60, marginBottom: 12, resize: 'none' }} />
