@@ -199,6 +199,9 @@ export default function AdminCalendar() {
                   const blk = blockedOn(dstr);
                   const morn = morningOn(dstr);
                   const aft = afternoonOn(dstr);
+                  // Heldag = exakt samma bokningar täcker både fm och em (ingen växling)
+                  const ids = arr => arr.map(b => b.id).sort().join(',');
+                  const isFullDay = morn.length > 0 && ids(morn) === ids(aft);
 
                   const chip = (b, half) => {
                     const st_ = st(b.status);
@@ -234,18 +237,24 @@ export default function AdminCalendar() {
                           {bl.reason && <div style={{ fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bl.reason}</div>}
                         </div>
                       ))}
-                      {/* Förmiddag (t.o.m. 12:00) */}
-                      <div style={{ borderBottom: '1px dashed var(--sand-dark)', paddingBottom: 3, marginBottom: 3, minHeight: 20 }}>
-                        {morn.length > 0
-                          ? morn.map(b => chip(b, 'm'))
-                          : <div style={{ fontSize: 12, color: 'var(--sand-dark)' }}>fm</div>}
-                      </div>
-                      {/* Eftermiddag / natt */}
-                      <div style={{ minHeight: 20 }}>
-                        {aft.length > 0
-                          ? aft.map(b => chip(b, 'a'))
-                          : <div style={{ fontSize: 12, color: 'var(--sand-dark)' }}>em</div>}
-                      </div>
+                      {/* Heldag: samma bokning fm + em → ett sammanhängande block.
+                          Växlingsdag: dela rutan i förmiddag / eftermiddag. */}
+                      {isFullDay ? (
+                        morn.map(b => chip(b, 'full'))
+                      ) : (
+                        <>
+                          <div style={{ borderBottom: '1px dashed var(--sand-dark)', paddingBottom: 3, marginBottom: 3, minHeight: 20 }}>
+                            {morn.length > 0
+                              ? morn.map(b => chip(b, 'm'))
+                              : <div style={{ fontSize: 12, color: 'var(--sand-dark)' }}>fm</div>}
+                          </div>
+                          <div style={{ minHeight: 20 }}>
+                            {aft.length > 0
+                              ? aft.map(b => chip(b, 'a'))
+                              : <div style={{ fontSize: 12, color: 'var(--sand-dark)' }}>em</div>}
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
