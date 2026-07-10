@@ -2,6 +2,7 @@ import re
 import secrets
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
@@ -488,9 +489,11 @@ def admin_calendar(
 ):
     """Kalenderdata för admin och personal: bokningar som överlappar [start, end).
 
-    Standardintervall: innevarande månad t.o.m. 12 månader framåt.
+    Standardintervall: innevarande månad t.o.m. sista aktiva säsongens slut
+    (dock alltid minst 12 månader, och alltid så långt att bokningar/blockeringar syns).
     Avbokade bokningar exkluderas alltid; dolda exkluderas om inte show_hidden.
     """
+    from app.models.models import Season, BlockedDate
     today = date.today()
     try:
         start_d = date.fromisoformat(start) if start else today.replace(day=1)
@@ -502,9 +505,22 @@ def admin_calendar(
         except ValueError:
             raise HTTPException(status_code=400, detail="Ogiltigt slutdatum")
     else:
-        y = start_d.year + (start_d.month - 1 + 12) // 12
-        m = (start_d.month - 1 + 12) % 12 + 1
+        # Följ säsongerna: sista aktiva säsongens slutdatum sätter horisonten.
+        horizon = db.query(func.max(Season.date_to)).filter(Season.active == True).scalar()
+        # Låt aldrig bokningar eller blockeringar hamna utanför vyn.
+        last_booking = db.query(func.max(Booking.date_to)).filter(
+            Booking.status != BookingStatus.cancelled
+        ).scalar()
+        last_block = db.query(func.max(BlockedDate.date_to)).scalar()
+        # Minst 12 månader framåt även om inga säsonger är inlagda.
+        min_horizon = date(start_d.year + (start_d.month - 1 + 12) // 12,
+                           (start_d.month - 1 + 12) % 12 + 1, 1)
+        horizon = max([d for d in (horizon, last_booking, last_block, min_horizon) if d])
+        # Runda upp till början av månaden efter horisonten (end är exklusiv).
+        y = horizon.year + (horizon.month // 12)
+        m = horizon.month % 12 + 1
         end_d = date(y, m, 1)
+
 
     q = db.query(Booking).filter(
         Booking.status != BookingStatus.cancelled,
