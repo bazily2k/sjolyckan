@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date
 from app.models.database import get_db
-from app.models.models import Season, Article, PriceOverride, Setting, User, EmailLog, Booking, BookingStatus
+from app.models.models import Season, Article, PriceOverride, Setting, User, EmailLog, Booking, BookingStatus, CheckinInfoItem
 from app.core.auth import require_admin
 from app.core.config import settings
 
@@ -205,6 +205,18 @@ class ArticleSchema(BaseModel):
     active: bool = True
 
 
+class CheckinInfoSchema(BaseModel):
+    title_sv: str
+    title_en: Optional[str] = ""
+    title_de: Optional[str] = ""
+    body_sv: Optional[str] = ""
+    body_en: Optional[str] = ""
+    body_de: Optional[str] = ""
+    icon: Optional[str] = ""
+    active: bool = True
+    sort_order: int = 0
+
+
 @router.get("/articles")
 def list_articles(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     return db.query(Article).order_by(Article.sort_order, Article.id).all()
@@ -258,6 +270,49 @@ def delete_article(article_id: int, db: Session = Depends(get_db), _: User = Dep
         raise HTTPException(status_code=404, detail="Artikel hittades inte")
     a.active = False  # Soft delete — bevarar historik i gamla bokningar
     db.commit()
+    return {"ok": True}
+
+
+# ─── Incheckningsinfo-punkter (egna infoblock i incheckningsmailet) ───
+@router.get("/checkin-info")
+def list_checkin_info(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    return db.query(CheckinInfoItem).order_by(CheckinInfoItem.sort_order, CheckinInfoItem.id).all()
+
+
+@router.post("/checkin-info")
+def create_checkin_info(data: CheckinInfoSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    item = CheckinInfoItem(**data.dict())
+    db.add(item); db.commit(); db.refresh(item)
+    return item
+
+
+@router.put("/checkin-info/{item_id}")
+def update_checkin_info(item_id: int, data: CheckinInfoSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Punkt hittades inte")
+    for k, v in data.dict().items():
+        setattr(item, k, v)
+    db.commit(); db.refresh(item)
+    return item
+
+
+@router.patch("/checkin-info/{item_id}/toggle")
+def toggle_checkin_info(item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Punkt hittades inte")
+    item.active = not item.active
+    db.commit()
+    return {"active": item.active}
+
+
+@router.delete("/checkin-info/{item_id}")
+def delete_checkin_info(item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Punkt hittades inte")
+    db.delete(item); db.commit()
     return {"ok": True}
 
 
