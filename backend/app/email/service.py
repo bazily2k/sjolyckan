@@ -141,12 +141,30 @@ def render_booking_email(booking: Booking, email_type: str, db=None) -> str:
         "door_code": _get_setting(db, "checkin_door_code") or "",
         "wifi": _get_setting(db, "checkin_wifi") or "",
         "directions": _get_setting(db, "checkin_directions") or "",
+        "checkin_items": _get_checkin_items(db, lang),
     }
     try:
         template = jinja_env.get_template(f"{email_type}_{lang}.html")
     except Exception:
         template = jinja_env.get_template(f"{email_type}_sv.html")
     return template.render(**ctx)
+
+
+def _get_checkin_items(db, lang: str = "sv"):
+    """Aktiva egna infopunkter för incheckningsmailet, i sorteringsordning."""
+    try:
+        from app.models.models import CheckinInfoItem
+        rows = (db.query(CheckinInfoItem)
+                  .filter(CheckinInfoItem.active == True)
+                  .order_by(CheckinInfoItem.sort_order, CheckinInfoItem.id).all())
+        out = []
+        for r in rows:
+            out.append({"icon": r.icon or "",
+                        "title": getattr(r, f"title_{lang}", "") or r.title_sv,
+                        "body": getattr(r, f"body_{lang}", "") or r.body_sv})
+        return out
+    except Exception:
+        return []
 
 
 def _get_setting(db, key: str):
@@ -192,7 +210,8 @@ async def send_booking_email(
                        "admin_email": settings.ADMIN_EMAIL,
                        "door_code": _get_setting(db, "checkin_door_code") or "",
                        "wifi": _get_setting(db, "checkin_wifi") or "",
-                       "directions": _get_setting(db, "checkin_directions") or ""}
+                       "directions": _get_setting(db, "checkin_directions") or "",
+                       "checkin_items": _get_checkin_items(db, lang)}
                 env = Environment(autoescape=False)
                 html = env.from_string(body_src).render(**ctx)
                 subject = env.from_string(subj_src).render(**ctx)
