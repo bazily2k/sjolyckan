@@ -138,6 +138,9 @@ def render_booking_email(booking: Booking, email_type: str, db=None) -> str:
         "frontend_url": settings.FRONTEND_URL,
         "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
         "admin_email": settings.ADMIN_EMAIL,
+        "door_code": _get_setting(db, "checkin_door_code") or "",
+        "wifi": _get_setting(db, "checkin_wifi") or "",
+        "directions": _get_setting(db, "checkin_directions") or "",
     }
     try:
         template = jinja_env.get_template(f"{email_type}_{lang}.html")
@@ -186,7 +189,10 @@ async def send_booking_email(
                 ctx = {"booking": booking, "snap": snap, "lang": lang,
                        "frontend_url": settings.FRONTEND_URL,
                        "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
-                       "admin_email": settings.ADMIN_EMAIL}
+                       "admin_email": settings.ADMIN_EMAIL,
+                       "door_code": _get_setting(db, "checkin_door_code") or "",
+                       "wifi": _get_setting(db, "checkin_wifi") or "",
+                       "directions": _get_setting(db, "checkin_directions") or ""}
                 env = Environment(autoescape=False)
                 html = env.from_string(body_src).render(**ctx)
                 subject = env.from_string(subj_src).render(**ctx)
