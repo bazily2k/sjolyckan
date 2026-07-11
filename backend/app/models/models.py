@@ -135,6 +135,22 @@ class PriceOverride(Base):
 
 
 # ─── Tillägg / Artiklar ─────────────────────────────────
+class CheckinInfoItem(Base):
+    """Egen infopunkt i incheckningsmailet (rubrik + text per språk, på/av)."""
+    __tablename__ = "checkin_info_items"
+
+    id = Column(Integer, primary_key=True)
+    title_sv = Column(String(200), nullable=False)
+    title_en = Column(String(200), default="")
+    title_de = Column(String(200), default="")
+    body_sv = Column(Text, default="")
+    body_en = Column(Text, default="")
+    body_de = Column(Text, default="")
+    icon = Column(String(20), default="")   # valfri emoji, t.ex. ℹ️
+    active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+
+
 class Article(Base):
     __tablename__ = "articles"
 
