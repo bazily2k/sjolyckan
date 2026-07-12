@@ -42,6 +42,7 @@
   <div class="box">
     <h3>{{ item.icon }} {{ item.title }}</h3>
     {% if item.body %}<p>{{ item.body }}</p>{% endif %}
+    {% if item.code %}<p style="font-size:20px;font-weight:700;letter-spacing:2px;margin:8px 0 0">{{ item.code }}</p>{% endif %}
   </div>
   {% endfor %}
 
