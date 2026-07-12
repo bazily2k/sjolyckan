@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
@@ -7,6 +7,7 @@ from app.models.database import get_db
 from app.models.models import Season, Article, PriceOverride, Setting, User, EmailLog, Booking, BookingStatus, CheckinInfoItem
 from app.core.auth import require_admin
 from app.core.config import settings
+from app.routes.cms import save_upload
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -214,6 +215,7 @@ class CheckinInfoSchema(BaseModel):
     body_de: Optional[str] = ""
     icon: Optional[str] = ""
     item_type: str = "static"
+    image_path: Optional[str] = ""
     active: bool = True
     sort_order: int = 0
 
@@ -314,6 +316,27 @@ def delete_checkin_info(item_id: int, db: Session = Depends(get_db), _: User = D
     if not item:
         raise HTTPException(status_code=404, detail="Punkt hittades inte")
     db.delete(item); db.commit()
+    return {"ok": True}
+
+
+@router.post("/checkin-info/{item_id}/image")
+def upload_checkin_image(item_id: int, image: UploadFile = File(...),
+                         db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Punkt hittades inte")
+    item.image_path = save_upload(image, "checkin")
+    db.commit()
+    return {"ok": True, "image_path": item.image_path}
+
+
+@router.delete("/checkin-info/{item_id}/image")
+def delete_checkin_image(item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Punkt hittades inte")
+    item.image_path = ""
+    db.commit()
     return {"ok": True}
 
 
