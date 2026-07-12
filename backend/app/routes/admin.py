@@ -213,6 +213,7 @@ class CheckinInfoSchema(BaseModel):
     body_en: Optional[str] = ""
     body_de: Optional[str] = ""
     icon: Optional[str] = ""
+    item_type: str = "static"
     active: bool = True
     sort_order: int = 0
 
