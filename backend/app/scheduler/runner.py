@@ -70,8 +70,9 @@ async def run_daily_checks():
                         logger.warning(f"Bokning {booking.booking_ref}: slutbetalning förfallen")
                         await send_booking_email(db, booking, "payment_overdue")
 
-            # ── Välkomstmejl dagen innan incheckning ─────
-            if booking.date_from == today + timedelta(days=1):
+            # ── Välkomstmejl: på valt datum om satt, annars dagen innan ankomst ─
+            _send_day = booking.checkin_send_date or (booking.date_from - timedelta(days=1))
+            if _send_day == today:
                 if booking.status in (BookingStatus.paid, BookingStatus.deposit_paid):
                     logger.info(f"Bokning {booking.booking_ref}: skickar välkomstmejl")
                     await send_booking_email(db, booking, "checkin_info")
