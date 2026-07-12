@@ -57,6 +57,7 @@ def _ensure_booking_constraints():
                 )
             """)
             conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(20) DEFAULT 'static'")
+            conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS image_path VARCHAR(300) DEFAULT ''")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checkin_send_date DATE")
             conn.exec_driver_sql("""
                 CREATE TABLE IF NOT EXISTS booking_checkin_codes (
@@ -181,6 +182,7 @@ upload_dir = Path("/app/uploads")
 upload_dir.mkdir(parents=True, exist_ok=True)
 (upload_dir / "rooms").mkdir(exist_ok=True)
 (upload_dir / "gallery").mkdir(exist_ok=True)
+(upload_dir / "checkin").mkdir(exist_ok=True)
 
 app = FastAPI(
     title="Sjölyckan Booking API",
