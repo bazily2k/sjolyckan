@@ -147,8 +147,19 @@ class CheckinInfoItem(Base):
     body_en = Column(Text, default="")
     body_de = Column(Text, default="")
     icon = Column(String(20), default="")   # valfri emoji, t.ex. ℹ️
+    item_type = Column(String(20), default="static")  # static | code (kod = unikt värde per bokning)
     active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
+
+
+class BookingCheckinCode(Base):
+    """Unikt kodvärde per bokning för en kod-typad infopunkt."""
+    __tablename__ = "booking_checkin_codes"
+
+    id = Column(Integer, primary_key=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False)
+    item_id = Column(Integer, ForeignKey("checkin_info_items.id"), nullable=False)
+    value = Column(String(500), default="")
 
 
 class Article(Base):
@@ -245,6 +256,7 @@ class Booking(Base):
     # Tidsstämplar
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     confirmed_at = Column(DateTime(timezone=True))
+    checkin_send_date = Column(Date, nullable=True)  # tomt = dagen före ankomst; satt = skicka detta datum
     cancelled_at = Column(DateTime(timezone=True))
     cancellation_reason = Column(Text)
     # Villkorsgodkännande
