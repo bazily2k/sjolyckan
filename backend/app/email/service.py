@@ -141,7 +141,7 @@ def render_booking_email(booking: Booking, email_type: str, db=None) -> str:
         "door_code": _get_setting(db, "checkin_door_code") or "",
         "wifi": _get_setting(db, "checkin_wifi") or "",
         "directions": _get_setting(db, "checkin_directions") or "",
-        "checkin_items": _get_checkin_items(db, lang),
+        "checkin_items": _get_checkin_items(db, lang, booking),
     }
     try:
         template = jinja_env.get_template(f"{email_type}_{lang}.html")
@@ -150,18 +150,37 @@ def render_booking_email(booking: Booking, email_type: str, db=None) -> str:
     return template.render(**ctx)
 
 
-def _get_checkin_items(db, lang: str = "sv"):
-    """Aktiva egna infopunkter för incheckningsmailet, i sorteringsordning."""
+def _get_checkin_items(db, lang: str = "sv", booking=None):
+    """Aktiva infopunkter för incheckningsmailet.
+
+    Statiska punkter visas alltid. Kod-punkter visas bara om denna bokning har
+    ett ifyllt kodvärde; värdet läggs som item.code och kan användas i texten.
+    """
     try:
-        from app.models.models import CheckinInfoItem
+        from app.models.models import CheckinInfoItem, BookingCheckinCode
         rows = (db.query(CheckinInfoItem)
                   .filter(CheckinInfoItem.active == True)
                   .order_by(CheckinInfoItem.sort_order, CheckinInfoItem.id).all())
+        # Kodvärden för denna bokning: {item_id: värde}
+        codes = {}
+        if booking is not None:
+            for c in db.query(BookingCheckinCode).filter(BookingCheckinCode.booking_id == booking.id).all():
+                codes[c.item_id] = c.value
         out = []
         for r in rows:
-            out.append({"icon": r.icon or "",
-                        "title": getattr(r, f"title_{lang}", "") or r.title_sv,
-                        "body": getattr(r, f"body_{lang}", "") or r.body_sv})
+            if (r.item_type or "static") == "code":
+                val = (codes.get(r.id) or "").strip()
+                if not val:
+                    continue  # dölj kod-punkt utan ifyllt värde
+                out.append({"icon": r.icon or "",
+                            "title": getattr(r, f"title_{lang}", "") or r.title_sv,
+                            "body": getattr(r, f"body_{lang}", "") or r.body_sv,
+                            "code": val})
+            else:
+                out.append({"icon": r.icon or "",
+                            "title": getattr(r, f"title_{lang}", "") or r.title_sv,
+                            "body": getattr(r, f"body_{lang}", "") or r.body_sv,
+                            "code": ""})
         return out
     except Exception:
         return []
@@ -211,7 +230,7 @@ async def send_booking_email(
                        "door_code": _get_setting(db, "checkin_door_code") or "",
                        "wifi": _get_setting(db, "checkin_wifi") or "",
                        "directions": _get_setting(db, "checkin_directions") or "",
-                       "checkin_items": _get_checkin_items(db, lang)}
+                       "checkin_items": _get_checkin_items(db, lang, booking)}
                 env = Environment(autoescape=False)
                 html = env.from_string(body_src).render(**ctx)
                 subject = env.from_string(subj_src).render(**ctx)
