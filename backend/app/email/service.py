@@ -138,9 +138,6 @@ def render_booking_email(booking: Booking, email_type: str, db=None) -> str:
         "frontend_url": settings.FRONTEND_URL,
         "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
         "admin_email": settings.ADMIN_EMAIL,
-        "door_code": _get_setting(db, "checkin_door_code") or "",
-        "wifi": _get_setting(db, "checkin_wifi") or "",
-        "directions": _get_setting(db, "checkin_directions") or "",
         "checkin_items": _get_checkin_items(db, lang, booking),
     }
     try:
@@ -175,11 +172,13 @@ def _get_checkin_items(db, lang: str = "sv", booking=None):
                 out.append({"icon": r.icon or "",
                             "title": getattr(r, f"title_{lang}", "") or r.title_sv,
                             "body": getattr(r, f"body_{lang}", "") or r.body_sv,
+                            "image_path": r.image_path or "",
                             "code": val})
             else:
                 out.append({"icon": r.icon or "",
                             "title": getattr(r, f"title_{lang}", "") or r.title_sv,
                             "body": getattr(r, f"body_{lang}", "") or r.body_sv,
+                            "image_path": r.image_path or "",
                             "code": ""})
         return out
     except Exception:
@@ -227,9 +226,6 @@ async def send_booking_email(
                        "frontend_url": settings.FRONTEND_URL,
                        "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
                        "admin_email": settings.ADMIN_EMAIL,
-                       "door_code": _get_setting(db, "checkin_door_code") or "",
-                       "wifi": _get_setting(db, "checkin_wifi") or "",
-                       "directions": _get_setting(db, "checkin_directions") or "",
                        "checkin_items": _get_checkin_items(db, lang, booking)}
                 env = Environment(autoescape=False)
                 html = env.from_string(body_src).render(**ctx)
