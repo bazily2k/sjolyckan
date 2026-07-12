@@ -111,7 +111,6 @@ export default function AdminSettings() {
                     </button>
                   </div>
                 ))}
-                {group.title.includes('Incheckningsinfo') && <CheckinInfoManager />}
               </CollapsibleSection>
             );
           })}
@@ -126,92 +125,6 @@ const msgBox = {
   borderRadius: 'var(--radius-md)', padding: '10px 16px',
   marginBottom: 16, fontSize: 13, display: 'flex', justifyContent: 'space-between',
 };
-
-function CheckinInfoManager() {
-  const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ title_sv:'', body_sv:'', title_en:'', body_en:'', title_de:'', body_de:'', icon:'', item_type:'static', active:true, sort_order:0 });
-  const [editingId, setEditingId] = useState(null);
-  const [open, setOpen] = useState(false);
-
-  const load = async () => { try { const r = await adminApi.listCheckinInfo(); setItems(r.data || []); } catch (e) {} };
-  useEffect(() => { load(); }, []);
-
-  const reset = () => { setForm({ title_sv:'', body_sv:'', title_en:'', body_en:'', title_de:'', body_de:'', icon:'', item_type:'static', active:true, sort_order:0 }); setEditingId(null); setOpen(false); };
-  const edit = (it) => { setForm({ ...it }); setEditingId(it.id); setOpen(true); };
-  const save = async () => {
-    if (!form.title_sv.trim()) return;
-    try {
-      if (editingId) await adminApi.updateCheckinInfo(editingId, form);
-      else await adminApi.createCheckinInfo(form);
-      reset(); await load();
-    } catch (e) {}
-  };
-  const toggle = async (id) => { await adminApi.toggleCheckinInfo(id); await load(); };
-  const remove = async (id) => { if (!confirm('Ta bort denna infopunkt?')) return; await adminApi.deleteCheckinInfo(id); await load(); };
-
-  const inp = (key, ph, area) => area
-    ? <textarea value={form[key]} placeholder={ph} rows={2} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:14, fontFamily:'inherit', resize:'vertical', marginBottom:8 }} />
-    : <input value={form[key]} placeholder={ph} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:14, marginBottom:8 }} />;
-
-  return (
-    <div style={{ padding: '14px 16px', borderTop: '1px solid var(--sand)' }}>
-      <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 8 }}>Egna infopunkter (visas i incheckningsmailet, endast aktiva)</div>
-
-      {items.map(it => (
-        <div key={it.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', marginBottom:6, background: it.active ? 'white' : 'var(--sand)', opacity: it.active ? 1 : 0.55 }}>
-          <span style={{ flex:1, fontSize:13 }}>{it.icon} <strong>{it.title_sv}</strong>{it.item_type === 'code' && <span style={{ fontSize:10, color:'var(--water)', marginLeft:6 }}>KOD</span>}</span>
-          <span style={{ fontSize:11, color: it.active ? '#2e7d32' : 'var(--ink-pale)' }}>{it.active ? 'Aktiv' : 'Av'}</span>
-          <button onClick={() => edit(it)} style={miniBtn}>Ändra</button>
-          <button onClick={() => toggle(it.id)} style={miniBtn}>{it.active ? 'Inaktivera' : 'Aktivera'}</button>
-          <button onClick={() => remove(it.id)} style={{ ...miniBtn, color:'#c0392b' }}>Ta bort</button>
-        </div>
-      ))}
-      {items.length === 0 && <div style={{ fontSize:12, color:'var(--ink-pale)', marginBottom:8 }}>Inga punkter ännu.</div>}
-
-      {open ? (
-        <div style={{ border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', padding:12, marginTop:8, background:'white' }}>
-          <div style={{ display:'flex', gap:8 }}>
-            <div style={{ width:80 }}>{inp('icon','Ikon')}</div>
-            <div style={{ flex:1 }}>{inp('title_sv','Rubrik (SV) *')}</div>
-          </div>
-          <div style={{ marginBottom:8 }}>
-            <label style={{ fontSize:12, color:'var(--ink-pale)', display:'block', marginBottom:4 }}>Typ</label>
-            <select value={form.item_type} onChange={e => setForm(f => ({ ...f, item_type: e.target.value }))}
-              style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:14, background:'white' }}>
-              <option value="static">Statisk text (samma för alla)</option>
-              <option value="code">Kod (unikt värde per bokning)</option>
-            </select>
-            {form.item_type === 'code' &&
-              <div style={{ fontSize:11, color:'var(--ink-light)', marginTop:4 }}>
-                Ett kodfält visas på varje bokning. Punkten kommer bara med i mailet om du fyllt i ett värde där.
-              </div>}
-          </div>
-          {inp('body_sv','Text (SV)', true)}
-          <details style={{ marginBottom:8 }}>
-            <summary style={{ fontSize:12, color:'var(--ink-light)', cursor:'pointer' }}>Engelska & tyska (valfritt)</summary>
-            <div style={{ marginTop:8 }}>
-              {inp('title_en','Rubrik (EN)')}{inp('body_en','Text (EN)', true)}
-              {inp('title_de','Rubrik (DE)')}{inp('body_de','Text (DE)', true)}
-            </div>
-          </details>
-          <label style={{ fontSize:13, display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
-            <input type="checkbox" checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} /> Aktiv (kommer med i mailet)
-          </label>
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={save} style={{ ...miniBtn, background:'var(--water)', color:'white', border:'none', padding:'7px 16px' }}>{editingId ? 'Spara' : 'Lägg till'}</button>
-            <button onClick={reset} style={miniBtn}>Avbryt</button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setOpen(true)} style={{ ...miniBtn, marginTop:4 }}>+ Lägg till infopunkt</button>
-      )}
-    </div>
-  );
-}
-
-const miniBtn = { padding:'5px 10px', background:'white', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12, whiteSpace:'nowrap' };
 
 export async function getServerSideProps({ locale }) {
   return { props: { ...(await serverSideTranslations(locale || 'sv', ['common'])) } };
