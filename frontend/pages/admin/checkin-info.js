@@ -4,7 +4,7 @@ import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { adminApi } from '../../lib/api';
 
-const empty = { title_sv:'', title_en:'', title_de:'', body_sv:'', body_en:'', body_de:'', icon:'', item_type:'static', active:true, sort_order:0 };
+const empty = { title_sv:'', title_en:'', title_de:'', body_sv:'', body_en:'', body_de:'', icon:'', item_type:'static', image_path:'', active:true, sort_order:0 };
 
 function Field({ label, field, type='text', half, select, options, form, setForm }) {
   return (
@@ -33,6 +33,7 @@ export default function AdminCheckinInfo() {
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const load = () => adminApi.listCheckinInfo().then(r => setItems(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -44,6 +45,26 @@ export default function AdminCheckinInfo() {
       else await adminApi.createCheckinInfo(form);
       setMsg('Sparat!'); setForm(empty); setEditing(null); load();
     } catch (e) { setMsg('Fel: ' + formatErr(e)); }
+  };
+
+  const uploadImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const r = await adminApi.uploadCheckinImage(editing, fd);
+      setForm(f => ({ ...f, image_path: r.data.image_path }));
+      setMsg('Bild uppladdad.'); load();
+    } catch (err) { setMsg('Fel vid uppladdning: ' + formatErr(err)); }
+    finally { setUploading(false); }
+  };
+
+  const removeImage = async () => {
+    if (!editing) return;
+    try { await adminApi.deleteCheckinImage(editing); setForm(f => ({ ...f, image_path: '' })); load(); }
+    catch (err) { setMsg('Kunde inte ta bort bild.'); }
   };
 
   return (
@@ -70,7 +91,7 @@ export default function AdminCheckinInfo() {
                 {items.length === 0 && <tr><td colSpan={4} style={{ padding:'14px', color:'var(--ink-pale)' }}>Inga infopunkter ännu.</td></tr>}
                 {items.map(it => (
                   <tr key={it.id} style={{ borderBottom:'1px solid var(--sand)', opacity: it.active ? 1 : 0.4 }}>
-                    <td style={{ padding:'10px 14px', fontWeight:500 }}>{it.icon} {it.title_sv}</td>
+                    <td style={{ padding:'10px 14px', fontWeight:500 }}>{it.icon} {it.title_sv}{it.image_path && <span style={{ fontSize:11, color:'var(--water)', marginLeft:6 }}>🖼️</span>}</td>
                     <td style={{ padding:'10px 14px', color:'var(--ink-pale)' }}>{it.item_type === 'code' ? 'Kod (per bokning)' : 'Statisk'}</td>
                     <td style={{ padding:'10px 14px' }}>
                       <button onClick={() => adminApi.toggleCheckinInfo(it.id).then(load)} style={{ ...togBtn, background: it.active ? '#d4edda' : '#f8d7da', color: it.active ? '#155724' : '#721c24' }}>
@@ -117,6 +138,26 @@ export default function AdminCheckinInfo() {
                 <input type="checkbox" checked={form.active} onChange={e => setForm(f => ({...f, active: e.target.checked}))} />
                 Aktiv (kommer med i mejlet)
               </label>
+            </div>
+
+            <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid var(--sand)' }}>
+              <label style={lbl}>Bild (t.ex. QR-kod för wifi)</label>
+              {!editing ? (
+                <div style={{ fontSize:12, color:'var(--ink-pale)', marginTop:4 }}>Spara punkten först, öppna den sedan för redigering för att ladda upp en bild.</div>
+              ) : (
+                <div style={{ marginTop:6 }}>
+                  {form.image_path ? (
+                    <div>
+                      <img src={form.image_path} alt="" style={{ maxWidth:140, height:'auto', borderRadius:'var(--radius-md)', border:'1px solid var(--sand-dark)', display:'block', marginBottom:8 }} />
+                      <button onClick={removeImage} style={{ ...actionBtn, color:'var(--red)' }}>Ta bort bild</button>
+                    </div>
+                  ) : (
+                    <input type="file" accept="image/*" onChange={uploadImage} disabled={uploading}
+                      style={{ fontSize:13 }} />
+                  )}
+                  {uploading && <div style={{ fontSize:12, color:'var(--ink-light)', marginTop:4 }}>Laddar upp…</div>}
+                </div>
+              )}
             </div>
             <div style={{ display:'flex', gap:8, marginTop:16 }}>
               {editing && <button onClick={() => { setEditing(null); setForm(empty); }} style={{ ...saveBtn, background:'var(--sand)', color:'var(--ink)' }}>Avbryt</button>}
