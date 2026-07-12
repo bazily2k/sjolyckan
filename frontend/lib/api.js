@@ -70,6 +70,8 @@ export const adminApi = {
   updateCheckinInfo: (id, data) => api.put(`/admin/checkin-info/${id}`, data),
   toggleCheckinInfo: (id) => api.patch(`/admin/checkin-info/${id}/toggle`),
   deleteCheckinInfo: (id) => api.delete(`/admin/checkin-info/${id}`),
+  uploadCheckinImage: (id, formData) => api.post(`/admin/checkin-info/${id}/image`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  deleteCheckinImage: (id) => api.delete(`/admin/checkin-info/${id}/image`),
   getSettings: () => api.get('/admin/settings'),
   updateSetting: (key, value) => api.put(`/admin/settings/${key}?value=${encodeURIComponent(value)}`),
   listUsers: () => api.get('/auth/admin/users'),
