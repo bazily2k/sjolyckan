@@ -148,6 +148,7 @@ class CheckinInfoItem(Base):
     body_de = Column(Text, default="")
     icon = Column(String(20), default="")   # valfri emoji, t.ex. ℹ️
     item_type = Column(String(20), default="static")  # static | code (kod = unikt värde per bokning)
+    image_path = Column(String(300), default="")  # valfri bild (t.ex. QR-kod), URL under /uploads
     active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
 
