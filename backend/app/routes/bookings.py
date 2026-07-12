@@ -11,7 +11,8 @@ from decimal import Decimal
 from app.models.database import get_db
 from app.models.models import (
     Booking, BookingStatus, PaymentMethod, Payment,
-    PaymentType, PaymentStatus, User, EmailLog
+    PaymentType, PaymentStatus, User, EmailLog,
+    BookingCheckinCode, CheckinInfoItem
 )
 from app.core.booking_logic import calculate_booking_price, create_booking_record
 from app.core.auth import get_current_user, require_admin
@@ -587,6 +588,43 @@ def admin_calendar(
     }
 
 
+def _get_booking_codes(booking_id: int):
+    """Returnerar sparade kodvärden för en bokning (från egen tabell)."""
+    from app.models.database import SessionLocal
+    db = SessionLocal()
+    try:
+        rows = db.query(BookingCheckinCode).filter(BookingCheckinCode.booking_id == booking_id).all()
+        return [{"item_id": r.item_id, "value": r.value} for r in rows]
+    finally:
+        db.close()
+
+
+class CheckinCodesRequest(BaseModel):
+    codes: dict = {}                 # {item_id: värde}
+    checkin_send_date: Optional[date] = None
+
+
+@router.patch("/admin/{booking_id}/checkin")
+def admin_set_checkin(
+    booking_id: int,
+    req: CheckinCodesRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Spara kodvärden per bokning samt (valfritt) utskicksdatum för incheckningsmailet."""
+    b = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    b.checkin_send_date = req.checkin_send_date
+    # Ersätt befintliga koder för denna bokning
+    db.query(BookingCheckinCode).filter(BookingCheckinCode.booking_id == booking_id).delete()
+    for item_id, value in (req.codes or {}).items():
+        if value and str(value).strip():
+            db.add(BookingCheckinCode(booking_id=booking_id, item_id=int(item_id), value=str(value).strip()))
+    db.commit()
+    return {"ok": True, "checkin_send_date": str(b.checkin_send_date) if b.checkin_send_date else None}
+
+
 # ─── Admin: Hämta enskild bokning ───────────────────────
 @router.get("/admin/{booking_id}")
 def admin_get_booking(
@@ -800,6 +838,8 @@ def _booking_detail(b: Booking) -> dict:
         "articles_amount": float(b.articles_amount),
         "admin_note": b.admin_note,
         "confirmed_at": str(b.confirmed_at) if b.confirmed_at else None,
+        "checkin_send_date": str(b.checkin_send_date) if b.checkin_send_date else None,
+        "checkin_codes": _get_booking_codes(b.id),
         "snapshot": b.snapshot,
         "articles": [
             {
