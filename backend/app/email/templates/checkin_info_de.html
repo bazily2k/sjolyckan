@@ -34,15 +34,13 @@
     <tr><td>Gäste</td><td>{{ booking.guests_count }}</td></tr>
   </table>
 
-  {% if door_code %}<div class="box yellow"><h3>🔑 Schlüssel & Schloss</h3><p>{{ door_code }}</p></div>{% endif %}
-  {% if wifi %}<div class="box blue"><h3>📶 WLAN</h3><p>{{ wifi }}</p></div>{% endif %}
-  {% if directions %}<div class="box"><h3>🚗 Anfahrt</h3><p>{{ directions }}</p></div>{% endif %}
 
   {% for item in checkin_items %}
   <div class="box">
     <h3>{{ item.icon }} {{ item.title }}</h3>
     {% if item.body %}<p>{{ item.body }}</p>{% endif %}
     {% if item.code %}<p style="font-size:20px;font-weight:700;letter-spacing:2px;margin:8px 0 0">{{ item.code }}</p>{% endif %}
+    {% if item.image_path %}<p style="margin:10px 0 0"><img src="{{ frontend_url }}{{ item.image_path }}" alt="{{ item.title }}" style="max-width:200px;height:auto;border-radius:6px"></p>{% endif %}
   </div>
   {% endfor %}
 
