@@ -10,7 +10,6 @@ const SETTING_GROUPS = [
   { title: '📧 E-post', keys: ['email_provider'] },
   { title: '📄 Dokument', keys: ['attach_terms_pdf','attach_gdpr_pdf'] },
   { title: '📋 Bokningsinställningar', keys: ['booking_ref_style'] },
-  { title: '🔑 Incheckningsinfo (mejl dagen före ankomst)', keys: ['checkin_door_code','checkin_wifi','checkin_directions'] },
 ];
 const SETTINGS = [
   { key: 'property_name',    label: 'Stugans namn',     type: 'text' },
@@ -19,9 +18,6 @@ const SETTINGS = [
   { key: 'checkout_time',    label: 'Utcheckningstid',   type: 'text' },
   { key: 'max_guests',       label: 'Max antal gäster',  type: 'text' },
   { key: 'swish_number',     label: 'Swish-nummer',      type: 'text' },
-  { key: 'checkin_door_code',  label: 'Dörrkod / lås',        type: 'text' },
-  { key: 'checkin_wifi',       label: 'Wifi (nätverk & lösenord)', type: 'text' },
-  { key: 'checkin_directions', label: 'Vägbeskrivning / hitta hit', type: 'textarea' },
   { key: 'email_provider',   label: 'E-postleverantör',  type: 'select',
     options: [
       { value: 'mailersend', label: 'Mailersend (primär)' },
