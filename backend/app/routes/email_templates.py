@@ -137,7 +137,7 @@ async def send_manual_template(
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
 
-    from app.email.service import send_email, log_email
+    from app.email.service import send_email, log_email, _get_setting, _get_checkin_items
     from jinja2 import Environment
     from app.core.config import settings
 
@@ -150,6 +150,8 @@ async def send_manual_template(
         "booking": booking, "snap": snap, "lang": lang,
         "frontend_url": settings.FRONTEND_URL,
         "admin_email": settings.ADMIN_EMAIL,
+        "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
+        "checkin_items": _get_checkin_items(db, lang, booking),
     }
     env = Environment(autoescape=False)
     try:
