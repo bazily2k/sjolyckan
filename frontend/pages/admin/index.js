@@ -467,8 +467,19 @@ export default function AdminBookings() {
                   <input type="date" value={checkinDate} onChange={e => setCheckinDate(e.target.value)}
                     style={{ padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13 }} />
                 </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button onClick={saveCheckin} style={{ padding: '7px 16px', background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>Spara incheckning</button>
+                  <button onClick={async () => {
+                      await saveCheckin();
+                      if (!confirm('Skicka incheckningsmejlet till gästen nu?')) return;
+                      try {
+                        await adminApi.resendBookingEmail(selected.id, 'checkin_info');
+                        setCheckinMsg('✉️ Incheckningsmejl skickat till ' + (selected.user_email || selected.guest_email));
+                      } catch (e) { setCheckinMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+                    }}
+                    style={{ padding: '7px 16px', background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                    ✉️ Skicka incheckningsmejl nu
+                  </button>
                   {checkinMsg && <span style={{ fontSize: 12, color: 'var(--ink-light)' }}>{checkinMsg}</span>}
                 </div>
               </div>
