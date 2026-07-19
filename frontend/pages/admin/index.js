@@ -239,7 +239,7 @@ export default function AdminBookings() {
   };
 
   const reject = async (id) => {
-    if (!confirm('Neka denna bokning?')) return;
+    if (!window.confirm('Neka denna bokning?')) return;
     await adminApi.rejectBooking(id);
     setMsg('Bokning nekad.'); load(); setSelected(null);
   };
@@ -471,7 +471,7 @@ export default function AdminBookings() {
                   <button onClick={saveCheckin} style={{ padding: '7px 16px', background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>Spara incheckning</button>
                   <button onClick={async () => {
                       await saveCheckin();
-                      if (!confirm('Skicka incheckningsmejlet till gästen nu?')) return;
+                      if (!window.confirm('Skicka incheckningsmejlet till gästen nu?')) return;
                       try {
                         await adminApi.resendBookingEmail(selected.id, 'checkin_info');
                         setCheckinMsg('✉️ Incheckningsmejl skickat till ' + (selected.user_email || selected.guest_email));
