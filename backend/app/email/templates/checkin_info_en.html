@@ -22,11 +22,11 @@
 <div class="card">
   <div class="header">
     <h1>Welcome to Sjölyckan!</h1>
-    <div class="ref">Check-in tomorrow · {{ booking.booking_ref }}</div>
+    <div class="ref">Before your stay · {{ booking.booking_ref }}</div>
   </div>
 
   <p>Hi {{ booking.guest_name }},</p>
-  <p>Tomorrow's the day — we look forward to welcoming you to Sjölyckan at Rolsmosjön! Here's everything you need for your arrival.</p>
+  <p>Your stay is coming up — we look forward to welcoming you to Sjölyckan at Rolsmosjön! Here's everything you need for your visit.</p>
 
   <table>
     <tr><td>Arrival</td><td>{{ booking.date_from.strftime('%d %B %Y') }}, from 3:00 PM</td></tr>
