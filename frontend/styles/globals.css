@@ -259,3 +259,31 @@ input, select, textarea, button {
 /* Hero WYSIWYG: nollställ Quills p-marginal så rubrik/tagline sitter rätt */
 .hero-rich p { margin: 0; }
 .hero-rich p:empty { min-height: 0.5em; }
+
+/* ═══ ADMIN-LAYOUT MOBILFIX V3 ═══════════════════════ */
+/* Den tidigare regeln matchade exakt "margin-left: 220px" i inline-style,
+   vilket inte längre stämmer efter layout-ändringar. Dessa regler tvingar
+   admin-innehållet till full bredd på mobil oavsett inline-stilens text. */
+@media (max-width: 768px) {
+  /* Innehållsytan: ingen vänstermarginal, full bredd */
+  main[style*="margin-left"] {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 16px !important;
+    box-sizing: border-box !important;
+  }
+  /* Breda tabeller (t.ex. Bokningar): tillåt horisontell scroll istället för att kapas */
+  main table {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+  /* Sido-vid-sido-rutnät i admin (lista + formulär): stapla på mobil */
+  main div[style*="grid-template-columns: 1fr 380px"],
+  main div[style*="grid-template-columns: 1fr 400px"],
+  main div[style*="gridTemplateColumns: '1fr 380px'"] {
+    display: block !important;
+  }
+}
