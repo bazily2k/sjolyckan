@@ -73,14 +73,15 @@
 {% if cancel %}
   <div class="box" style="background:#f4f4f4">
     <h3>📋 Stornobedingungen</h3>
+    <p style="margin:0 0 8px">Bei Stornierung gilt Folgendes, gerechnet ab dem Anreisetag:</p>
     <p style="margin:0 0 6px">
-      <strong>Volle Rückerstattung</strong> bei Stornierung bis spätestens <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }}</strong>{% if not cancel.refund_deposit %} (Anzahlung nicht erstattungsfähig){% endif %}.
+      ✅ <strong>Bis einschließlich {{ cancel.full_refund_until.strftime('%d %B %Y') }}:</strong> volle Rückerstattung{% if not cancel.refund_deposit %} (Anzahlung nicht erstattungsfähig){% endif %}.
     </p>
     <p style="margin:0 0 6px">
-      Bei späterer Stornierung, bis spätestens <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong>: Erstattung des gezahlten Betrags <strong>ohne Anzahlung</strong>.
+      ➖ <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }} – {{ cancel.partial_until.strftime('%d %B %Y') }}:</strong> Erstattung des gezahlten Betrags, ohne Anzahlung.
     </p>
     <p style="margin:0">
-      Stornierungen nach <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong>: <strong>keine Erstattung</strong>.
+      ❌ <strong>Nach {{ cancel.partial_until.strftime('%d %B %Y') }}:</strong> keine Erstattung.
     </p>
   </div>
   {% endif %}
