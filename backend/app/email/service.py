@@ -128,6 +128,31 @@ SUBJECTS = {
 }
 
 
+def _cancellation_dates(booking):
+    """Räknar ut avbokningsvillkorens datum från bokningens säsong-snapshot.
+
+    Returnerar dict med:
+      full_refund_until  – sista dag för full återbetalning (ankomst − full_days)
+      deposit_cutoff     – gräns för handpenningsdelen (ankomst − deposit_days)
+      refund_deposit     – bool: återbetalas handpenningen vid avbokning i tid
+    """
+    from datetime import timedelta
+    snap = booking.snapshot or {}
+    try:
+        full_days = int(snap.get("cancellation_full_days") or 60)
+        dep_days = int(snap.get("cancellation_deposit_days") or 120)
+        refund_dep = bool(snap.get("cancellation_refund_deposit", False))
+        return {
+            "full_refund_until": booking.date_from - timedelta(days=full_days),
+            "deposit_cutoff": booking.date_from - timedelta(days=dep_days),
+            "refund_deposit": refund_dep,
+            "full_days": full_days,
+            "deposit_days": dep_days,
+        }
+    except Exception:
+        return None
+
+
 def render_booking_email(booking: Booking, email_type: str, db=None) -> str:
     lang = booking.lang or "sv"
     snap = booking.snapshot
@@ -139,6 +164,7 @@ def render_booking_email(booking: Booking, email_type: str, db=None) -> str:
         "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
         "admin_email": settings.ADMIN_EMAIL,
         "checkin_items": _get_checkin_items(db, lang, booking),
+        "cancel": _cancellation_dates(booking),
     }
     try:
         template = jinja_env.get_template(f"{email_type}_{lang}.html")
@@ -226,7 +252,8 @@ async def send_booking_email(
                        "frontend_url": settings.FRONTEND_URL,
                        "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
                        "admin_email": settings.ADMIN_EMAIL,
-                       "checkin_items": _get_checkin_items(db, lang, booking)}
+                       "checkin_items": _get_checkin_items(db, lang, booking),
+                       "cancel": _cancellation_dates(booking)}
                 env = Environment(autoescape=False)
                 html = env.from_string(body_src).render(**ctx)
                 subject = env.from_string(subj_src).render(**ctx)
