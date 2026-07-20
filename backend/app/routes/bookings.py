@@ -399,7 +399,8 @@ async def create_booking_request(
         # Skicka "sätt lösenord"-mejl till nyskapat konto
         if new_account and set_pw_token:
             _lang2 = req.lang if req.lang in ("en", "de") else "sv"
-            set_url = f"{settings.FRONTEND_URL}/reset-password/{set_pw_token}"
+            _pfx2 = "" if _lang2 == "sv" else f"/{_lang2}"
+            set_url = f"{settings.FRONTEND_URL}{_pfx2}/reset-password/{set_pw_token}?welcome=1"
             subj = {
                 "sv": "Ditt konto hos Sjölyckan — sätt ditt lösenord",
                 "en": "Your Sjölyckan account — set your password",
@@ -1232,10 +1233,27 @@ def verify_email(token: str, background_tasks: BackgroundTasks, db: Session = De
         _u = db.query(User).filter(User.email == b.guest_email.strip().lower()).first()
         if _u:
             _u.email_verified = True
+    # Släpp ÄVEN andra obekräftade bokningar med samma e-post — en bekräftelse räcker.
+    also_released = []
+    if b.guest_email:
+        _others = db.query(Booking).filter(
+            Booking.guest_email == b.guest_email,
+            Booking.status == BookingStatus.pending_email_verify,
+            Booking.id != b.id,
+        ).all()
+        for _o in _others:
+            _o.status = BookingStatus.pending
+            _o.email_verify_token = None
+            _o.email_verify_expires = None
+            also_released.append(_o.id)
     db.commit()
     # Skicka booking_request till kund och admin (via BackgroundTasks — fungerar i sync-route)
     background_tasks.add_task(send_booking_email_by_id, b.id, "booking_request")
     background_tasks.add_task(send_booking_email_by_id, b.id, "admin_new_booking", True)
+    # Samma mail för de andra som släpptes
+    for _oid in also_released:
+        background_tasks.add_task(send_booking_email_by_id, _oid, "booking_request")
+        background_tasks.add_task(send_booking_email_by_id, _oid, "admin_new_booking", True)
     return {"ok": True, "booking_ref": b.booking_ref}
 
 
