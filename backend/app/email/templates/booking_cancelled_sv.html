@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="de">
 <head><meta charset="UTF-8">
 <style>
   body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
@@ -18,24 +18,24 @@
 <div class="card">
   <div class="header">
     <h1>Sjölyckan, Rolsmo</h1>
-    <div style="font-size:14px;opacity:0.85;margin-top:4px">Bokning avbokad</div>
+    <div style="font-size:14px;opacity:0.85;margin-top:4px">Buchung storniert</div>
   </div>
-  <p>Hej {{ booking.guest_name }},</p>
-  <p>Vi bekräftar att din bokning på Sjölyckan vid Rolsmosjön har avbokats.</p>
+  <p>Liebe(r) {{ booking.guest_name }},</p>
+  <p>Wir bestätigen, dass Ihre Buchung im Sjölyckan am Rolsmosjön storniert wurde.</p>
   <div class="box">
-    <strong>Avbokad bokning:</strong>
+    <strong>Stornierte Buchung:</strong>
     <table>
-      <tr><td>Referensnummer</td><td>{{ booking.booking_ref }}</td></tr>
-      <tr><td>Ankomst</td><td>{{ booking.date_from }}</td></tr>
-      <tr><td>Avresa</td><td>{{ booking.date_to }}</td></tr>
-      <tr><td>Antal nätter</td><td>{{ booking.nights }}</td></tr>
-      <tr><td>Antal gäster</td><td>{{ booking.guests_count }}</td></tr>
-      <tr><td>Totalt belopp</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} kr</td></tr>
+      <tr><td>Referenznummer</td><td>{{ booking.booking_ref }}</td></tr>
+      <tr><td>Anreise</td><td>{{ booking.date_from }}</td></tr>
+      <tr><td>Abreise</td><td>{{ booking.date_to }}</td></tr>
+      <tr><td>Nächte</td><td>{{ booking.nights }}</td></tr>
+      <tr><td>Gäste</td><td>{{ booking.guests_count }}</td></tr>
+      <tr><td>Gesamtbetrag</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} kr</td></tr>
     </table>
   </div>
-  <p>Vi beklagar att du inte kan komma. Vi hoppas att vi ses vid ett annat tillfälle!</p>
-  <p>Har du frågor kring avbokningen? Kontakta oss på <a href="mailto:{{ admin_email }}">{{ admin_email }}</a>.</p>
-  <div class="footer">Sjölyckan, Rolsmo · Linneryd, Kronobergs län<br>Referensnummer: {{ booking.booking_ref }}</div>
+  <p>Es tut uns leid, dass Sie nicht kommen können. Wir hoffen, Sie ein anderes Mal zu sehen!</p>
+  <p>Bei Fragen kontaktieren Sie uns bitte unter <a href="mailto:{{ admin_email }}">{{ admin_email }}</a>.</p>
+  <div class="footer">Sjölyckan, Rolsmo · Linneryd, Kronobergs län<br>Referenznummer: {{ booking.booking_ref }}</div>
 </div>
 </body>
 </html>
