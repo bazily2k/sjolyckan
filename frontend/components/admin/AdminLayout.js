@@ -51,17 +51,16 @@ export default function AdminLayout({ children, title = 'Admin' }) {
     <div style={{ display:'flex', minHeight:'100vh', background:'var(--sand)' }}>
 
       {/* Overlay (mobil) */}
-      {isMobile && navOpen && (
-        <div onClick={() => setNavOpen(false)}
+      {navOpen && (
+        <div className="admin-overlay" onClick={() => setNavOpen(false)}
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000 }} />
       )}
 
       {/* Nav-sidebar */}
-      <aside style={{
+      <aside className={`admin-sidebar${navOpen ? ' is-open' : ''}`} style={{
         width:220, background:'var(--ink)', color:'white',
         display:'flex', flexDirection:'column',
         position:'fixed', top:0, left:0, bottom:0,
-        transform: isMobile && !navOpen ? 'translateX(-100%)' : 'translateX(0)',
         transition:'transform 0.22s ease',
         zIndex:1001,
       }}>
@@ -70,12 +69,10 @@ export default function AdminLayout({ children, title = 'Admin' }) {
             <a href="/" style={{ fontFamily:'var(--font-display)', fontSize:18, color:'white' }}>Sjölyckan</a>
             <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)', marginTop:2, textTransform:'uppercase', letterSpacing:'0.5px' }}>Admin</div>
           </div>
-          {isMobile && (
-            <button onClick={() => setNavOpen(false)}
-              style={{ background:'none', border:'none', color:'rgba(255,255,255,0.6)', fontSize:24, cursor:'pointer', lineHeight:1, padding:0, marginTop:2 }}>
-              ×
-            </button>
-          )}
+          <button className="admin-close-btn" onClick={() => setNavOpen(false)}
+            style={{ background:'none', border:'none', color:'rgba(255,255,255,0.6)', fontSize:24, cursor:'pointer', lineHeight:1, padding:0, marginTop:2 }}>
+            ×
+          </button>
         </div>
 
         <nav style={{ flex:1, padding:'16px 0' }}>
@@ -112,28 +109,24 @@ export default function AdminLayout({ children, title = 'Admin' }) {
       </aside>
 
       {/* Huvudinnehåll */}
-      <main style={{
-        marginLeft: isMobile ? 0 : 220,
+      <main className="admin-main" style={{
+        marginLeft: 220,
         flex:1,
-        padding: isMobile ? '16px' : '32px 36px',
+        padding: '32px 36px',
         maxWidth:1200,
         boxSizing:'border-box',
-        width: isMobile ? '100%' : undefined,
       }}>
-        {/* Mobilhuvud med hamburger */}
-        {isMobile ? (
-          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
-            <button onClick={() => setNavOpen(true)} style={{
-              background:'var(--ink)', color:'white', border:'none',
-              borderRadius:'var(--radius-md)', width:38, height:38,
-              fontSize:20, cursor:'pointer', display:'flex',
-              alignItems:'center', justifyContent:'center', flexShrink:0,
-            }}>☰</button>
-            <h1 style={{ fontFamily:'var(--font-display)', fontSize:20, color:'var(--ink)', margin:0 }}>{title}</h1>
-          </div>
-        ) : (
-          <h1 style={{ fontFamily:'var(--font-display)', fontSize:26, marginBottom:24, color:'var(--ink)' }}>{title}</h1>
-        )}
+        {/* Mobilhuvud med hamburger (visas via CSS på mobil) */}
+        <div className="admin-mobile-header" style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+          <button onClick={() => setNavOpen(true)} style={{
+            background:'var(--ink)', color:'white', border:'none',
+            borderRadius:'var(--radius-md)', width:38, height:38,
+            fontSize:20, cursor:'pointer', alignItems:'center', justifyContent:'center', flexShrink:0,
+          }}>☰</button>
+          <h1 style={{ fontFamily:'var(--font-display)', fontSize:20, color:'var(--ink)', margin:0 }}>{title}</h1>
+        </div>
+        {/* Desktop-rubrik (visas via CSS på desktop) */}
+        <h1 className="admin-desktop-title" style={{ fontFamily:'var(--font-display)', fontSize:26, marginBottom:24, color:'var(--ink)' }}>{title}</h1>
         {children}
       </main>
     </div>
