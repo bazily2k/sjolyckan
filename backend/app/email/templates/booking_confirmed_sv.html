@@ -37,20 +37,20 @@
   </table>
 
   <table>
-    <tr><td>Boende ({{ booking.nights }} nätter)</td><td>{{ "{:,.0f}".format(booking.base_amount) }} kr</td></tr>
+    <tr><td>Boende ({{ booking.nights }} nätter)</td><td>{{ "{:,.0f}".format(booking.base_amount).replace(",", "\xa0") }} kr</td></tr>
     {% for art in snap.articles %}
-    <tr><td>{{ art.name_sv }}{% if art.price_type == 'per_occasion' and art.quantity is defined and art.quantity > 1 %} × {{ art.quantity }}{% endif %}{% if art.desc_sv %}<br><span style="font-size:11px;color:#888">{{ art.desc_sv }}</span>{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total) }} kr</td></tr>
+    <tr><td>{{ art.name_sv }}{% if art.price_type == 'per_occasion' and art.quantity is defined and art.quantity > 1 %} × {{ art.quantity }}{% endif %}{% if art.desc_sv %}<br><span style="font-size:11px;color:#888">{{ art.desc_sv }}</span>{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total).replace(",", "\xa0") }} kr</td></tr>
     {% endfor %}
     {% if snap.discount_amount is defined and snap.discount_amount > 0 %}
-    <tr><td style="color:#27ae60">Rabatt</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount) }} kr</td></tr>
+    <tr><td style="color:#27ae60">Rabatt</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount).replace(",", "\xa0") }} kr</td></tr>
     {% endif %}
-    <tr class="total"><td>Totalt att betala</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
+    <tr class="total"><td>Totalt att betala</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} kr</td></tr>
   </table>
 
   {% if booking.deposit_amount and booking.deposit_amount > 0 %}
   <div class="box yellow">
     <h3>💳 Handpenning</h3>
-    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') if booking.deposit_due_date else '' }}</strong></p>
+    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount).replace(",", "\xa0") }} kr</strong> ska betalas senast <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') if booking.deposit_due_date else '' }}</strong></p>
     {% if booking.payment_method.value == 'swish' %}
     <p>Swisha till: <strong>{{ swish_number }}</strong><br>Ange bokningsnummer <strong>{{ booking.booking_ref }}</strong> som meddelande.</p>
     <p style="font-size:13px;color:#555;margin-top:8px">Du kan också betala med PayPal eller kort:</p>
@@ -67,7 +67,7 @@
 
   <div class="box blue">
     <h3>📅 Slutbetalning</h3>
-    <p>Återstående belopp <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
+    <p>Återstående belopp <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount).replace(",", "\xa0") }} kr</strong> ska betalas senast <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
   </div>
 
 {% if cancel %}
