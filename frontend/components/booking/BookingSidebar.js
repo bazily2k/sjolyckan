@@ -368,12 +368,27 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
       <div style={card}>
         <div style={{ textAlign:'center', padding:'8px 0 16px' }}>
           <div style={{ fontSize:40, marginBottom:8 }}>✓</div>
-          <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:4 }}>{t('confirm.title')}</h3>
-          <p style={{ fontSize:13, color:'var(--ink-light)' }}>{t('confirm.subtitle')}</p>
-          <p style={{ fontSize:14, fontWeight:700, color:'var(--ink)', marginTop:12, padding:'10px 12px',
-            background:'#fff4e5', border:'1px solid #e0a94f', borderRadius:'var(--radius-md)' }}>
-            ⚠️ {t('confirm.spam_note')}
-          </p>
+          {booking.status === 'pending_email_verify' ? (
+            <>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:4 }}>{t('confirm.title')}</h3>
+              <p style={{ fontSize:13, color:'var(--ink-light)' }}>{t('confirm.subtitle')}</p>
+              <p style={{ fontSize:14, fontWeight:700, color:'var(--ink)', marginTop:12, padding:'10px 12px',
+                background:'#fff4e5', border:'1px solid #e0a94f', borderRadius:'var(--radius-md)' }}>
+                ⚠️ {t('confirm.spam_note')}
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:4 }}>
+                {lang==='de' ? 'Buchungsanfrage erhalten!' : lang==='en' ? 'Booking request received!' : 'Bokningsförfrågan mottagen!'}
+              </h3>
+              <p style={{ fontSize:13, color:'var(--ink-light)' }}>
+                {lang==='de' ? 'Vielen Dank! Wir prüfen Ihre Anfrage und melden uns in Kürze mit einer Bestätigung.'
+                 : lang==='en' ? "Thank you! We'll review your request and get back to you with a confirmation shortly."
+                 : 'Tack! Vi granskar din förfrågan och återkommer med en bekräftelse så snart vi kan.'}
+              </p>
+            </>
+          )}
         </div>
         <div style={{ background:'var(--water-pale)', borderRadius:'var(--radius-md)', padding:16, fontSize:13 }}>
           <div style={infoRow}><span>{t('confirm.ref')}</span><strong>{booking.booking_ref}</strong></div>
