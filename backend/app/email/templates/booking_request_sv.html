@@ -31,7 +31,7 @@
       <tr><td>Avresa</td><td>{{ booking.date_to }}</td></tr>
       <tr><td>Antal nätter</td><td>{{ booking.nights }}</td></tr>
       <tr><td>Antal gäster</td><td>{{ booking.guests_count }}</td></tr>
-      <tr><td>Totalt belopp</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
+      <tr><td>Totalt belopp</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} kr</td></tr>
     </table>
   </div>
   <p><strong>Observera:</strong> Detta är en förfrågan och inte en bekräftad bokning. Du får ett nytt mail när vi bekräftat din bokning.</p>
