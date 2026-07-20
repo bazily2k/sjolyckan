@@ -42,6 +42,32 @@ def _ensure_booking_constraints():
             """)
             conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_booking_addons_booking_ref ON booking_addons(booking_ref)")
             conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_set_by_user boolean DEFAULT false")
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS checkin_info_items (
+                    id SERIAL PRIMARY KEY,
+                    title_sv VARCHAR(200) NOT NULL,
+                    title_en VARCHAR(200) DEFAULT '',
+                    title_de VARCHAR(200) DEFAULT '',
+                    body_sv TEXT DEFAULT '',
+                    body_en TEXT DEFAULT '',
+                    body_de TEXT DEFAULT '',
+                    icon VARCHAR(20) DEFAULT '',
+                    active BOOLEAN DEFAULT true,
+                    sort_order INTEGER DEFAULT 0
+                )
+            """)
+            conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(20) DEFAULT 'static'")
+            conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS image_path VARCHAR(300) DEFAULT ''")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checkin_send_date DATE")
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS booking_checkin_codes (
+                    id SERIAL PRIMARY KEY,
+                    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+                    item_id INTEGER NOT NULL REFERENCES checkin_info_items(id),
+                    value VARCHAR(500) DEFAULT ''
+                )
+            """)
+            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_bcc_booking ON booking_checkin_codes(booking_id)")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_token VARCHAR(64)")
             conn.exec_driver_sql("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'pending_email_verify' AND enumtypid = 'bookingstatus'::regtype) THEN ALTER TYPE bookingstatus ADD VALUE 'pending_email_verify'; END IF; END $$")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_expires TIMESTAMPTZ")
@@ -156,6 +182,7 @@ upload_dir = Path("/app/uploads")
 upload_dir.mkdir(parents=True, exist_ok=True)
 (upload_dir / "rooms").mkdir(exist_ok=True)
 (upload_dir / "gallery").mkdir(exist_ok=True)
+(upload_dir / "checkin").mkdir(exist_ok=True)
 
 app = FastAPI(
     title="Sjölyckan Booking API",

@@ -134,16 +134,7 @@ input, select, textarea, button {
     padding-right: 16px !important;
   }
 
-  /* Admin-layout */
-  aside[style*="width: 220px"] {
-    width: 100% !important;
-    position: relative !important;
-    height: auto !important;
-  }
-  main[style*="margin-left: 220px"] {
-    margin-left: 0 !important;
-    padding: 16px !important;
-  }
+  /* Admin-layout hanteras nu av .admin-sidebar / .admin-main längre ner */
 
   /* Bokningsformulär — postnummer + ort */
   div[style*="grid-template-columns: 2fr 3fr"] {
@@ -259,3 +250,49 @@ input, select, textarea, button {
 /* Hero WYSIWYG: nollställ Quills p-marginal så rubrik/tagline sitter rätt */
 .hero-rich p { margin: 0; }
 .hero-rich p:empty { min-height: 0.5em; }
+
+/* ═══ ADMIN-LAYOUT (klassbaserad, robust) ═══════════ */
+/* Desktop: fast sidomeny, innehåll indraget. */
+.admin-sidebar { transform: translateX(0); }
+
+@media (max-width: 768px) {
+  /* Mobil: menyn ligger utanför skärmen tills den öppnas via .is-open */
+  .admin-sidebar { transform: translateX(-100%); }
+  .admin-sidebar.is-open { transform: translateX(0); }
+
+  /* Innehållet fyller hela bredden — ingen plats reserverad för menyn */
+  .admin-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Breda tabeller: horisontell scroll istället för att kapas */
+  .admin-main table {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+  }
+
+  /* Sido-vid-sido-rutnät (lista + formulär): stapla */
+  .admin-main div[style*="grid-template-columns: 1fr 380px"],
+  .admin-main div[style*="grid-template-columns: 1fr 400px"] {
+    display: block !important;
+  }
+}
+
+/* ═══ ADMIN-LAYOUT: header/overlay-växling (klassbaserad) ═══ */
+/* Desktop-läge (standard): hamburger-header, overlay, ×-knapp dolda */
+.admin-mobile-header { display: none; }
+.admin-overlay { display: none; }
+.admin-close-btn { display: none; }
+.admin-desktop-title { display: block; }
+
+@media (max-width: 768px) {
+  .admin-mobile-header { display: flex !important; }
+  .admin-desktop-title { display: none !important; }
+  .admin-overlay { display: block !important; }
+  .admin-close-btn { display: block !important; }
+}

@@ -138,12 +138,51 @@ def render_booking_email(booking: Booking, email_type: str, db=None) -> str:
         "frontend_url": settings.FRONTEND_URL,
         "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
         "admin_email": settings.ADMIN_EMAIL,
+        "checkin_items": _get_checkin_items(db, lang, booking),
     }
     try:
         template = jinja_env.get_template(f"{email_type}_{lang}.html")
     except Exception:
         template = jinja_env.get_template(f"{email_type}_sv.html")
     return template.render(**ctx)
+
+
+def _get_checkin_items(db, lang: str = "sv", booking=None):
+    """Aktiva infopunkter för incheckningsmailet.
+
+    Statiska punkter visas alltid. Kod-punkter visas bara om denna bokning har
+    ett ifyllt kodvärde; värdet läggs som item.code och kan användas i texten.
+    """
+    try:
+        from app.models.models import CheckinInfoItem, BookingCheckinCode
+        rows = (db.query(CheckinInfoItem)
+                  .filter(CheckinInfoItem.active == True)
+                  .order_by(CheckinInfoItem.sort_order, CheckinInfoItem.id).all())
+        # Kodvärden för denna bokning: {item_id: värde}
+        codes = {}
+        if booking is not None:
+            for c in db.query(BookingCheckinCode).filter(BookingCheckinCode.booking_id == booking.id).all():
+                codes[c.item_id] = c.value
+        out = []
+        for r in rows:
+            if (r.item_type or "static") == "code":
+                val = (codes.get(r.id) or "").strip()
+                if not val:
+                    continue  # dölj kod-punkt utan ifyllt värde
+                out.append({"icon": r.icon or "",
+                            "title": getattr(r, f"title_{lang}", "") or r.title_sv,
+                            "body": getattr(r, f"body_{lang}", "") or r.body_sv,
+                            "image_path": r.image_path or "",
+                            "code": val})
+            else:
+                out.append({"icon": r.icon or "",
+                            "title": getattr(r, f"title_{lang}", "") or r.title_sv,
+                            "body": getattr(r, f"body_{lang}", "") or r.body_sv,
+                            "image_path": r.image_path or "",
+                            "code": ""})
+        return out
+    except Exception:
+        return []
 
 
 def _get_setting(db, key: str):
@@ -186,7 +225,8 @@ async def send_booking_email(
                 ctx = {"booking": booking, "snap": snap, "lang": lang,
                        "frontend_url": settings.FRONTEND_URL,
                        "swish_number": _get_setting(db, "swish_number") or settings.SWISH_NUMBER,
-                       "admin_email": settings.ADMIN_EMAIL}
+                       "admin_email": settings.ADMIN_EMAIL,
+                       "checkin_items": _get_checkin_items(db, lang, booking)}
                 env = Environment(autoescape=False)
                 html = env.from_string(body_src).render(**ctx)
                 subject = env.from_string(subj_src).render(**ctx)

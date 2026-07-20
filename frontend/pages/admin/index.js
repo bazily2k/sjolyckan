@@ -33,6 +33,10 @@ export default function AdminBookings() {
   const [addArticleQty, setAddArticleQty] = useState(1);
   const [adminNote, setAdminNote] = useState('');
   const [depositDue, setDepositDue] = useState('');
+  const [codeItems, setCodeItems] = useState([]);
+  const [codeValues, setCodeValues] = useState({});
+  const [checkinDate, setCheckinDate] = useState('');
+  const [checkinMsg, setCheckinMsg] = useState('');
   const [paymentDue, setPaymentDue] = useState('');
   const [statusNote, setStatusNote] = useState('');
   const [sortBy, setSortBy] = useState('booking_ref');
@@ -201,9 +205,20 @@ export default function AdminBookings() {
   useEffect(() => {
     if (selected) {
       setDepositDue(selected.deposit_due_date || '');
+      setCheckinDate(selected.checkin_send_date || '');
+      const cv = {}; (selected.checkin_codes || []).forEach(c => { cv[c.item_id] = c.value; }); setCodeValues(cv);
+      adminApi.listCheckinInfo().then(r => setCodeItems((r.data || []).filter(i => i.item_type === 'code'))).catch(() => setCodeItems([]));
+      setCheckinMsg('');
       setPaymentDue(selected.payment_due_date || '');
     }
   }, [selected?.id]);
+
+  const saveCheckin = async () => {
+    try {
+      await adminApi.setCheckin(selected.id, { codes: codeValues, checkin_send_date: checkinDate || null });
+      setCheckinMsg('Sparat.');
+    } catch (e) { setCheckinMsg('Kunde inte spara.'); }
+  };
 
   const confirm = async (id) => {
     setActionLoading(true);
@@ -224,7 +239,7 @@ export default function AdminBookings() {
   };
 
   const reject = async (id) => {
-    if (!confirm('Neka denna bokning?')) return;
+    if (!window.confirm('Neka denna bokning?')) return;
     await adminApi.rejectBooking(id);
     setMsg('Bokning nekad.'); load(); setSelected(null);
   };
@@ -432,6 +447,40 @@ export default function AdminBookings() {
                       {s.label}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Incheckning: koder per bokning + utskicksdatum */}
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--sand-dark)' }}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-pale)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 8 }}>Incheckningsmejl</div>
+                {codeItems.length === 0 && <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 8 }}>Inga kod-punkter definierade. Skapa dem under Inställningar → Incheckningsinfo.</div>}
+                {codeItems.map(it => (
+                  <div key={it.id} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 4 }}>{it.icon} {it.title_sv}</div>
+                    <input value={codeValues[it.id] || ''} placeholder="Fyll i värde för denna bokning (tomt = visas ej)"
+                      onChange={e => setCodeValues(v => ({ ...v, [it.id]: e.target.value }))}
+                      style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13 }} />
+                  </div>
+                ))}
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 4 }}>Skicka incheckningsmejl (tomt = dagen före ankomst)</div>
+                  <input type="date" value={checkinDate} onChange={e => setCheckinDate(e.target.value)}
+                    style={{ padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13 }} />
+                </div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button onClick={saveCheckin} style={{ padding: '7px 16px', background: 'var(--water)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>Spara incheckning</button>
+                  <button onClick={async () => {
+                      await saveCheckin();
+                      if (!window.confirm('Skicka incheckningsmejlet till gästen nu?')) return;
+                      try {
+                        await adminApi.resendBookingEmail(selected.id, 'checkin_info');
+                        setCheckinMsg('✉️ Incheckningsmejl skickat till ' + (selected.user_email || selected.guest_email));
+                      } catch (e) { setCheckinMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+                    }}
+                    style={{ padding: '7px 16px', background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                    ✉️ Skicka incheckningsmejl nu
+                  </button>
+                  {checkinMsg && <span style={{ fontSize: 12, color: 'var(--ink-light)' }}>{checkinMsg}</span>}
                 </div>
               </div>
 

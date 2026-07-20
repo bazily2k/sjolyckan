@@ -135,6 +135,34 @@ class PriceOverride(Base):
 
 
 # ─── Tillägg / Artiklar ─────────────────────────────────
+class CheckinInfoItem(Base):
+    """Egen infopunkt i incheckningsmailet (rubrik + text per språk, på/av)."""
+    __tablename__ = "checkin_info_items"
+
+    id = Column(Integer, primary_key=True)
+    title_sv = Column(String(200), nullable=False)
+    title_en = Column(String(200), default="")
+    title_de = Column(String(200), default="")
+    body_sv = Column(Text, default="")
+    body_en = Column(Text, default="")
+    body_de = Column(Text, default="")
+    icon = Column(String(20), default="")   # valfri emoji, t.ex. ℹ️
+    item_type = Column(String(20), default="static")  # static | code (kod = unikt värde per bokning)
+    image_path = Column(String(300), default="")  # valfri bild (t.ex. QR-kod), URL under /uploads
+    active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+
+
+class BookingCheckinCode(Base):
+    """Unikt kodvärde per bokning för en kod-typad infopunkt."""
+    __tablename__ = "booking_checkin_codes"
+
+    id = Column(Integer, primary_key=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False)
+    item_id = Column(Integer, ForeignKey("checkin_info_items.id"), nullable=False)
+    value = Column(String(500), default="")
+
+
 class Article(Base):
     __tablename__ = "articles"
 
@@ -229,6 +257,7 @@ class Booking(Base):
     # Tidsstämplar
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     confirmed_at = Column(DateTime(timezone=True))
+    checkin_send_date = Column(Date, nullable=True)  # tomt = dagen före ankomst; satt = skicka detta datum
     cancelled_at = Column(DateTime(timezone=True))
     cancellation_reason = Column(Text)
     # Villkorsgodkännande

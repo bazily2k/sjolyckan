@@ -91,6 +91,10 @@ export default function AdminSettings() {
                           style={{ padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 14, background: 'white', width: '100%' }}>
                           {s.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
+                      ) : s.type === 'textarea' ? (
+                        <textarea value={editing[s.key] || ''} rows={3}
+                          onChange={e => setEditing(prev => ({ ...prev, [s.key]: e.target.value }))}
+                          style={{ width: '100%', padding: '7px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'vertical' }} />
                       ) : (
                         <input value={editing[s.key] || ''}
                           onChange={e => setEditing(prev => ({ ...prev, [s.key]: e.target.value }))}

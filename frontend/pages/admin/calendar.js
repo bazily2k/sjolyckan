@@ -127,6 +127,10 @@ export default function AdminCalendar() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('month');
+  // På mobil (stående) är listvyn läsbar; månadsrutnätet blir för trångt.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) setView('list');
+  }, []);
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
