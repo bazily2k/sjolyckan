@@ -91,6 +91,9 @@ class SeasonSchema(BaseModel):
     extra_guest_threshold: int = 4
     reminder_1_days: int = 14
     reminder_2_days: int = 3
+    cancellation_deposit_days: int = 120
+    cancellation_full_days: int = 60
+    cancellation_refund_deposit: bool = False
     visible: bool = True
     active: bool = True
     sort_order: int = 0
@@ -633,6 +636,7 @@ def copy_season(season_id: int, db: Session = Depends(get_db), _: User = Depends
         reminder_2_days=s.reminder_2_days,
         cancellation_deposit_days=s.cancellation_deposit_days,
         cancellation_full_days=s.cancellation_full_days,
+        cancellation_refund_deposit=s.cancellation_refund_deposit,
         extra_guest_fee=s.extra_guest_fee,
         extra_guest_threshold=s.extra_guest_threshold,
         active=False,
