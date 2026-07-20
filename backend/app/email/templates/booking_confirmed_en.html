@@ -73,14 +73,15 @@
 {% if cancel %}
   <div class="box" style="background:#f4f4f4">
     <h3>📋 Cancellation terms</h3>
+    <p style="margin:0 0 8px">The following applies on cancellation, counted from the arrival date:</p>
     <p style="margin:0 0 6px">
-      <strong>Full refund</strong> if cancelled no later than <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }}</strong>{% if not cancel.refund_deposit %} (deposit non-refundable){% endif %}.
+      ✅ <strong>Up to and including {{ cancel.full_refund_until.strftime('%d %B %Y') }}:</strong> full refund{% if not cancel.refund_deposit %} (deposit non-refundable){% endif %}.
     </p>
     <p style="margin:0 0 6px">
-      If cancelled after that, no later than <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong>: refund of paid amount <strong>excluding the deposit</strong>.
+      ➖ <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }} – {{ cancel.partial_until.strftime('%d %B %Y') }}:</strong> refund of the amount paid, excluding the deposit.
     </p>
     <p style="margin:0">
-      Cancellations after <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong>: <strong>no refund</strong>.
+      ❌ <strong>After {{ cancel.partial_until.strftime('%d %B %Y') }}:</strong> no refund.
     </p>
   </div>
   {% endif %}
