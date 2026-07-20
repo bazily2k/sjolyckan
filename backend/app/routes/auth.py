@@ -306,7 +306,8 @@ async def forgot_password(data: dict, background_tasks: BackgroundTasks, db: Ses
     db.commit()
     from app.core.config import settings as app_settings
     lang = request_lang or user.lang or "sv"
-    reset_url = f"{app_settings.FRONTEND_URL}/reset-password/{token}"
+    _pfx = "" if lang == "sv" else f"/{lang}"
+    reset_url = f"{app_settings.FRONTEND_URL}{_pfx}/reset-password/{token}"
     subjects = {
         "sv": "Återställ ditt lösenord — Sjölyckan",
         "en": "Reset your password — Sjölyckan",
@@ -422,7 +423,8 @@ def admin_resend_setup_email(
     if lang2 not in ("sv", "en", "de"):
         lang2 = "sv"
     first = user.first_name or ""
-    set_url = f"{app_settings.FRONTEND_URL}/reset-password/{token}"
+    _pfx2 = "" if lang2 == "sv" else f"/{lang2}"
+    set_url = f"{app_settings.FRONTEND_URL}{_pfx2}/reset-password/{token}?welcome=1"
     subj  = {"sv": "Ditt konto hos Sjölyckan — sätt ditt lösenord",
              "en": "Your Sjölyckan account — set your password",
              "de": "Ihr Sjölyckan-Konto — Passwort festlegen"}[lang2]
