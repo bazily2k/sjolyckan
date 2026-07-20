@@ -98,6 +98,7 @@
     "forgot_error": "An error occurred. Please try again.",
     "reset_title": "Reset password",
     "reset_btn": "Save new password",
+    "set_success": "Your password has been saved! You can now log in.",
     "reset_success": "Your password has been reset! You can now log in.",
     "reset_mismatch": "Passwords do not match.",
     "reset_short": "Password must be at least 8 characters.",
