@@ -73,14 +73,15 @@
 {% if cancel %}
   <div class="box" style="background:#f4f4f4">
     <h3>📋 Avbokningsvillkor</h3>
+    <p style="margin:0 0 8px">Vid avbokning gäller följande, räknat från ankomstdagen:</p>
     <p style="margin:0 0 6px">
-      <strong>Full återbetalning</strong> vid avbokning senast <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }}</strong>{% if not cancel.refund_deposit %} (handpenningen återbetalas ej){% endif %}.
+      ✅ <strong>Till och med {{ cancel.full_refund_until.strftime('%d %B %Y') }}:</strong> full återbetalning{% if not cancel.refund_deposit %} (handpenningen återbetalas ej){% endif %}.
     </p>
     <p style="margin:0 0 6px">
-      Vid avbokning därefter, senast <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong>: återbetalning av inbetalt belopp <strong>utom handpenningen</strong>.
+      ➖ <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }} – {{ cancel.partial_until.strftime('%d %B %Y') }}:</strong> återbetalning av inbetalt belopp, utom handpenningen.
     </p>
     <p style="margin:0">
-      Vid avbokning efter <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong> sker <strong>ingen återbetalning</strong>.
+      ❌ <strong>Efter {{ cancel.partial_until.strftime('%d %B %Y') }}:</strong> ingen återbetalning.
     </p>
   </div>
   {% endif %}
