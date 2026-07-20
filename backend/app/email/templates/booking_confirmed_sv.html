@@ -70,6 +70,21 @@
     <p>Återstående belopp <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} kr</strong> ska betalas senast <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
   </div>
 
+{% if cancel %}
+  <div class="box" style="background:#f4f4f4">
+    <h3>📋 Avbokningsvillkor</h3>
+    <p style="margin:0 0 6px">
+      <strong>Full återbetalning</strong> vid avbokning senast <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }}</strong>{% if not cancel.refund_deposit %} (handpenningen återbetalas ej){% endif %}.
+    </p>
+    <p style="margin:0 0 6px">
+      Vid avbokning därefter, senast <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong>: återbetalning av inbetalt belopp <strong>utom handpenningen</strong>.
+    </p>
+    <p style="margin:0">
+      Vid avbokning efter <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong> sker <strong>ingen återbetalning</strong>.
+    </p>
+  </div>
+  {% endif %}
+
   <div class="box">
     <h3>🏠 Incheckning</h3>
     <p>Incheckning efter kl. 15:00 · Utcheckning senast kl. 12:00<br>
