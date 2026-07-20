@@ -8,7 +8,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 export default function ResetPassword() {
   const { t } = useTranslation('common');
   const router = useRouter();
-  const { token } = router.query;
+  const { token, welcome } = router.query;
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [msg, setMsg] = useState('');
@@ -22,7 +22,7 @@ export default function ResetPassword() {
     try {
       await axios.post(`${API}/auth/reset-password`, { token, password, lang: router.locale });
       setDone(true);
-      setMsg(t('auth.reset_success'));
+      setMsg(welcome ? t('auth.set_success') : t('auth.reset_success'));
     } catch(err) {
       setMsg(err.response?.data?.detail || t('auth.reset_invalid'));
     } finally { setLoading(false); }

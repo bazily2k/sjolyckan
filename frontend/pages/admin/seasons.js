@@ -10,7 +10,7 @@ const empty = {
   price_per_night: '', deposit_pct: 10, deposit_days: 7, extra_guest_fee: 0, extra_guest_threshold: 4,
   payment_days_before: 60, min_nights: 2,
   reminder_1_days: 14, reminder_2_days: 3,
-  cancellation_deposit_days: 30, cancellation_full_days: 14,
+  cancellation_deposit_days: 120, cancellation_full_days: 60, cancellation_refund_deposit: false,
   visible: true, active: true, sort_order: 0,
 };
 
@@ -102,8 +102,8 @@ export default function AdminSeasons() {
                     ['Betalfrist', `${s.payment_days_before} dagar`],
                     ['Min. nätter', s.min_nights],
                     ['Extra gästavgift', s.extra_guest_fee > 0 ? `${s.extra_guest_fee} kr/gäst/natt (över ${s.extra_guest_threshold} pers)` : 'Ingen'],
-                    ['Avbokn. handp.', `${s.cancellation_deposit_days || 30} dagar`],
-                    ['Avbokn. fullt belopp', `${s.cancellation_full_days || 14} dagar`],
+                    ['Avbokn. handp.', `${s.cancellation_deposit_days || 120} dagar`],
+                    ['Avbokn. fullt belopp', `${s.cancellation_full_days || 60} dagar`],
                     ['Påminnelse 1', `${s.reminder_1_days} dagar`],
                     ['Påminnelse 2', `${s.reminder_2_days} dagar`],
                   ].map(([k, v]) => (
@@ -139,6 +139,13 @@ export default function AdminSeasons() {
               <Field form={form} setForm={setForm} label="Påminnelse 2 (dagar före)" field="reminder_2_days" type="number" half />
               <Field form={form} setForm={setForm} label="Avbokning: handp. återbet. (dagar före ankomst)" field="cancellation_deposit_days" type="number" half />
               <Field form={form} setForm={setForm} label="Avbokning: fullt belopp (dagar före ankomst)" field="cancellation_full_days" type="number" half />
+              <div style={{ gridColumn: 'span 2', marginTop: 4 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!!form.cancellation_refund_deposit}
+                    onChange={e => setForm(f => ({ ...f, cancellation_refund_deposit: e.target.checked }))} />
+                  Handpenningen återbetalas vid avbokning i tid (annars behålls den alltid)
+                </label>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               {editing && (

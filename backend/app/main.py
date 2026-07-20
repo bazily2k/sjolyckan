@@ -59,6 +59,7 @@ def _ensure_booking_constraints():
             conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(20) DEFAULT 'static'")
             conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS image_path VARCHAR(300) DEFAULT ''")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checkin_send_date DATE")
+            conn.exec_driver_sql("ALTER TABLE seasons ADD COLUMN IF NOT EXISTS cancellation_refund_deposit BOOLEAN DEFAULT false")
             conn.exec_driver_sql("""
                 CREATE TABLE IF NOT EXISTS booking_checkin_codes (
                     id SERIAL PRIMARY KEY,

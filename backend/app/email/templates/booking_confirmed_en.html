@@ -37,20 +37,20 @@
   </table>
 
   <table>
-    <tr><td>Accommodation ({{ booking.nights }} nights)</td><td>{{ "{:,.0f}".format(booking.base_amount) }} SEK</td></tr>
+    <tr><td>Accommodation ({{ booking.nights }} nights)</td><td>{{ "{:,.0f}".format(booking.base_amount).replace(",", "\xa0") }} SEK</td></tr>
     {% for art in snap.articles %}
-    <tr><td>{{ art.name_en }}{% if art.desc_en %}<br><span style="font-size:11px;color:#888">{{ art.desc_en }}</span>{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total) }} SEK</td></tr>
+    <tr><td>{{ art.name_en }}{% if art.desc_en %}<br><span style="font-size:11px;color:#888">{{ art.desc_en }}</span>{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total).replace(",", "\xa0") }} SEK</td></tr>
     {% endfor %}
     {% if snap.discount_amount is defined and snap.discount_amount > 0 %}
-    <tr><td style="color:#27ae60">Discount</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount) }} kr</td></tr>
+    <tr><td style="color:#27ae60">Discount</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount).replace(",", "\xa0") }} kr</td></tr>
     {% endif %}
-    <tr class="total"><td>Total</td><td>{{ "{:,.0f}".format(booking.total_amount) }} SEK</td></tr>
+    <tr class="total"><td>Total</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} SEK</td></tr>
   </table>
 
   {% if booking.deposit_amount and booking.deposit_amount > 0 %}
   <div class="box yellow">
     <h3>💳 Deposit</h3>
-    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount) }} SEK</strong> is due by <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') if booking.deposit_due_date else '' }}</strong></p>
+    <p><strong>{{ "{:,.0f}".format(booking.deposit_amount).replace(",", "\xa0") }} SEK</strong> is due by <strong>{{ booking.deposit_due_date.strftime('%d %B %Y') if booking.deposit_due_date else '' }}</strong></p>
     {% set methods = (booking.payment_methods or 'paypal').split(',') %}
     {% if 'swish' in methods and swish_number %}
     <p>Swish to: <strong>{{ swish_number }}</strong><br>Reference: <strong>{{ booking.booking_ref }}</strong></p>
@@ -67,13 +67,37 @@
 
   <div class="box blue">
     <h3>📅 Final Payment</h3>
-    <p>Remaining balance <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} SEK</strong> is due by <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
+    <p>Remaining balance <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount).replace(",", "\xa0") }} SEK</strong> is due by <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
   </div>
+
+{% if cancel %}
+  <div class="box" style="background:#f4f4f4">
+    <h3>📋 Cancellation terms</h3>
+    <p style="margin:0 0 8px">The following applies on cancellation, counted from the arrival date:</p>
+    <p style="margin:0 0 6px">
+      ✅ <strong>Up to and including {{ cancel.full_refund_until.strftime('%d %B %Y') }}:</strong> full refund{% if not cancel.refund_deposit %} (deposit non-refundable){% endif %}.
+    </p>
+    <p style="margin:0 0 6px">
+      ➖ <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }} – {{ cancel.partial_until.strftime('%d %B %Y') }}:</strong> refund of the amount paid, excluding the deposit.
+    </p>
+    <p style="margin:0">
+      ❌ <strong>After {{ cancel.partial_until.strftime('%d %B %Y') }}:</strong> no refund.
+    </p>
+  </div>
+  {% endif %}
 
   <div class="box">
     <h3>🏠 Check-in Information</h3>
     <p>Check-in from 3:00 PM · Check-out by 12:00 PM<br>
     Lock code and further information will be sent by email approx. 1-2 weeks before arrival.<br></p>
+  </div>
+
+  <div class="box">
+    <h3>&#10133; Want to add to your booking?</h3>
+    <p>Add sauna, bed linen or other extras.</p>
+    <p style="text-align:center;margin-top:10px">
+      <a href="{{ frontend_url }}/addon?ref={{ booking.booking_ref }}" style="display:inline-block;background:#1a5276;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:600">Add to booking</a>
+    </p>
   </div>
 
   <p>Questions? Contact us at <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>

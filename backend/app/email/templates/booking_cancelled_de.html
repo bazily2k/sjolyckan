@@ -30,7 +30,7 @@
       <tr><td>Abreise</td><td>{{ booking.date_to }}</td></tr>
       <tr><td>Nächte</td><td>{{ booking.nights }}</td></tr>
       <tr><td>Gäste</td><td>{{ booking.guests_count }}</td></tr>
-      <tr><td>Gesamtbetrag</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
+      <tr><td>Gesamtbetrag</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} kr</td></tr>
     </table>
   </div>
   <p>Es tut uns leid, dass Sie nicht kommen können. Wir hoffen, Sie ein anderes Mal zu sehen!</p>

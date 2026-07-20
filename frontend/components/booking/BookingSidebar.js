@@ -368,12 +368,27 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
       <div style={card}>
         <div style={{ textAlign:'center', padding:'8px 0 16px' }}>
           <div style={{ fontSize:40, marginBottom:8 }}>✓</div>
-          <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:4 }}>{t('confirm.title')}</h3>
-          <p style={{ fontSize:13, color:'var(--ink-light)' }}>{t('confirm.subtitle')}</p>
-          <p style={{ fontSize:14, fontWeight:700, color:'var(--ink)', marginTop:12, padding:'10px 12px',
-            background:'#fff4e5', border:'1px solid #e0a94f', borderRadius:'var(--radius-md)' }}>
-            ⚠️ {t('confirm.spam_note')}
-          </p>
+          {booking.status === 'pending_email_verify' ? (
+            <>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:4 }}>{t('confirm.title')}</h3>
+              <p style={{ fontSize:13, color:'var(--ink-light)' }}>{t('confirm.subtitle')}</p>
+              <p style={{ fontSize:14, fontWeight:700, color:'var(--ink)', marginTop:12, padding:'10px 12px',
+                background:'#fff4e5', border:'1px solid #e0a94f', borderRadius:'var(--radius-md)' }}>
+                ⚠️ {t('confirm.spam_note')}
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 style={{ fontFamily:'var(--font-display)', fontSize:20, marginBottom:4 }}>
+                {lang==='de' ? 'Buchungsanfrage erhalten!' : lang==='en' ? 'Booking request received!' : 'Bokningsförfrågan mottagen!'}
+              </h3>
+              <p style={{ fontSize:13, color:'var(--ink-light)' }}>
+                {lang==='de' ? 'Vielen Dank! Wir prüfen Ihre Anfrage und melden uns in Kürze mit einer Bestätigung.'
+                 : lang==='en' ? "Thank you! We'll review your request and get back to you with a confirmation shortly."
+                 : 'Tack! Vi granskar din förfrågan och återkommer med en bekräftelse så snart vi kan.'}
+              </p>
+            </>
+          )}
         </div>
         <div style={{ background:'var(--water-pale)', borderRadius:'var(--radius-md)', padding:16, fontSize:13 }}>
           <div style={infoRow}><span>{t('confirm.ref')}</span><strong>{booking.booking_ref}</strong></div>
@@ -381,13 +396,15 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           <div style={infoRow}><span>{t('confirm.deposit')}</span><strong>{booking.deposit_amount?.toLocaleString('sv-SE')} kr</strong></div>
           <div style={infoRow}><span>{t('confirm.deposit_due')}</span><strong>{booking.deposit_due_date}</strong></div>
         </div>
-        <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'12px 14px', fontSize:12.5, color:'var(--ink-light)', marginTop:12, lineHeight:1.5 }}>
-          ✉️ {lang==='de'
-            ? 'Falls Sie noch kein Konto haben, haben wir eines für Sie erstellt. Bitte prüfen Sie Ihre E-Mail, um Ihr Passwort festzulegen und Ihre Buchung zu verfolgen.'
-            : lang==='en'
-            ? "If you don't already have an account, we've created one for you. Please check your email to set your password and follow your booking."
-            : 'Om du inte redan har ett konto har vi skapat ett åt dig. Kolla din e-post för att sätta ditt lösenord och följa din bokning.'}
-        </div>
+        {booking.status === 'pending_email_verify' && (
+          <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'12px 14px', fontSize:12.5, color:'var(--ink-light)', marginTop:12, lineHeight:1.5 }}>
+            ✉️ {lang==='de'
+              ? 'Falls Sie noch kein Konto haben, haben wir eines für Sie erstellt. Bitte prüfen Sie Ihre E-Mail, um Ihr Passwort festzulegen und Ihre Buchung zu verfolgen.'
+              : lang==='en'
+              ? "If you don't already have an account, we've created one for you. Please check your email to set your password and follow your booking."
+              : 'Om du inte redan har ett konto har vi skapat ett åt dig. Kolla din e-post för att sätta ditt lösenord och följa din bokning.'}
+          </div>
+        )}
       </div>
     );
   }

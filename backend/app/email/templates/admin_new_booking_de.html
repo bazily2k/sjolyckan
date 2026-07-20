@@ -40,12 +40,12 @@
   {% endif %}
 
   <table>
-    <tr><td>Boende</td><td>{{ "{:,.0f}".format(booking.base_amount) }} kr</td></tr>
+    <tr><td>Boende</td><td>{{ "{:,.0f}".format(booking.base_amount).replace(",", "\xa0") }} kr</td></tr>
     {% for art in snap.articles %}
-    <tr><td>{{ art.name_sv }}</td><td>{{ "{:,.0f}".format(art.line_total) }} kr</td></tr>
+    <tr><td>{{ art.name_sv }}</td><td>{{ "{:,.0f}".format(art.line_total).replace(",", "\xa0") }} kr</td></tr>
     {% endfor %}
-    <tr class="total"><td>Totalt</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
-    <tr class="total"><td>Handpenning ({{ snap.deposit_pct }}%)</td><td>{{ "{:,.0f}".format(booking.deposit_amount) }} kr</td></tr>
+    <tr class="total"><td>Totalt</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} kr</td></tr>
+    <tr class="total"><td>Handpenning ({{ snap.deposit_pct }}%)</td><td>{{ "{:,.0f}".format(booking.deposit_amount).replace(",", "\xa0") }} kr</td></tr>
   </table>
 
   <p>Gå till admin-panelen för att godkänna eller neka förfrågan och välja betalningsmetod:</p>

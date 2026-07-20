@@ -98,6 +98,7 @@
     "forgot_error": "Ett fel uppstod. Försök igen.",
     "reset_title": "Återställ lösenord",
     "reset_btn": "Spara nytt lösenord",
+    "set_success": "Lösenordet har sparats! Du kan nu logga in.",
     "reset_success": "Lösenordet har återställts! Du kan nu logga in.",
     "reset_mismatch": "Lösenorden stämmer inte överens.",
     "reset_short": "Lösenordet måste vara minst 8 tecken.",

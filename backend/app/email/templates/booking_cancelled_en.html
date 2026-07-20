@@ -30,7 +30,7 @@
       <tr><td>Check-out</td><td>{{ booking.date_to }}</td></tr>
       <tr><td>Nights</td><td>{{ booking.nights }}</td></tr>
       <tr><td>Guests</td><td>{{ booking.guests_count }}</td></tr>
-      <tr><td>Total amount</td><td>{{ "{:,.0f}".format(booking.total_amount) }} kr</td></tr>
+      <tr><td>Total amount</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} kr</td></tr>
     </table>
   </div>
   <p>We are sorry you cannot make it. We hope to see you another time!</p>

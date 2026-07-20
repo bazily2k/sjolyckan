@@ -31,7 +31,7 @@
       <tr><td>Abreise</td><td>{{ booking.date_to }}</td></tr>
       <tr><td>Nächte</td><td>{{ booking.nights }}</td></tr>
       <tr><td>Gäste</td><td>{{ booking.guests_count }}</td></tr>
-      <tr><td>Gesamtbetrag</td><td>{{ "{:,.0f}".format(booking.total_amount) }} SEK</td></tr>
+      <tr><td>Gesamtbetrag</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} SEK</td></tr>
     </table>
   </div>
   <p><strong>Bitte beachten:</strong> Dies ist eine Anfrage und keine bestätigte Buchung. Sie erhalten eine neue E-Mail, sobald wir Ihre Buchung bestätigt haben.</p>
