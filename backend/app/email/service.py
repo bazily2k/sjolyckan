@@ -131,10 +131,15 @@ SUBJECTS = {
 def _cancellation_dates(booking):
     """Räknar ut avbokningsvillkorens datum från bokningens säsong-snapshot.
 
+    Tidslinje mot ankomst (deposit_days > full_days):
+      • senast (ankomst − deposit_days)  → full återbetalning
+      • mellan de två gränserna          → återbetalning utom handpenning
+      • efter (ankomst − full_days)       → ingen återbetalning
+
     Returnerar dict med:
-      full_refund_until  – sista dag för full återbetalning (ankomst − full_days)
-      deposit_cutoff     – gräns för handpenningsdelen (ankomst − deposit_days)
-      refund_deposit     – bool: återbetalas handpenningen vid avbokning i tid
+      full_refund_until  – sista dag för full återbetalning (ankomst − deposit_days)
+      partial_until      – sista dag för delvis återbetalning (ankomst − full_days)
+      refund_deposit     – bool: återbetalas handpenningen vid full återbetalning
     """
     from datetime import timedelta
     snap = booking.snapshot or {}
@@ -142,9 +147,12 @@ def _cancellation_dates(booking):
         full_days = int(snap.get("cancellation_full_days") or 60)
         dep_days = int(snap.get("cancellation_deposit_days") or 120)
         refund_dep = bool(snap.get("cancellation_refund_deposit", False))
+        # Säkerställ att full-återbetalningsgränsen ligger tidigare (längre dagar)
+        early_days = max(full_days, dep_days)
+        late_days = min(full_days, dep_days)
         return {
-            "full_refund_until": booking.date_from - timedelta(days=full_days),
-            "deposit_cutoff": booking.date_from - timedelta(days=dep_days),
+            "full_refund_until": booking.date_from - timedelta(days=early_days),
+            "partial_until": booking.date_from - timedelta(days=late_days),
             "refund_deposit": refund_dep,
             "full_days": full_days,
             "deposit_days": dep_days,
