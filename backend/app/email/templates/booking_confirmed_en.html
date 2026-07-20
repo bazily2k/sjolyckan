@@ -70,6 +70,21 @@
     <p>Remaining balance <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} SEK</strong> is due by <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
   </div>
 
+{% if cancel %}
+  <div class="box" style="background:#f4f4f4">
+    <h3>📋 Cancellation terms</h3>
+    <p style="margin:0 0 6px">
+      <strong>Full refund</strong> if cancelled no later than <strong>{{ cancel.full_refund_until.strftime('%d %B %Y') }}</strong>{% if not cancel.refund_deposit %} (deposit non-refundable){% endif %}.
+    </p>
+    <p style="margin:0 0 6px">
+      If cancelled after that, no later than <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong>: refund of paid amount <strong>excluding the deposit</strong>.
+    </p>
+    <p style="margin:0">
+      Cancellations after <strong>{{ cancel.deposit_cutoff.strftime('%d %B %Y') }}</strong>: <strong>no refund</strong>.
+    </p>
+  </div>
+  {% endif %}
+
   <div class="box">
     <h3>🏠 Check-in Information</h3>
     <p>Check-in from 3:00 PM · Check-out by 12:00 PM<br>
