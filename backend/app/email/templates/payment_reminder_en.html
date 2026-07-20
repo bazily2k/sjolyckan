@@ -31,7 +31,7 @@
   </table>
   <div class="box">
     <h3>💳 Final payment</h3>
-    <p>Remaining amount <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount) }} kr</strong> is due by <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
+    <p>Remaining amount <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount).replace(",", "\xa0") }} kr</strong> is due by <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
     <p style="text-align:center;margin-top:16px">
       <a href="{{ frontend_url }}/pay/{{ booking.booking_ref }}"
          style="display:inline-block;background:#2d6a8f;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:15px;font-weight:600">
