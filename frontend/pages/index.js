@@ -240,6 +240,12 @@ export default function Home({ locale }) {
           {plain(content.hero_title) || 'Sjölyckan'}, Rolsmo
         </p>
         <p style={{ fontSize:13 }}>Linneryd, Kronobergs län · rolsmo23.36297@gmail.com</p>
+        <p style={{ fontSize:13, marginTop:12 }}>
+          {lang==='de' ? 'Bereits gebucht? ' : lang==='en' ? 'Already booked? ' : 'Har du redan bokat? '}
+          <a href="/addon" style={{ color:'var(--water-light)', textDecoration:'underline' }}>
+            {lang==='de' ? 'Buchung ergänzen' : lang==='en' ? 'Add to your booking' : 'Komplettera din bokning'}
+          </a>
+        </p>
       </footer>
 
       {/* Rum-modal */}
