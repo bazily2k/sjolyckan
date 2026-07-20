@@ -31,7 +31,7 @@
       <tr><td>Check-out</td><td>{{ booking.date_to }}</td></tr>
       <tr><td>Nights</td><td>{{ booking.nights }}</td></tr>
       <tr><td>Guests</td><td>{{ booking.guests_count }}</td></tr>
-      <tr><td>Total amount</td><td>{{ "{:,.0f}".format(booking.total_amount) }} SEK</td></tr>
+      <tr><td>Total amount</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} SEK</td></tr>
     </table>
   </div>
   <p><strong>Please note:</strong> This is a request, not a confirmed booking. You will receive a new email once we have confirmed your booking.</p>
