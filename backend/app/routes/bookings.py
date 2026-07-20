@@ -1305,8 +1305,9 @@ async def _send_email_verify(booking_id: int):
     try:
         b = db.query(Booking).filter(Booking.id == booking_id).first()
         if not b: return
-        verify_url = f"{settings.FRONTEND_URL}/verify-email?token={b.email_verify_token}"
         lang = b.lang or "sv"
+        _pfx = "" if lang == "sv" else f"/{lang}"
+        verify_url = f"{settings.FRONTEND_URL}{_pfx}/verify-email?token={b.email_verify_token}"
         subjects = {
             "sv": "Bekräfta din e-postadress — Sjölyckan",
             "en": "Confirm your email address — Sjölyckan",
