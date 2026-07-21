@@ -991,16 +991,12 @@ def admin_add_article(
     if existing:
         raise HTTPException(status_code=400, detail="Tillägget finns redan på bokningen")
 
-    # Beräkna line_total
+    # Beräkna line_total.
+    # Tilläggsbeställning: kunden anger själv antalet (qty), så priset är alltid
+    # per enhet × qty — oavsett price_type. Vi multiplicerar INTE med bokningens
+    # nätter/gäster här (det gäller bara vid den ursprungliga bokningen).
     qty = max(1, int(req.quantity or 1))
-    if art.price_type == "per_night":
-        line_total = Decimal(str(art.price)) * b.nights
-    elif art.price_type == "per_guest":
-        line_total = Decimal(str(art.price)) * b.guests_count
-    elif art.price_type == "per_occasion":
-        line_total = Decimal(str(art.price)) * qty
-    else:
-        line_total = Decimal(str(art.price))
+    line_total = Decimal(str(art.price)) * qty
 
     ba = BookingArticle(
         booking_id=b.id,
@@ -1010,7 +1006,7 @@ def admin_add_article(
         name_de=art.name_de,
         price_snapshot=art.price,
         price_type=art.price_type,
-        quantity=1,
+        quantity=qty,
         line_total=line_total,
     )
     db.add(ba)
