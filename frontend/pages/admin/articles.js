@@ -121,8 +121,9 @@ export default function AdminArticles() {
               <Field form={form} setForm={setForm} label="Pristyp" field="price_type" half select options={[
                 { v:'per_night', l:'Per natt' },
                 { v:'per_guest', l:'Per gäst' },
-                { v:'fixed', l:'Fast pris' },
+                { v:'per_occasion', l:'Per tillfälle' },
                 { v:'per_pet', l:'Per husdjur' },
+                { v:'fixed', l:'Fast pris' },
               ]} />
               <Field form={form} setForm={setForm} label="Ikon" field="icon" half select options={ICONS.map(i => ({ v:i, l:i.replace('ti-','') }))} />
               <Field form={form} setForm={setForm} label="Sorteringsordning" field="sort_order" type="number" half />
