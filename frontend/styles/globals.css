@@ -278,8 +278,16 @@ input, select, textarea, button {
 
   /* Sido-vid-sido-rutnät (lista + formulär): stapla */
   .admin-main div[style*="grid-template-columns: 1fr 380px"],
-  .admin-main div[style*="grid-template-columns: 1fr 400px"] {
+  .admin-main div[style*="grid-template-columns: 1fr 400px"],
+  .admin-main div[style*="grid-template-columns: 1fr 340px"],
+  .admin-main div[style*="grid-template-columns: minmax"],
+  .admin-main div[style*="grid-template-columns: 1fr 320px"],
+  .admin-main div[style*="grid-template-columns: 1fr 360px"] {
     display: block !important;
+  }
+  /* Grid-barn får full bredd och luft mellan sig när de staplas */
+  .admin-main div[style*="grid-template-columns: 1fr"] > * {
+    margin-bottom: 16px;
   }
 }
 
