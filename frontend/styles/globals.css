@@ -276,18 +276,26 @@ input, select, textarea, button {
     overflow-x: auto !important;
   }
 
-  /* Sido-vid-sido-rutnät (lista + formulär): stapla */
-  .admin-main div[style*="grid-template-columns: 1fr 380px"],
-  .admin-main div[style*="grid-template-columns: 1fr 400px"],
-  .admin-main div[style*="grid-template-columns: 1fr 340px"],
-  .admin-main div[style*="grid-template-columns: minmax"],
-  .admin-main div[style*="grid-template-columns: 1fr 320px"],
-  .admin-main div[style*="grid-template-columns: 1fr 360px"] {
+  /* Generell regel: ALLA sido-vid-sido-rutnät i admin staplas på mobil.
+     Matchar oavsett kolumnbredd eller mellanslag i inline-style. */
+  .admin-main div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    display: block !important;
+  }
+  /* Specifika (komplement) — React renderar UTAN mellanslag efter kolon: */
+  .admin-main div[style*="grid-template-columns:1fr 380px"],
+  .admin-main div[style*="grid-template-columns:1fr 400px"],
+  .admin-main div[style*="grid-template-columns:1fr 340px"],
+  .admin-main div[style*="grid-template-columns:1fr 320px"],
+  .admin-main div[style*="grid-template-columns:1fr 360px"],
+  .admin-main div[style*="grid-template-columns:minmax"] {
     display: block !important;
   }
   /* Grid-barn får full bredd och luft mellan sig när de staplas */
-  .admin-main div[style*="grid-template-columns: 1fr"] > * {
-    margin-bottom: 16px;
+  .admin-main div[style*="grid-template-columns:1fr"] > * {
+    display: block !important;
+    width: 100% !important;
+    margin-bottom: 16px !important;
   }
 }
 
