@@ -120,11 +120,11 @@ export default function Home({ locale }) {
           <div className="hero-rich" style={{ fontSize:18, fontWeight:300, maxWidth:480, opacity:0.9, marginBottom:36, lineHeight:1.6 }}
             dangerouslySetInnerHTML={{ __html: content.hero_tagline || 'En sommar att minnas vid Rolsmosjön' }} />
           <div style={{ display:'flex', gap:12, flexWrap:'wrap', justifyContent:'center' }}>
-            <a onClick={() => scrollToId('boka')} style={{ cursor:'pointer',  padding:'14px 36px', background:'white', color:'var(--ink)', borderRadius:'var(--radius-xl)', fontSize:15, fontWeight:500, boxShadow:'0 4px 20px rgba(0,0,0,0.2)' }}>
+            <a onClick={() => scrollToId('boka')} style={{ cursor:'pointer', padding:'14px 36px', background:'rgba(255,255,255,0.15)', color:'white', borderRadius:'var(--radius-xl)', fontSize:15, fontWeight:400, border:'1px solid rgba(255,255,255,0.4)' }}>
               {t('hero.cta')} ↓
             </a>
             <a onClick={() => scrollToId('kalender')} style={{ cursor:'pointer',  padding:'14px 36px', background:'rgba(255,255,255,0.15)', color:'white', borderRadius:'var(--radius-xl)', fontSize:15, fontWeight:400, border:'1px solid rgba(255,255,255,0.4)' }}>
-              {lang === 'sv' ? 'Se tillgänglighet' : lang === 'en' ? 'Check availability' : 'Verfügbarkeit prüfen'}
+              {lang === 'sv' ? 'Se tillgänglighet' : lang === 'en' ? 'Check availability' : 'Verfügbarkeit prüfen'} ↓
             </a>
           </div>
         </div>
