@@ -50,10 +50,9 @@ export default function AddonPage() {
     return articles.reduce((sum, a) => {
       const qty = selected[a.id] || 0;
       if (!qty) return sum;
-      let price = a.price;
-      if (a.price_type === 'per_night') price *= booking?.nights || 1;
-      if (a.price_type === 'per_guest') price *= booking?.guests_count || 1;
-      return sum + price * qty;
+      // Tilläggsbeställning: kunden anger själv antalet (qty). Priset är alltid
+      // per enhet × qty — vi multiplicerar INTE med bokningens nätter/gäster.
+      return sum + a.price * qty;
     }, 0);
   };
 
@@ -78,6 +77,7 @@ export default function AddonPage() {
     if (a.price_type==='per_night') return `${a.price.toLocaleString('sv-SE')} kr ${t.per_night}`;
     if (a.price_type==='per_guest') return `${a.price.toLocaleString('sv-SE')} kr ${t.per_guest}`;
     if (a.price_type==='per_pet')   return `${a.price.toLocaleString('sv-SE')} kr ${t.per_pet}`;
+    if (a.price_type==='per_occasion') return `${a.price.toLocaleString('sv-SE')} kr ${t.per_occasion}`;
     return `${a.price.toLocaleString('sv-SE')} kr`;
   };
 
@@ -120,9 +120,10 @@ export default function AddonPage() {
                 const qty = selected[a.id] || 0;
                 return (
                   <div key={a.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:'1px solid #ede9e4' }}>
-                    <div>
+                    <div style={{ flex:1, paddingRight:12 }}>
                       <div style={{ fontWeight:500, fontSize:14 }}>{name}</div>
-                      <div style={{ fontSize:12, color:'#888' }}>{priceLabel(a)}</div>
+                      {a.desc && <div style={{ fontSize:12, color:'#666', marginTop:2, lineHeight:1.4 }}>{a.desc}</div>}
+                      <div style={{ fontSize:12, color:'#888', marginTop:2 }}>{priceLabel(a)}</div>
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <button onClick={() => setSelected(p=>({...p,[a.id]:Math.max(0,(p[a.id]||0)-1)}))}
