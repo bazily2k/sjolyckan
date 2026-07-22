@@ -1,881 +1,340 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional, List
-from datetime import date
-from app.models.database import get_db
-from app.models.models import Season, Article, PriceOverride, Setting, User, EmailLog, Booking, BookingStatus, CheckinInfoItem
-from app.core.auth import require_admin
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+from app.models.database import engine
+from app.models.models import Base
+from app.models.cms_models import Room, GalleryImage, ContentBlock, Amenity, HouseRule
+from app.routes import bookings, admin, auth, public
+from app.routes.payments import router as payments_router
+from app.routes.cms import router as cms_router
+from app.models.email_template import EmailTemplate
+from app.routes.email_templates import router as email_templates_router
 from app.core.config import settings
-from app.routes.cms import save_upload
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+# Skapa alla tabeller vid start
+Base.metadata.create_all(bind=engine)
 
-
-class ResendEmailRequest(BaseModel):
-    email_type: str = "booking_confirmed"
-
-
-@router.get("/email-health")
-def admin_email_health(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    """Antal misslyckade mejl de senaste 7 dagarna."""
-    from datetime import datetime, timedelta
-    since = datetime.utcnow() - timedelta(days=7)
-    failed = db.query(EmailLog).filter(
-        EmailLog.status == "failed",
-        EmailLog.sent_at >= since
-    ).count()
-    total = db.query(EmailLog).filter(
-        EmailLog.sent_at >= since
-    ).count()
-    return {"failed_7d": int(failed), "total_7d": int(total)}
-
-
-@router.post("/bookings/{booking_id}/resend-email")
-async def resend_booking_email_direct(
-    booking_id: int,
-    payload: ResendEmailRequest,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    """Skicka om ett specifikt mejl för en bokning."""
-    from app.email.service import send_booking_email
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
-    if not booking:
-        raise HTTPException(status_code=404, detail="Bokning hittades inte")
-    to_admin = payload.email_type.startswith("admin_")
-    ok = await send_booking_email(db, booking, payload.email_type, to_admin=to_admin)
-    if ok:
-        return {"status": "sent", "email_type": payload.email_type}
-    raise HTTPException(status_code=500, detail="Mejlet kunde inte skickas")
-
-
-@router.post("/bookings/{booking_id}/resend-verify-email")
-async def resend_verify_email(
-    booking_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    """Skicka om verifieringsmail för en bokning som väntar på e-bekräftelse."""
-    import secrets
-    from datetime import datetime, timedelta, timezone
-    from app.routes.bookings import _send_email_verify
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
-    if not booking:
-        raise HTTPException(status_code=404, detail="Bokning hittades inte")
-    if booking.status != BookingStatus.pending_email_verify:
-        raise HTTPException(status_code=400, detail="Bokningen väntar inte på e-postbekräftelse")
-    booking.email_verify_token = secrets.token_urlsafe(32)
-    booking.email_verify_expires = datetime.now(timezone.utc) + timedelta(hours=48)
-    booking.email_verify_reminder_sent = False
-    db.commit()
-    await _send_email_verify(booking.id)
-    return {"status": "sent", "booking_ref": booking.booking_ref}
-
-
-# ══════════════════════════════════════════════════════════
-# SÄSONGER
-# ══════════════════════════════════════════════════════════
-class SeasonSchema(BaseModel):
-    name_sv: str
-    name_en: str
-    name_de: str
-    date_from: date
-    date_to: date
-    price_per_night: float
-    deposit_pct: float = 10.0
-    deposit_days: int = 7
-    payment_days_before: int = 60
-    min_nights: int = 2
-    extra_guest_fee: float = 0
-    extra_guest_threshold: int = 4
-    reminder_1_days: int = 14
-    reminder_2_days: int = 3
-    cancellation_deposit_days: int = 120
-    cancellation_full_days: int = 60
-    cancellation_refund_deposit: bool = False
-    visible: bool = True
-    active: bool = True
-    sort_order: int = 0
-
-
-@router.get("/seasons")
-def list_seasons(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    return db.query(Season).order_by(Season.date_from).all()
-
-
-@router.post("/seasons")
-def create_season(data: SeasonSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    s = Season(**data.dict())
-    db.add(s)
-    db.commit()
-    db.refresh(s)
-    return s
-
-
-@router.put("/seasons/{season_id}")
-def update_season(season_id: int, data: SeasonSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    s = db.query(Season).filter(Season.id == season_id).first()
-    if not s:
-        raise HTTPException(status_code=404, detail="Säsong hittades inte")
-    for k, v in data.dict().items():
-        setattr(s, k, v)
-    db.commit()
-    db.refresh(s)
-    return s
-
-
-@router.patch("/seasons/{season_id}/toggle")
-def toggle_season(season_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    s = db.query(Season).filter(Season.id == season_id).first()
-    if not s:
-        raise HTTPException(status_code=404, detail="Säsong hittades inte")
-    s.active = not s.active
-    db.commit()
-    return {"active": s.active}
-
-
-@router.delete("/seasons/{season_id}")
-def delete_season(season_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    s = db.query(Season).filter(Season.id == season_id).first()
-    if not s:
-        raise HTTPException(status_code=404, detail="Säsong hittades inte")
-    db.delete(s)
-    db.commit()
-    return {"ok": True}
-
-
-# ══════════════════════════════════════════════════════════
-# PRISÖVERSTYRING (enskilda datum)
-# ══════════════════════════════════════════════════════════
-class OverrideSchema(BaseModel):
-    date: date
-    price_per_night: float
-    min_nights: Optional[int] = None
-    extra_guest_fee: Optional[float] = None
-    extra_guest_threshold: Optional[int] = None
-    note: Optional[str] = None
-    active: bool = True
-
-
-@router.get("/price-overrides")
-def list_overrides(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    return db.query(PriceOverride).order_by(PriceOverride.date).all()
-
-
-@router.post("/price-overrides")
-def create_override(data: OverrideSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    existing = db.query(PriceOverride).filter(PriceOverride.date == data.date).first()
-    if existing:
-        for k, v in data.dict().items():
-            setattr(existing, k, v)
-        db.commit()
-        return existing
-    o = PriceOverride(**data.dict())
-    db.add(o)
-    db.commit()
-    db.refresh(o)
-    return o
-
-
-@router.delete("/price-overrides/{override_id}")
-def delete_override(override_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    o = db.query(PriceOverride).filter(PriceOverride.id == override_id).first()
-    if not o:
-        raise HTTPException(status_code=404, detail="Hittades inte")
-    db.delete(o)
-    db.commit()
-    return {"ok": True}
-
-
-# ══════════════════════════════════════════════════════════
-# ARTIKLAR / TILLÄGG
-# ══════════════════════════════════════════════════════════
-class ArticleSchema(BaseModel):
-    name_sv: str
-    name_en: str
-    name_de: str
-    desc_sv: Optional[str] = ""
-    desc_en: Optional[str] = ""
-    desc_de: Optional[str] = ""
-    price: float
-    price_type: str = "per_night"  # per_night | per_guest | fixed
-    icon: str = "ti-package"
-    visible: bool = True
-    bookable: bool = True
-    is_deposit: bool = False
-    is_pet_fee: bool = False
-    sort_order: int = 0
-    active: bool = True
-
-
-class CheckinInfoSchema(BaseModel):
-    title_sv: str
-    title_en: Optional[str] = ""
-    title_de: Optional[str] = ""
-    body_sv: Optional[str] = ""
-    body_en: Optional[str] = ""
-    body_de: Optional[str] = ""
-    icon: Optional[str] = ""
-    item_type: str = "static"
-    image_path: Optional[str] = ""
-    active: bool = True
-    sort_order: int = 0
-
-
-@router.get("/articles")
-def list_articles(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    return db.query(Article).order_by(Article.sort_order, Article.id).all()
-
-
-@router.post("/articles")
-def create_article(data: ArticleSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    a = Article(**data.dict())
-    db.add(a)
-    db.commit()
-    db.refresh(a)
-    return a
-
-
-@router.put("/articles/{article_id}")
-def update_article(article_id: int, data: ArticleSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    a = db.query(Article).filter(Article.id == article_id).first()
-    if not a:
-        raise HTTPException(status_code=404, detail="Artikel hittades inte")
-    for k, v in data.dict().items():
-        setattr(a, k, v)
-    db.commit()
-    db.refresh(a)
-    return a
-
-
-@router.patch("/articles/{article_id}/toggle-visible")
-def toggle_article_visible(article_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    a = db.query(Article).filter(Article.id == article_id).first()
-    if not a:
-        raise HTTPException(status_code=404, detail="Artikel hittades inte")
-    a.visible = not a.visible
-    db.commit()
-    return {"visible": a.visible}
-
-
-@router.patch("/articles/{article_id}/toggle-bookable")
-def toggle_article_bookable(article_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    a = db.query(Article).filter(Article.id == article_id).first()
-    if not a:
-        raise HTTPException(status_code=404, detail="Artikel hittades inte")
-    a.bookable = not a.bookable
-    db.commit()
-    return {"bookable": a.bookable}
-
-
-@router.delete("/articles/{article_id}")
-def delete_article(article_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    a = db.query(Article).filter(Article.id == article_id).first()
-    if not a:
-        raise HTTPException(status_code=404, detail="Artikel hittades inte")
-    a.active = False  # Soft delete — bevarar historik i gamla bokningar
-    db.commit()
-    return {"ok": True}
-
-
-# ─── Incheckningsinfo-punkter (egna infoblock i incheckningsmailet) ───
-@router.get("/checkin-info")
-def list_checkin_info(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    return db.query(CheckinInfoItem).order_by(CheckinInfoItem.sort_order, CheckinInfoItem.id).all()
-
-
-@router.post("/checkin-info")
-def create_checkin_info(data: CheckinInfoSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    item = CheckinInfoItem(**data.dict())
-    db.add(item); db.commit(); db.refresh(item)
-    return item
-
-
-@router.put("/checkin-info/{item_id}")
-def update_checkin_info(item_id: int, data: CheckinInfoSchema, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Punkt hittades inte")
-    for k, v in data.dict().items():
-        setattr(item, k, v)
-    db.commit(); db.refresh(item)
-    return item
-
-
-@router.patch("/checkin-info/{item_id}/toggle")
-def toggle_checkin_info(item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Punkt hittades inte")
-    item.active = not item.active
-    db.commit()
-    return {"active": item.active}
-
-
-@router.delete("/checkin-info/{item_id}")
-def delete_checkin_info(item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Punkt hittades inte")
-    db.delete(item); db.commit()
-    return {"ok": True}
-
-
-@router.post("/checkin-info/{item_id}/image")
-def upload_checkin_image(item_id: int, image: UploadFile = File(...),
-                         db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Punkt hittades inte")
-    item.image_path = save_upload(image, "checkin")
-    db.commit()
-    return {"ok": True, "image_path": item.image_path}
-
-
-@router.delete("/checkin-info/{item_id}/image")
-def delete_checkin_image(item_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    item = db.query(CheckinInfoItem).filter(CheckinInfoItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Punkt hittades inte")
-    item.image_path = ""
-    db.commit()
-    return {"ok": True}
-
-
-# ══════════════════════════════════════════════════════════
-# GLOBALA INSTÄLLNINGAR
-# ══════════════════════════════════════════════════════════
-@router.get("/settings")
-def get_settings(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    settings_list = db.query(Setting).all()
-    return {s.key: s.value for s in settings_list}
-
-
-@router.put("/settings/{key}")
-def update_setting(key: str, value: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    s = db.query(Setting).filter(Setting.key == key).first()
-    if s:
-        s.value = value
-    else:
-        s = Setting(key=key, value=value)
-        db.add(s)
-    db.commit()
-    return {"key": key, "value": value}
-
-
-# ─── E-postlogg ──────────────────────────────────────
-@router.get("/email-logs")
-def get_email_logs(
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import EmailLog, Booking
-    logs = db.query(EmailLog, Booking).join(
-        Booking, EmailLog.booking_id == Booking.id
-    ).order_by(EmailLog.sent_at.desc()).limit(200).all()
-    return [{
-        "id": log.id,
-        "booking_id": log.booking_id,
-        "booking_ref": booking.booking_ref,
-        "guest_name": booking.guest_name,
-        "email_type": log.email_type,
-        "recipient": log.recipient,
-        "lang": log.lang,
-        "subject": log.subject,
-        "status": log.status,
-        "error": log.error,
-        "sent_at": str(log.sent_at),
-    } for log, booking in logs]
-
-# ─── Radera e-postlogg ───────────────────────────────
-@router.delete("/email-logs/{log_id}")
-def delete_email_log(
-    log_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import EmailLog
-    log = db.query(EmailLog).filter(EmailLog.id == log_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Logg hittades inte")
-    db.delete(log)
-    db.commit()
-    return {"ok": True}
-
-
-# ─── Radera alla e-postloggar ────────────────────────
-@router.delete("/email-logs")
-def delete_all_email_logs(
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import EmailLog
-    db.query(EmailLog).delete()
-    db.commit()
-    return {"ok": True}
-
-# ─── Blockerade datum ─────────────────────────────────
-@router.get("/blocked-dates")
-def list_blocked_dates(
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import BlockedDate
-    blocks = db.query(BlockedDate).order_by(BlockedDate.date_from).all()
-    return [{"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason} for b in blocks]
-
-@router.post("/blocked-dates")
-def create_blocked_date(
-    data: dict,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import BlockedDate
-    from datetime import date
-    b = BlockedDate(
-        date_from=date.fromisoformat(data["date_from"]),
-        date_to=date.fromisoformat(data["date_to"]),
-        reason=data.get("reason", ""),
-    )
-    db.add(b)
-    db.commit()
-    db.refresh(b)
-    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
-
-@router.put("/blocked-dates/{block_id}")
-def update_blocked_date(
-    block_id: int,
-    data: dict,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import BlockedDate
-    b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
-    if not b: raise HTTPException(status_code=404, detail="Hittades inte")
-    for field in ("date_from", "date_to", "reason"):
-        if field in data: setattr(b, field, data[field] or None)
-    db.commit(); db.refresh(b)
-    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
-
-@router.delete("/blocked-dates/{block_id}")
-def delete_blocked_date(
-    block_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import BlockedDate
-    b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
-    if not b:
-        raise HTTPException(status_code=404, detail="Hittades inte")
-    db.delete(b)
-    db.commit()
-    return {"ok": True}
-
-# ─── Skicka om e-post ───────────────────────────────────
-@router.post("/email-logs/{log_id}/resend")
-async def resend_email(
-    log_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import EmailLog, Booking
-    from app.email.service import send_booking_email
-
-    log = db.query(EmailLog).filter(EmailLog.id == log_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Loggpost hittades inte")
-
-    booking = db.query(Booking).filter(Booking.id == log.booking_id).first()
-    if not booking:
-        raise HTTPException(status_code=404, detail="Bokning hittades inte")
-
-    # Använd e-posttyp för att avgöra admin/gäst
-    to_admin = log.email_type.startswith("admin_") or log.recipient == settings.ADMIN_EMAIL
-    actual_recipient = settings.ADMIN_EMAIL if to_admin else (
-        (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
-    )
-
-    # Kontrollera om adressen är känd-studsad (suppression-lista-skydd)
-    from datetime import datetime, timedelta
-    recent_bounce = db.query(EmailLog).filter(
-        EmailLog.recipient == actual_recipient,
-        EmailLog.status == "bounced",
-        EmailLog.sent_at >= datetime.utcnow() - timedelta(days=30),
-    ).first()
-
-    if recent_bounce:
-        # Skapa ny loggpost som misslyckat direkt — adressen är på suppression-lista
-        new_log = EmailLog(
-            booking_id=log.booking_id,
-            email_type=log.email_type,
-            recipient=actual_recipient,
-            lang=log.lang,
-            subject=log.subject,
-            status="failed",
-            error=f"Adressen har studsat tidigare ({recent_bounce.error or 'bounce'})",
-        )
-        db.add(new_log)
-        db.commit()
-        return {
-            "status": "bounced",
-            "recipient": actual_recipient,
-            "warning": f"Adressen {actual_recipient} har studsat tidigare. Rätta adressen innan du skickar om.",
-        }
-
-    ok = await send_booking_email(db, booking, log.email_type, to_admin=to_admin)
-    if ok:
-        log.status = "sent"
-        log.error = None
-        log.sent_at = datetime.utcnow()
-        log.recipient = actual_recipient
-        db.commit()
-        return {"status": "sent", "recipient": actual_recipient}
-    raise HTTPException(status_code=500, detail="Misslyckades skicka mail")
-
-
-# ─── Generera PDF för villkor/GDPR ──────────────────────
-@router.get("/pdf/{doc_type}")
-async def generate_pdf(
-    doc_type: str,
-    lang: str = "sv",
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.cms_models import ContentBlock
-    from app.core.config import settings as app_settings
-    from jinja2 import Environment
-    from fastapi.responses import Response
-
-    if doc_type not in ("terms", "gdpr"):
-        raise HTTPException(status_code=400, detail="Ogiltigt dokumenttyp")
-
-    key = "terms_text" if doc_type == "terms" else "gdpr_text"
-    block = db.query(ContentBlock).filter(ContentBlock.key == key).first()
-    if not block:
-        raise HTTPException(status_code=404, detail="Innehåll hittades inte")
-
-    lang_map = {"sv": "value_sv", "en": "value_en", "de": "value_de"}
-    field = lang_map.get(lang, "value_sv")
-    raw = getattr(block, field, "") or ""
-
-    # Hämta säsongsdata för rendering
-    from app.models.models import Season
-    season = db.query(Season).filter(Season.active == True).first()
-    ctx = {
-        "snap": {
-            "deposit_pct": float(season.deposit_pct) if season else 10,
-            "deposit_days": season.deposit_days if season else 7,
-            "payment_days_before": season.payment_days_before if season else 60,
-        },
-        "admin_email": app_settings.ADMIN_EMAIL,
-    }
+# Säkerställ DB-objekt som inte uttrycks i ORM-modellerna:
+# btree_gist + exclusion constraint som hindrar överlappande (ej cancelled) bokningar.
+# Idempotent — körs säkert vid varje start och återskapas automatiskt på en ny/ombyggd databas.
+def _ensure_booking_constraints():
     try:
-        content_html = Environment().from_string(raw).render(**ctx)
-    except Exception:
-        content_html = raw
-
-    titles = {
-        "terms": {"sv": "Bokningsvillkor", "en": "Booking Terms", "de": "Buchungsbedingungen"},
-        "gdpr":  {"sv": "Personuppgiftshantering", "en": "Privacy Policy", "de": "Datenschutz"},
-    }
-    title = titles[doc_type].get(lang, titles[doc_type]["sv"])
-
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  body {{ font-family: Arial, sans-serif; font-size: 12pt; color: #333; max-width: 800px; margin: 40px auto; padding: 0 40px; }}
-  h1 {{ color: #1a5276; font-size: 18pt; border-bottom: 2px solid #1a5276; padding-bottom: 8px; margin-bottom: 20px; }}
-  h2 {{ color: #2d6a8f; font-size: 14pt; }}
-  p {{ line-height: 1.6; }}
-  ul, ol {{ line-height: 1.8; }}
-  .footer {{ margin-top: 40px; font-size: 10pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; }}
-</style>
-</head>
-<body>
-<h1>{title}</h1>
-{content_html}
-<div class="footer">Sjölyckan, Rolsmo · {app_settings.ADMIN_EMAIL}</div>
-</body>
-</html>"""
-
-    try:
-        import weasyprint
-        pdf = weasyprint.HTML(string=html).write_pdf()
-        filename = f"sjolyckan_{doc_type}_{lang}.pdf"
-        return Response(
-            content=pdf,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
+        with engine.begin() as conn:
+            conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS btree_gist")
+            conn.exec_driver_sql("ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_deposit boolean DEFAULT false")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS message text")
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_notes text")
+            conn.exec_driver_sql("ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_pet_fee boolean DEFAULT false")
+            # Booking addons
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS booking_addons (
+                    id SERIAL PRIMARY KEY,
+                    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+                    booking_ref VARCHAR(20) NOT NULL,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    articles JSONB DEFAULT '[]'::jsonb,
+                    total_amount NUMERIC(10,2) DEFAULT 0,
+                    message TEXT,
+                    admin_note TEXT,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                )
+            """)
+            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_booking_addons_booking_ref ON booking_addons(booking_ref)")
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_set_by_user boolean DEFAULT false")
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS checkin_info_items (
+                    id SERIAL PRIMARY KEY,
+                    title_sv VARCHAR(200) NOT NULL,
+                    title_en VARCHAR(200) DEFAULT '',
+                    title_de VARCHAR(200) DEFAULT '',
+                    body_sv TEXT DEFAULT '',
+                    body_en TEXT DEFAULT '',
+                    body_de TEXT DEFAULT '',
+                    icon VARCHAR(20) DEFAULT '',
+                    active BOOLEAN DEFAULT true,
+                    sort_order INTEGER DEFAULT 0
+                )
+            """)
+            conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(20) DEFAULT 'static'")
+            conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS image_path VARCHAR(300) DEFAULT ''")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checkin_send_date DATE")
+            conn.exec_driver_sql("ALTER TABLE seasons ADD COLUMN IF NOT EXISTS cancellation_refund_deposit BOOLEAN DEFAULT false")
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS booking_checkin_codes (
+                    id SERIAL PRIMARY KEY,
+                    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+                    item_id INTEGER NOT NULL REFERENCES checkin_info_items(id),
+                    value VARCHAR(500) DEFAULT ''
+                )
+            """)
+            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_bcc_booking ON booking_checkin_codes(booking_id)")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_token VARCHAR(64)")
+            conn.exec_driver_sql("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'pending_email_verify' AND enumtypid = 'bookingstatus'::regtype) THEN ALTER TYPE bookingstatus ADD VALUE 'pending_email_verify'; END IF; END $$")
+            conn.exec_driver_sql("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'partially_paid' AND enumtypid = 'bookingstatus'::regtype) THEN ALTER TYPE bookingstatus ADD VALUE 'partially_paid'; END IF; END $$")
+            conn.exec_driver_sql("ALTER TABLE booking_addons ADD COLUMN IF NOT EXISTS discount_amount numeric(10,2) DEFAULT 0")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_expires TIMESTAMPTZ")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_reminder_sent BOOLEAN DEFAULT false")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS adults_count integer")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS children_count integer")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pets_count integer")
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean DEFAULT false")
+            # Backfill: konton utan giltig reset_token har redan satt lösenord (gamla konton innan denna kolumn fanns)
+            conn.exec_driver_sql("""
+                UPDATE users SET password_set_by_user = true
+                WHERE password_set_by_user = false
+                  AND (reset_token IS NULL OR reset_token_expires IS NULL OR reset_token_expires < now())
+            """)
+            conn.exec_driver_sql(
+                "DO $$ BEGIN "
+                "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'no_overlapping_bookings') THEN "
+                "ALTER TABLE bookings ADD CONSTRAINT no_overlapping_bookings "
+                "EXCLUDE USING gist (daterange(date_from, date_to, '[)') WITH &&) "
+                "WHERE (status <> 'cancelled'); "
+                "END IF; END $$;"
+            )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF-generering misslyckades: {str(e)}")
+        import logging
+        logging.getLogger(__name__).warning(f"Kunde inte säkerställa boknings-constraints: {e}")
+
+_ensure_booking_constraints()
+
+# Seeda standard-bekvämligheter och husregler om tabellerna är tomma (bevarar tidigare hårdkodat innehåll)
 
 
-# ─── Kopiera säsong ──────────────────────────────────────
-@router.post("/seasons/{season_id}/copy")
-def copy_season(season_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    from app.models.models import Season
-    s = db.query(Season).filter(Season.id == season_id).first()
-    if not s:
-        raise HTTPException(status_code=404, detail="Säsong hittades inte")
-    new_s = Season(
-        name_sv=s.name_sv + " (kopia)",
-        name_en=s.name_en + " (copy)" if s.name_en else "",
-        name_de=s.name_de + " (Kopie)" if s.name_de else "",
-        date_from=s.date_from,
-        date_to=s.date_to,
-        price_per_night=s.price_per_night,
-        deposit_pct=s.deposit_pct,
-        deposit_days=s.deposit_days,
-        payment_days_before=s.payment_days_before,
-        min_nights=s.min_nights,
-        reminder_1_days=s.reminder_1_days,
-        reminder_2_days=s.reminder_2_days,
-        cancellation_deposit_days=s.cancellation_deposit_days,
-        cancellation_full_days=s.cancellation_full_days,
-        cancellation_refund_deposit=s.cancellation_refund_deposit,
-        extra_guest_fee=s.extra_guest_fee,
-        extra_guest_threshold=s.extra_guest_threshold,
-        active=False,
-    )
-    db.add(new_s)
-    db.commit()
-    db.refresh(new_s)
-    return new_s
-
-@router.post("/mailersend-webhook")
-async def mailersend_webhook(request: Request, db: Session = Depends(get_db)):
-    """Tar emot bounce-notiser från MailerSend och markerar mejlloggen."""
-    import hmac, hashlib, json as _json
-    body = await request.body()
-
-    # Verifiera signatur om webhook-hemlighet är konfigurerad
-    secret = getattr(settings, "MAILERSEND_WEBHOOK_SECRET", None)
-    if secret:
-        sig = request.headers.get("Signature") or request.headers.get("X-MailerSend-Signature", "")
-        expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, expected):
-            raise HTTPException(status_code=401, detail="Ogiltig signatur")
-
+def _seed_email_templates():
+    """Seedar systemmallar från .html-filer om de inte redan finns i databasen."""
+    from app.models.database import SessionLocal
+    from app.email.service import SUBJECTS, template_dir
+    from jinja2 import Environment, FileSystemLoader
+    env = Environment(loader=FileSystemLoader(str(template_dir)))
+    db = SessionLocal()
+    SYSTEM_TRIGGERS = [
+        ("booking_request",   "Bokningsförfrågan till gäst",   "guest", 1),
+        ("admin_new_booking", "Ny bokning till admin",          "admin", 2),
+        ("booking_confirmed", "Bokningsbekräftelse",            "guest", 3),
+        ("booking_rejected",  "Bokning nekad",                  "guest", 4),
+        ("booking_cancelled", "Avbokning",                      "guest", 5),
+        ("payment_reminder",  "Betalningspåminnelse",           "guest", 6),
+        ("checkin_info",      "Incheckning imorgon",            "guest", 7),
+    ]
     try:
-        payload = _json.loads(body)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Ogiltig JSON")
+        for trigger, name, recipient, order in SYSTEM_TRIGGERS:
+            if db.query(EmailTemplate).filter(EmailTemplate.trigger == trigger).first():
+                continue
+            bodies = {}
+            for lang in ("sv", "en", "de"):
+                try:
+                    bodies[lang] = env.loader.get_source(env, f"{trigger}_{lang}.html")[0]
+                except Exception:
+                    bodies[lang] = bodies.get("sv", "")
+            subjects = SUBJECTS.get(trigger, {})
+            t = EmailTemplate(
+                name=name, trigger=trigger, recipient=recipient,
+                is_system=True, is_active=True, sort_order=order,
+                subject_sv=subjects.get("sv",""), subject_en=subjects.get("en",""),
+                subject_de=subjects.get("de",""),
+                body_sv=bodies["sv"], body_en=bodies["en"], body_de=bodies["de"],
+            )
+            db.add(t)
+        db.commit()
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error(f"_seed_email_templates: {e}")
+    finally:
+        db.close()
 
-    # v2: type på toppnivå, data.recipient.email
-    event_type = payload.get("type", "")
-    if event_type not in ("activity.hard_bounced", "activity.soft_bounced",
-                          "activity.spam_complaint", "activity.unsubscribed"):
-        return {"ok": True, "ignored": True}
-
-    data = payload.get("data", {})
-    # v2: data.recipient.email — fallback på v1: data["email"]
-    recipient_obj = data.get("recipient") or data.get("email") or {}
-    recipient_email = recipient_obj.get("email", "") if isinstance(recipient_obj, dict) else ""
-    # v2 kan också ha recipient direkt som sträng
-    if not recipient_email and isinstance(data.get("recipient"), str):
-        recipient_email = data["recipient"]
-
-    if not recipient_email:
-        return {"ok": True}
-
-    # Uppdatera email_logs: markera som studsad
-    updated = db.query(EmailLog).filter(
-        EmailLog.recipient == recipient_email,
-        EmailLog.status == "sent",
-    ).order_by(EmailLog.sent_at.desc()).limit(5).all()
-
-    for log in updated:
-        log.status = "bounced"
-        log.error = f"{event_type} ({recipient_email})"
-
-    # Ingen befintlig logg — bara logga till server (booking_id NOT NULL, kan ej skapa fri post)
-    if not updated:
-        import logging as _log
-        _log.getLogger(__name__).warning(f"MailerSend bounce för okänd adress: {recipient_email} ({event_type})")
-
-    db.commit()
-    return {"ok": True, "event": event_type, "recipient": recipient_email, "updated": len(updated)}
-
-@router.post("/brevo-webhook")
-async def brevo_webhook(request: Request, db: Session = Depends(get_db)):
-    """Tar emot bounce-notiser från Brevo och markerar mejlloggen."""
-    import json as _json
-
-    body = await request.body()
+def _seed_cms_defaults():
+    from app.models.database import SessionLocal
+    db = SessionLocal()
     try:
-        payload = _json.loads(body)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Ogiltig JSON")
+        if db.query(Amenity).count() == 0:
+            amenities = [
+                ("🌊", "Sjöutsikt", "Lake view", "Seeblick"),
+                ("🏖", "Strand & brygga", "Beach & dock", "Strand & Steg"),
+                ("🍳", "Fullt utrustat kök", "Fully equipped kitchen", "Voll ausgestattete Küche"),
+                ("📶", "WiFi", "WiFi", "WLAN"),
+                ("🧺", "Tvättstuga", "Laundry room", "Waschküche"),
+                ("⚓", "Privat brygga", "Private dock", "Privatsteg"),
+            ]
+            for i, (icon, sv, en, de) in enumerate(amenities):
+                db.add(Amenity(icon=icon, label_sv=sv, label_en=en, label_de=de, sort_order=i))
+        if db.query(HouseRule).count() == 0:
+            rules = [
+                ("Incheckning efter kl. 15:00", "Check-in after 3:00 PM", "Check-in ab 15:00 Uhr"),
+                ("Utcheckning innan kl. 12:00", "Check-out before 12:00 PM", "Check-out vor 12:00 Uhr"),
+                ("Max 8 gäster", "Max 8 guests", "Max. 8 Gäste"),
+                ("Egna sängkläder medbringas", "Bring your own bed linen", "Eigene Bettwäsche mitbringen"),
+                ("Inga husdjur i sangar eller soffor", "No pets on beds or sofas", "Keine Haustiere auf Betten oder Sofas"),
+                ("Gästen städar vid utcheckning", "Guests clean on checkout", "Gäste reinigen beim Auschecken"),
+            ]
+            for i, (sv, en, de) in enumerate(rules):
+                db.add(HouseRule(label_sv=sv, label_en=en, label_de=de, sort_order=i))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).warning(f"Kunde inte seeda CMS-default: {e}")
+    finally:
+        db.close()
 
-    # Brevo skickar antingen en array eller ett enskilt objekt
-    events = payload if isinstance(payload, list) else [payload]
+_seed_email_templates()
+_seed_cms_defaults()
 
-    BOUNCE_EVENTS = {
-        "hard_bounce", "hard_bounced", "hardBounce",
-        "soft_bounce", "soft_bounced", "softBounce",
-        "complaint", "spam", "spam_complaint",
-        "invalid", "invalid_email",
-        "blocked",
-    }
+# Skapa upload-mappar
+upload_dir = Path("/app/uploads")
+upload_dir.mkdir(parents=True, exist_ok=True)
+(upload_dir / "rooms").mkdir(exist_ok=True)
+(upload_dir / "gallery").mkdir(exist_ok=True)
+(upload_dir / "checkin").mkdir(exist_ok=True)
 
-    processed = 0
-    for event in events:
-        event_type = event.get("event", "")
-        if event_type not in BOUNCE_EVENTS:
-            continue
+app = FastAPI(
+    title="Sjölyckan Booking API",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
 
-        recipient_email = event.get("email", "")
-        if not recipient_email:
-            continue
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+)
 
-        # Markera senaste skickade mejl till denna adress som studsad
-        logs = db.query(EmailLog).filter(
-            EmailLog.recipient == recipient_email,
-            EmailLog.status == "sent",
-        ).order_by(EmailLog.sent_at.desc()).limit(5).all()
+# Serva uppladdade bilder statiskt
+app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
 
-        for log in logs:
-            log.status = "bounced"
-            log.error = f"brevo:{event_type}"
-
-        if not logs:
-            import logging as _log
-            _log.getLogger(__name__).warning(f"Brevo bounce för okänd adress: {recipient_email} ({event_type})")
-        processed += 1
-
-    db.commit()
-    return {"ok": True, "processed": processed}
-
-# ─── Tilläggsbegäran (admin) ──────────────────────────────────────────────────
-@router.get("/addon-requests")
-def list_addon_requests(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    from app.models.models import BookingAddon
-    addons = db.query(BookingAddon).order_by(BookingAddon.created_at.desc()).all()
-    result = []
-    for a in addons:
-        b = a.booking
-        result.append({
-            "id": a.id, "booking_ref": a.booking_ref, "status": a.status,
-            "articles": a.articles, "total_amount": float(a.total_amount),
-            "discount_amount": float(a.discount_amount or 0),
-            "message": a.message, "admin_note": a.admin_note,
-            "created_at": a.created_at.isoformat() if a.created_at else None,
-            "guest_name": b.guest_name if b else "", "guest_email": b.guest_email if b else "",
-            "lang": b.lang if b else "sv",
-        })
-    return result
-
-
-@router.post("/addon-requests/{addon_id}/confirm")
-async def confirm_addon(addon_id: int, data: dict = {}, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    """Godkänn tilläggsbegäran — lägg till artiklar på bokningen och skicka betalningslänk."""
-    from app.models.models import BookingAddon, BookingArticle
-    from app.email.service import send_email
-    from decimal import Decimal
-    from datetime import datetime
-
-    addon = db.query(BookingAddon).filter(BookingAddon.id == addon_id).first()
-    if not addon: raise HTTPException(status_code=404, detail="Hittades inte")
-    if addon.status != "pending": raise HTTPException(status_code=400, detail="Redan hanterad")
-
-    booking = addon.booking
-    addon.admin_note = data.get("admin_note", "")
-    addon.status = "confirmed"
-
-    # Lägg till artiklar på bokningen
-    for art in addon.articles:
-        ba = BookingArticle(
-            booking_id=booking.id,
-            article_id=art["article_id"],
-            quantity=art["quantity"],
-            price_snapshot=Decimal(str(art["price"])),
-            line_total=Decimal(str(art["line_total"])),
-            name_sv=art["name_sv"], name_en=art.get("name_en",""), name_de=art.get("name_de",""),
-            price_type=art.get("price_type","fixed"),
-        )
-        db.add(ba)
-
-    # Uppdatera bokningens totalbelopp
-    booking.total_amount = (booking.total_amount or Decimal("0")) + Decimal(str(addon.total_amount))
-
-    # Räkna om status: om bokningen redan var "Betald" innan tillägget kan den nu
-    # vara "Delbetald" eftersom totalbeloppet ökat utan att motsvarande betalts.
-    from app.core.booking_logic import recalc_booking_status
-    recalc_booking_status(db, booking)
-
-    db.commit()
-
-    # Skicka bekräftelsemail till gäst med betalningslänk
-    lang = booking.lang or "sv"
-    pay_url = f"{settings.FRONTEND_URL}/pay/{booking.booking_ref}"
-    rows = "".join(
-        f"<tr><td>{a['name_' + lang] or a['name_sv']}</td><td>{a['quantity']} st</td><td>{a['line_total']:,.0f} kr</td></tr>"
-        for a in addon.articles
-    )
-    subjects = {"sv":"Ditt tillägg är godkänt","en":"Your add-on is approved","de":"Ihr Zusatz wurde genehmigt"}
-    intros = {
-        "sv": f"Hej {booking.guest_name.split()[0]}! Ditt tilläggsval för bokning <strong>{booking.booking_ref}</strong> är godkänt.",
-        "en": f"Hi {booking.guest_name.split()[0]}! Your add-on for booking <strong>{booking.booking_ref}</strong> has been approved.",
-        "de": f"Hallo {booking.guest_name.split()[0]}! Ihr Zusatz für Buchung <strong>{booking.booking_ref}</strong> wurde genehmigt.",
-    }
-    pay_labels = {"sv":"Betala nu","en":"Pay now","de":"Jetzt bezahlen"}
-    discount_row = (
-        f"<tr><td colspan=\"2\" style=\"color:#27ae60\">Rabatt</td><td style=\"color:#27ae60\">−{float(addon.discount_amount):,.0f} kr</td></tr>"
-        if addon.discount_amount and float(addon.discount_amount) > 0 else ""
-    )
-    html = f"""<h2>{subjects[lang]}</h2>
-    <p>{intros[lang]}</p>
-    <table border="1" cellpadding="6">
-    <tr><th>Tillägg</th><th>Antal</th><th>Belopp</th></tr>
-    {rows}
-    {discount_row}
-    <tr><td colspan="2"><strong>Totalt</strong></td><td><strong>{float(addon.total_amount):,.0f} kr</strong></td></tr>
-    </table>
-    {"<p><em>" + (addon.admin_note or "") + "</em></p>" if addon.admin_note else ""}
-    <p><a href="{pay_url}" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none">{pay_labels[lang]} →</a></p>"""
-
-    recipient = (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
-    await send_email(recipient, subjects[lang], html)
-    return {"ok": True}
+app.include_router(auth.router)
+app.include_router(public.router)
+app.include_router(bookings.router)
+app.include_router(admin.router)
+app.include_router(cms_router)
+app.include_router(email_templates_router)
+app.include_router(payments_router)
 
 
-@router.post("/addon-requests/{addon_id}/reject")
-async def reject_addon(addon_id: int, data: dict = {}, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    from app.models.models import BookingAddon
-    from app.email.service import send_email
-
-    addon = db.query(BookingAddon).filter(BookingAddon.id == addon_id).first()
-    if not addon: raise HTTPException(status_code=404, detail="Hittades inte")
-    if addon.status != "pending": raise HTTPException(status_code=400, detail="Redan hanterad")
-
-    addon.status = "rejected"
-    addon.admin_note = data.get("admin_note", "")
-    db.commit()
-
-    booking = addon.booking
-    lang = booking.lang or "sv"
-    subjects = {"sv":"Angående ditt tilläggsval","en":"Regarding your add-on request","de":"Bezüglich Ihrer Zusatzanfrage"}
-    intros = {
-        "sv": f"Hej {booking.guest_name.split()[0]}! Tyvärr kan vi inte bekräfta ditt tilläggsval för bokning <strong>{booking.booking_ref}</strong> just nu.",
-        "en": f"Hi {booking.guest_name.split()[0]}! Unfortunately we cannot confirm your add-on for booking <strong>{booking.booking_ref}</strong> at this time.",
-        "de": f"Hallo {booking.guest_name.split()[0]}! Leider können wir Ihren Zusatz für Buchung <strong>{booking.booking_ref}</strong> derzeit nicht bestätigen.",
-    }
-    html = f"""<h2>{subjects[lang]}</h2>
-    <p>{intros[lang]}</p>
-    {"<p><em>" + (addon.admin_note or "") + "</em></p>" if addon.admin_note else ""}
-    <p>Kontakta oss om du har frågor.</p>"""
-
-    recipient = (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
-    await send_email(recipient, subjects[lang], html)
-    return {"ok": True}
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "service": "Sjölyckan Booking API"}
 
 
-@router.get("/bookings/{booking_id}/addon-requests")
-def get_booking_addons(booking_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    from app.models.models import BookingAddon
-    addons = db.query(BookingAddon).filter(BookingAddon.booking_id == booking_id).order_by(BookingAddon.created_at.desc()).all()
-    return [{"id":a.id,"status":a.status,"articles":a.articles,"total_amount":float(a.total_amount),"discount_amount":float(a.discount_amount or 0),"message":a.message,"admin_note":a.admin_note,"created_at":a.created_at.isoformat() if a.created_at else None} for a in addons]
+@app.on_event("startup")
+async def startup_event():
+    from app.models.database import SessionLocal
+    from app.models.models import Setting, Season, Article
+    from app.models.cms_models import Room, GalleryImage, ContentBlock
+    from datetime import date
+
+    db = SessionLocal()
+    try:
+        # Grundinställningar
+        defaults = [
+            ("property_name", "Sjölyckan, Rolsmo"),
+            ("property_address", "Rolsmo, Linneryd, Kronobergs län"),
+            ("checkin_time", "15:00"),
+            ("checkout_time", "12:00"),
+            ("max_guests", "8"),
+            ("swish_number", settings.SWISH_NUMBER),
+            ("booking_ref_style", "sequential"),
+        ]
+        for key, value in defaults:
+            if not db.query(Setting).filter(Setting.key == key).first():
+                db.add(Setting(key=key, value=value))
+
+        # Grundsäsonger
+        if db.query(Season).count() == 0:
+            seasons = [
+                Season(name_sv="Lågsäsong", name_en="Low season", name_de="Nebensaison",
+                       date_from=date(2026, 1, 1), date_to=date(2026, 4, 30),
+                       price_per_night=1200, deposit_pct=10, deposit_days=7,
+                       payment_days_before=30, min_nights=2),
+                Season(name_sv="Mellansäsong", name_en="Mid season", name_de="Mittelsaison",
+                       date_from=date(2026, 5, 1), date_to=date(2026, 5, 31),
+                       price_per_night=1500, deposit_pct=10, deposit_days=7,
+                       payment_days_before=60, min_nights=2),
+                Season(name_sv="Högsäsong", name_en="High season", name_de="Hochsaison",
+                       date_from=date(2026, 6, 1), date_to=date(2026, 8, 31),
+                       price_per_night=1800, deposit_pct=10, deposit_days=7,
+                       payment_days_before=90, min_nights=7),
+                Season(name_sv="Mellansäsong", name_en="Mid season", name_de="Mittelsaison",
+                       date_from=date(2026, 9, 1), date_to=date(2026, 9, 30),
+                       price_per_night=1500, deposit_pct=10, deposit_days=7,
+                       payment_days_before=60, min_nights=2),
+                Season(name_sv="Lågsäsong", name_en="Low season", name_de="Nebensaison",
+                       date_from=date(2026, 10, 1), date_to=date(2026, 12, 31),
+                       price_per_night=1200, deposit_pct=10, deposit_days=7,
+                       payment_days_before=30, min_nights=2),
+            ]
+            for s in seasons:
+                db.add(s)
+
+        # Grundartiklar
+        if db.query(Article).count() == 0:
+            articles = [
+                Article(name_sv="Sängkläder", name_en="Bed linen", name_de="Bettwäsche",
+                        desc_sv="Påslakan + örngott per person", desc_en="Per person", desc_de="Pro Person",
+                        price=150, price_type="per_guest", icon="ti-bed", sort_order=1),
+                Article(name_sv="Handdukar", name_en="Towels", name_de="Handtücher",
+                        desc_sv="Set per person", desc_en="Per person", desc_de="Pro Person",
+                        price=80, price_type="per_guest", icon="ti-wash", sort_order=2),
+                Article(name_sv="Bastu", name_en="Sauna", name_de="Sauna",
+                        desc_sv="Uppvärmd bastu", desc_en="Heated sauna", desc_de="Beheizte Sauna",
+                        price=300, price_type="per_night", icon="ti-flame", sort_order=3),
+                Article(name_sv="Båt", name_en="Rowing boat", name_de="Ruderboot",
+                        desc_sv="Roddbåt med åror", desc_en="With oars", desc_de="Mit Rudern",
+                        price=200, price_type="per_night", icon="ti-anchor", sort_order=4),
+                Article(name_sv="Kajak", name_en="Kayak", name_de="Kajak",
+                        desc_sv="Enkel havskajak", desc_en="Single sea kayak", desc_de="Einfaches Kajak",
+                        price=250, price_type="per_night", icon="ti-ripple", sort_order=5),
+                Article(name_sv="Kanot", name_en="Canoe", name_de="Kanu",
+                        desc_sv="Kanot för 2 personer", desc_en="For 2 persons", desc_de="Für 2 Personen",
+                        price=200, price_type="per_night", icon="ti-ripple", sort_order=6),
+            ]
+            for a in articles:
+                db.add(a)
+
+        # Standard innehållsblock
+        default_content = [
+            ("hero_title", "Sjölyckan", "Sjölyckan", "Sjölyckan", "Sidans huvudrubrik"),
+            ("hero_subtitle", "Rolsmo, Småland", "Rolsmo, Småland", "Rolsmo, Småland", "Undertitel i hero"),
+            ("hero_tagline", "En sommar att minnas vid Rolsmosjön", "A summer to remember at Rolsmosjön", "Ein Sommer zum Erinnern am Rolsmosjön", "Tagline i hero"),
+            ("about_title", "Om Sjölyckan", "About Sjölyckan", "Über Sjölyckan", "Rubrik för om-sektionen"),
+            ("about_text", "Koppla av med hela familjen i detta fridfulla boende vid Rolsmosjön. Där finns en egen liten badstrand med brygga. Finare badplats finns på 5 minuters gångavstånd (ca 500 meter). Två separata sovrum samt två ytterligare rum med sovplatser. Stort vardagsrum och matsalsrum, kök och tvättstuga.", "Relax with the whole family in this peaceful lakeside retreat at Rolsmosjön. There is a private little beach with a dock. A nicer bathing spot is a 5-minute walk away.", "Erholen Sie sich mit der ganzen Familie in dieser friedvollen Unterkunft am Rolsmosjön.", "Beskrivningstext om stugan"),
+            ("capacity", "8 gäster · 4 sovrum · 4 sängar · 1,5 badrum", "8 guests · 4 bedrooms · 4 beds · 1.5 bathrooms", "8 Gäste · 4 Schlafzimmer · 4 Betten · 1,5 Bäder", "Kapacitetsinfo"),
+            ("checkin_rule", "Incheckning efter kl. 15:00", "Check-in after 3:00 PM", "Check-in ab 15:00 Uhr", "Incheckningsregel"),
+            ("checkout_rule", "Utcheckning innan kl. 12:00", "Check-out before 12:00 PM", "Check-out vor 12:00 Uhr", "Utcheckningsregel"),
+            ("max_guests_rule", "Max 8 gäster", "Maximum 8 guests", "Maximal 8 Gäste", "Max gäster regel"),
+            ("linen_rule", "Egna sängkläder medbringas (eller boka som tillägg)", "Bring your own bed linen (or book as add-on)", "Eigene Bettwäsche mitbringen (oder als Extra buchen)", "Sängklädesregel"),
+            ("pets_rule", "Inga husdjur i sängar eller soffor", "No pets on beds or sofas", "Keine Haustiere auf Betten oder Sofas", "Husdjursregel"),
+            ("cleaning_rule", "Gästen städar vid utcheckning", "Guests clean before checkout", "Gäste reinigen bei Abreise", "Städregel"),
+            ("amenities_title", "Bekvämligheter", "Amenities", "Ausstattung", "Bekvämligheter-rubrik"),
+            ("sleep_title", "Var du sover", "Where you sleep", "Schlafbereiche", "Sovrubrik"),
+            ("rules_title", "Husregler", "House rules", "Hausregeln", "Husregler-rubrik"),
+        ]
+        for key, sv, en, de, desc in default_content:
+            if not db.query(ContentBlock).filter(ContentBlock.key == key).first():
+                db.add(ContentBlock(key=key, value_sv=sv, value_en=en, value_de=de, description=desc))
+
+        # Standard rum (om inga finns)
+        if db.query(Room).count() == 0:
+            rooms = [
+                Room(name_sv="Sovrum 1", name_en="Bedroom 1", name_de="Schlafzimmer 1",
+                     beds_sv="1 dubbelsäng", beds_en="1 double bed", beds_de="1 Doppelbett",
+                     image_path=None, sort_order=1),
+                Room(name_sv="Sovrum 2", name_en="Bedroom 2", name_de="Schlafzimmer 2",
+                     beds_sv="1 enkelsäng", beds_en="1 single bed", beds_de="1 Einzelbett",
+                     image_path=None, sort_order=2),
+                Room(name_sv="Sovrum 3", name_en="Bedroom 3", name_de="Schlafzimmer 3",
+                     beds_sv="1 dubbelsäng", beds_en="1 double bed", beds_de="1 Doppelbett",
+                     image_path=None, sort_order=3),
+                Room(name_sv="Sovrum 4", name_en="Bedroom 4", name_de="Schlafzimmer 4",
+                     beds_sv="1 dubbelsäng", beds_en="1 double bed", beds_de="1 Doppelbett",
+                     image_path=None, sort_order=4),
+            ]
+            for r in rooms:
+                db.add(r)
+
+        db.commit()
+    finally:
+        db.close()
