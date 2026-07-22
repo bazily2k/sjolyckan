@@ -47,13 +47,15 @@ export default function AddonPage() {
   };
 
   const totalAmount = () => {
-    return articles.reduce((sum, a) => {
+    const raw = articles.reduce((sum, a) => {
       const qty = selected[a.id] || 0;
       if (!qty) return sum;
       // Tilläggsbeställning: kunden anger själv antalet (qty). Priset är alltid
       // per enhet × qty — vi multiplicerar INTE med bokningens nätter/gäster.
       return sum + a.price * qty;
     }, 0);
+    const pct = booking?.discount_pct || 0;
+    return pct > 0 ? Math.round(raw * (1 - pct / 100)) : raw;
   };
 
   const submit = async () => {
