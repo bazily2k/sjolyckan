@@ -756,6 +756,12 @@ export default function AdminBookings() {
                             <span style={{ color:'var(--ink-pale)' }}>{Number(x.line_total).toLocaleString('sv-SE')} kr</span>
                           </div>
                         ))}
+                        {a.discount_amount > 0 && (
+                          <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'var(--forest)', marginBottom:2 }}>
+                            <span>Rabatt</span>
+                            <span>−{Number(a.discount_amount).toLocaleString('sv-SE')} kr</span>
+                          </div>
+                        )}
                         <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:600, borderTop:'1px solid var(--sand-dark)', marginTop:4, paddingTop:4 }}>
                           <span>Totalt</span>
                           <span>{Number(a.total_amount).toLocaleString('sv-SE')} kr</span>
