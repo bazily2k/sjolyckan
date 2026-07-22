@@ -797,6 +797,7 @@ def admin_register_payment(
 # ─── Hjälpfunktioner ────────────────────────────────────
 def _booking_summary(b: Booking) -> dict:
     paid_sofar = sum(float(p.amount) for p in b.payments if p.status == PaymentStatus.paid)
+    pending_addons = sum(1 for a in b.addons if a.status == "pending")
     return {
         "id": b.id,
         "booking_ref": b.booking_ref,
@@ -813,6 +814,7 @@ def _booking_summary(b: Booking) -> dict:
         "deposit_amount": float(b.deposit_amount),
         "amount_paid": paid_sofar,
         "amount_due": round(float(b.total_amount) - paid_sofar, 2),
+        "pending_addons_count": pending_addons,
         "status": b.status.value,
         "payment_method": b.payment_method.value if b.payment_method else None,
         "payment_methods": b.payment_methods,
