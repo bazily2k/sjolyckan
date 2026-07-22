@@ -20,6 +20,7 @@ class BookingStatus(str, enum.Enum):
     pending = "pending"           # Förfrågan inkommen
     confirmed = "confirmed"       # Du har godkänt
     deposit_paid = "deposit_paid" # Handpenning betald
+    partially_paid = "partially_paid"  # Delbetald (t.ex. efter godkänt tillägg som ökat totalbeloppet)
     paid = "paid"                 # Fullbetald
     cancelled = "cancelled"       # Avbokad
     expired = "expired"           # Betalfrist passerad
