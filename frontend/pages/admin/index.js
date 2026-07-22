@@ -329,6 +329,10 @@ export default function AdminBookings() {
                     <td style={{ padding: '10px 14px', color: 'var(--ink-light)' }}>{b.nights}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500 }}>
                       {b.total_amount?.toLocaleString('sv-SE')} kr
+                      {typeof b.pending_addons_count === 'number' && b.pending_addons_count > 0 && (
+                        <span title={`${b.pending_addons_count} väntande tilläggsbeställning${b.pending_addons_count > 1 ? 'ar' : ''} att hantera`}
+                          style={{ marginLeft: 6, cursor: 'default' }}>🔔</span>
+                      )}
                       {typeof b.amount_due === 'number' && b.amount_due > 0 && (
                         <div style={{ fontSize: 11, fontWeight: 400, color: '#c0392b', marginTop: 2 }}>
                           Kvar: {b.amount_due.toLocaleString('sv-SE')} kr
@@ -756,7 +760,7 @@ export default function AdminBookings() {
                             style={{ width:'100%', fontSize:12, padding:'6px 8px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', resize:'vertical', boxSizing:'border-box', marginBottom:6, fontFamily:'inherit' }} />
                           <div style={{ display:'flex', gap:6 }}>
                             <button onClick={async()=>{ try{ await adminApi.confirmAddon(a.id,{admin_note:addonNote}); setMsg('Tillägg godkänt!'); adminApi.getBookingAddons(selected.id).then(r=>setBookingAddons(r.data)).catch(()=>{}); adminApi.getBooking(selected.id).then(r=>setSelected(r.data)).catch(()=>{}); load(); }catch(e){setMsg('Fel: '+(e.response?.data?.detail||e.message));}}} style={{ flex:1, padding:'6px 0', background:'var(--forest)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}>✓ Godkänn</button>
-                            <button onClick={async()=>{ try{ await adminApi.rejectAddon(a.id,{admin_note:addonNote}); setMsg('Tillägg nekat.'); adminApi.getBookingAddons(selected.id).then(r=>setBookingAddons(r.data)).catch(()=>{}); }catch(e){setMsg('Fel: '+(e.response?.data?.detail||e.message));}}} style={{ flex:1, padding:'6px 0', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}>✗ Neka</button>
+                            <button onClick={async()=>{ try{ await adminApi.rejectAddon(a.id,{admin_note:addonNote}); setMsg('Tillägg nekat.'); adminApi.getBookingAddons(selected.id).then(r=>setBookingAddons(r.data)).catch(()=>{}); load(); }catch(e){setMsg('Fel: '+(e.response?.data?.detail||e.message));}}} style={{ flex:1, padding:'6px 0', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}>✗ Neka</button>
                           </div>
                         </>
                       ) : (
