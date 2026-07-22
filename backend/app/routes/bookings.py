@@ -1152,14 +1152,11 @@ async def create_addon_request(
         if not art:
             continue
         qty = int(req.article_quantities.get(str(aid), req.article_quantities.get(aid, 1)) or 1)
-        if art.price_type == "per_night":
-            line_total = float(art.price) * booking.nights * qty
-        elif art.price_type == "per_guest":
-            line_total = float(art.price) * booking.guests_count * qty
-        elif art.price_type in ("per_occasion", "per_pet"):
-            line_total = float(art.price) * qty
-        else:
-            line_total = float(art.price)
+        # Tilläggsbeställning: kunden anger själv antalet (qty) som redan
+        # representerar det verkliga behovet (t.ex. "sängkläder till 4 personer" -> qty=4).
+        # Vi multiplicerar ALDRIG ytterligare med bokningens nätter/gäster här,
+        # oavsett artikelns price_type — bara pris × qty.
+        line_total = float(art.price) * qty
         total += line_total
         articles_snap.append({
             "article_id": art.id, "name_sv": art.name_sv, "name_en": art.name_en,
@@ -1167,11 +1164,19 @@ async def create_addon_request(
             "quantity": qty, "line_total": line_total,
         })
 
+    # Samma rabatt (%) som gällde vid själva bokningen ska även gälla tilläggsbeställningar
+    discount_pct = float((booking.snapshot or {}).get("discount_pct") or 0)
+    discount_amount = 0.0
+    if discount_pct > 0:
+        discount_amount = round(total * discount_pct / 100)
+        total = total - discount_amount
+
     addon = BookingAddon(
         booking_id=booking.id,
         booking_ref=booking.booking_ref,
         articles=articles_snap,
         total_amount=total,
+        discount_amount=discount_amount,
         message=req.message,
     )
     db.add(addon); db.commit(); db.refresh(addon)
