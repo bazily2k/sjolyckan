@@ -1,396 +1,339 @@
-from datetime import date, timedelta
-from decimal import Decimal
-from typing import Optional
-from sqlalchemy.orm import Session
-from app.models.models import Season, PriceOverride, Article, Booking, BookingArticle, Payment
-from app.models.models import BookingStatus, PaymentMethod, PaymentType, PaymentStatus
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+from app.models.database import engine
+from app.models.models import Base
+from app.models.cms_models import Room, GalleryImage, ContentBlock, Amenity, HouseRule
+from app.routes import bookings, admin, auth, public
+from app.routes.payments import router as payments_router
+from app.routes.cms import router as cms_router
+from app.models.email_template import EmailTemplate
+from app.routes.email_templates import router as email_templates_router
+from app.core.config import settings
 
+# Skapa alla tabeller vid start
+Base.metadata.create_all(bind=engine)
 
-def generate_booking_ref(db: Session) -> str:
-    import random, string as string_mod
-    year = date.today().year
-    # Kolla inställning
+# Säkerställ DB-objekt som inte uttrycks i ORM-modellerna:
+# btree_gist + exclusion constraint som hindrar överlappande (ej cancelled) bokningar.
+# Idempotent — körs säkert vid varje start och återskapas automatiskt på en ny/ombyggd databas.
+def _ensure_booking_constraints():
     try:
-        from app.models.models import Setting
-        s = db.query(Setting).filter(Setting.key == "booking_ref_style").first()
-        style = s.value if s else "sequential"
-    except Exception:
-        style = "sequential"
+        with engine.begin() as conn:
+            conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS btree_gist")
+            conn.exec_driver_sql("ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_deposit boolean DEFAULT false")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS message text")
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_notes text")
+            conn.exec_driver_sql("ALTER TABLE articles ADD COLUMN IF NOT EXISTS is_pet_fee boolean DEFAULT false")
+            # Booking addons
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS booking_addons (
+                    id SERIAL PRIMARY KEY,
+                    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+                    booking_ref VARCHAR(20) NOT NULL,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    articles JSONB DEFAULT '[]'::jsonb,
+                    total_amount NUMERIC(10,2) DEFAULT 0,
+                    message TEXT,
+                    admin_note TEXT,
+                    created_at TIMESTAMPTZ DEFAULT now()
+                )
+            """)
+            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_booking_addons_booking_ref ON booking_addons(booking_ref)")
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_set_by_user boolean DEFAULT false")
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS checkin_info_items (
+                    id SERIAL PRIMARY KEY,
+                    title_sv VARCHAR(200) NOT NULL,
+                    title_en VARCHAR(200) DEFAULT '',
+                    title_de VARCHAR(200) DEFAULT '',
+                    body_sv TEXT DEFAULT '',
+                    body_en TEXT DEFAULT '',
+                    body_de TEXT DEFAULT '',
+                    icon VARCHAR(20) DEFAULT '',
+                    active BOOLEAN DEFAULT true,
+                    sort_order INTEGER DEFAULT 0
+                )
+            """)
+            conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(20) DEFAULT 'static'")
+            conn.exec_driver_sql("ALTER TABLE checkin_info_items ADD COLUMN IF NOT EXISTS image_path VARCHAR(300) DEFAULT ''")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checkin_send_date DATE")
+            conn.exec_driver_sql("ALTER TABLE seasons ADD COLUMN IF NOT EXISTS cancellation_refund_deposit BOOLEAN DEFAULT false")
+            conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS booking_checkin_codes (
+                    id SERIAL PRIMARY KEY,
+                    booking_id INTEGER NOT NULL REFERENCES bookings(id),
+                    item_id INTEGER NOT NULL REFERENCES checkin_info_items(id),
+                    value VARCHAR(500) DEFAULT ''
+                )
+            """)
+            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_bcc_booking ON booking_checkin_codes(booking_id)")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_token VARCHAR(64)")
+            conn.exec_driver_sql("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'pending_email_verify' AND enumtypid = 'bookingstatus'::regtype) THEN ALTER TYPE bookingstatus ADD VALUE 'pending_email_verify'; END IF; END $$")
+            conn.exec_driver_sql("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'partially_paid' AND enumtypid = 'bookingstatus'::regtype) THEN ALTER TYPE bookingstatus ADD VALUE 'partially_paid'; END IF; END $$")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_expires TIMESTAMPTZ")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_reminder_sent BOOLEAN DEFAULT false")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS adults_count integer")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS children_count integer")
+            conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pets_count integer")
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean DEFAULT false")
+            # Backfill: konton utan giltig reset_token har redan satt lösenord (gamla konton innan denna kolumn fanns)
+            conn.exec_driver_sql("""
+                UPDATE users SET password_set_by_user = true
+                WHERE password_set_by_user = false
+                  AND (reset_token IS NULL OR reset_token_expires IS NULL OR reset_token_expires < now())
+            """)
+            conn.exec_driver_sql(
+                "DO $$ BEGIN "
+                "IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'no_overlapping_bookings') THEN "
+                "ALTER TABLE bookings ADD CONSTRAINT no_overlapping_bookings "
+                "EXCLUDE USING gist (daterange(date_from, date_to, '[)') WITH &&) "
+                "WHERE (status <> 'cancelled'); "
+                "END IF; END $$;"
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Kunde inte säkerställa boknings-constraints: {e}")
 
-    if style == "random":
-        while True:
-            suffix = "".join(random.choices(string_mod.digits, k=4))
-            ref = f"SJO-{year}-{suffix}"
-            exists = db.query(Booking).filter(Booking.booking_ref == ref).first()
-            if not exists:
-                return ref
-    else:
-        from sqlalchemy import func
-        last = db.query(func.max(Booking.booking_ref)).filter(
-            Booking.booking_ref.like(f"SJO-{year}-%")
-        ).scalar()
-        if last:
-            try:
-                last_num = int(last.split("-")[-1])
-            except ValueError:
-                last_num = 0
-        else:
-            last_num = 0
-        return f"SJO-{year}-{last_num + 1:04d}"
+_ensure_booking_constraints()
 
-
-def get_season_for_date(db: Session, d: date) -> Optional[Season]:
-    """Hitta aktiv säsong för ett datum."""
-    return db.query(Season).filter(
-        Season.date_from <= d,
-        Season.date_to >= d,
-        Season.active == True,
-    ).first()
-
-
-def get_price_for_date(db: Session, d: date) -> tuple[Decimal, Optional[Season]]:
-    """
-    Returnerar (pris, säsong) för ett datum.
-    PriceOverride har högst prioritet, sedan Season.
-    """
-    override = db.query(PriceOverride).filter(
-        PriceOverride.date == d,
-        PriceOverride.active == True,
-    ).first()
-    if override:
-        season = get_season_for_date(db, d)
-        return override.price_per_night, season
-
-    season = get_season_for_date(db, d)
-    if season:
-        return season.price_per_night, season
-
-    return None, None
-
-
-def _calc_err(lang: str, key: str, **kw) -> str:
-    lang = lang if lang in ("en", "de") else "sv"
-    msgs = {
-        "checkout_after_checkin": {
-            "sv": "Utcheckning måste vara efter incheckning",
-            "en": "Check-out must be after check-in",
-            "de": "Check-out muss nach dem Check-in liegen",
-        },
-        "min_one_night": {
-            "sv": "Minst 1 natt krävs",
-            "en": "At least 1 night is required",
-            "de": "Mindestens 1 Nacht erforderlich",
-        },
-        "no_price": {
-            "sv": "Inget pris definierat för {day}",
-            "en": "No price defined for {day}",
-            "de": "Kein Preis definiert für {day}",
-        },
-        "min_nights": {
-            "sv": "Minst {n} nätter krävs för denna period",
-            "en": "At least {n} nights are required for this period",
-            "de": "Mindestens {n} Nächte für diesen Zeitraum erforderlich",
-        },
-    }
-    return msgs[key][lang].format(**kw)
+# Seeda standard-bekvämligheter och husregler om tabellerna är tomma (bevarar tidigare hårdkodat innehåll)
 
 
-def calculate_booking_price(
-    db: Session,
-    date_from: date,
-    date_to: date,
-    guests_count: int,
-    article_ids: list[int],
-    discount_pct: Decimal = Decimal('0'),
-    article_quantities: dict = None,
-    lang: str = "sv",
-) -> dict:
-    """
-    Beräkna fullständigt pris och samla ihop snapshot-data.
-    """
-    nights = (date_to - date_from).days
-    if nights <= 0:
-        raise ValueError(_calc_err(lang, "checkout_after_checkin"))
-    if nights < 1:
-        raise ValueError(_calc_err(lang, "min_one_night"))
+def _seed_email_templates():
+    """Seedar systemmallar från .html-filer om de inte redan finns i databasen."""
+    from app.models.database import SessionLocal
+    from app.email.service import SUBJECTS, template_dir
+    from jinja2 import Environment, FileSystemLoader
+    env = Environment(loader=FileSystemLoader(str(template_dir)))
+    db = SessionLocal()
+    SYSTEM_TRIGGERS = [
+        ("booking_request",   "Bokningsförfrågan till gäst",   "guest", 1),
+        ("admin_new_booking", "Ny bokning till admin",          "admin", 2),
+        ("booking_confirmed", "Bokningsbekräftelse",            "guest", 3),
+        ("booking_rejected",  "Bokning nekad",                  "guest", 4),
+        ("booking_cancelled", "Avbokning",                      "guest", 5),
+        ("payment_reminder",  "Betalningspåminnelse",           "guest", 6),
+        ("checkin_info",      "Incheckning imorgon",            "guest", 7),
+    ]
+    try:
+        for trigger, name, recipient, order in SYSTEM_TRIGGERS:
+            if db.query(EmailTemplate).filter(EmailTemplate.trigger == trigger).first():
+                continue
+            bodies = {}
+            for lang in ("sv", "en", "de"):
+                try:
+                    bodies[lang] = env.loader.get_source(env, f"{trigger}_{lang}.html")[0]
+                except Exception:
+                    bodies[lang] = bodies.get("sv", "")
+            subjects = SUBJECTS.get(trigger, {})
+            t = EmailTemplate(
+                name=name, trigger=trigger, recipient=recipient,
+                is_system=True, is_active=True, sort_order=order,
+                subject_sv=subjects.get("sv",""), subject_en=subjects.get("en",""),
+                subject_de=subjects.get("de",""),
+                body_sv=bodies["sv"], body_en=bodies["en"], body_de=bodies["de"],
+            )
+            db.add(t)
+        db.commit()
+    except Exception as e:
+        import logging; logging.getLogger(__name__).error(f"_seed_email_templates: {e}")
+    finally:
+        db.close()
 
-    # Beräkna nätterpris dag för dag (stöder varierade priser)
-    base_amount = Decimal("0")
-    daily_prices = []
-    dominant_season = None
+def _seed_cms_defaults():
+    from app.models.database import SessionLocal
+    db = SessionLocal()
+    try:
+        if db.query(Amenity).count() == 0:
+            amenities = [
+                ("🌊", "Sjöutsikt", "Lake view", "Seeblick"),
+                ("🏖", "Strand & brygga", "Beach & dock", "Strand & Steg"),
+                ("🍳", "Fullt utrustat kök", "Fully equipped kitchen", "Voll ausgestattete Küche"),
+                ("📶", "WiFi", "WiFi", "WLAN"),
+                ("🧺", "Tvättstuga", "Laundry room", "Waschküche"),
+                ("⚓", "Privat brygga", "Private dock", "Privatsteg"),
+            ]
+            for i, (icon, sv, en, de) in enumerate(amenities):
+                db.add(Amenity(icon=icon, label_sv=sv, label_en=en, label_de=de, sort_order=i))
+        if db.query(HouseRule).count() == 0:
+            rules = [
+                ("Incheckning efter kl. 15:00", "Check-in after 3:00 PM", "Check-in ab 15:00 Uhr"),
+                ("Utcheckning innan kl. 12:00", "Check-out before 12:00 PM", "Check-out vor 12:00 Uhr"),
+                ("Max 8 gäster", "Max 8 guests", "Max. 8 Gäste"),
+                ("Egna sängkläder medbringas", "Bring your own bed linen", "Eigene Bettwäsche mitbringen"),
+                ("Inga husdjur i sangar eller soffor", "No pets on beds or sofas", "Keine Haustiere auf Betten oder Sofas"),
+                ("Gästen städar vid utcheckning", "Guests clean on checkout", "Gäste reinigen beim Auschecken"),
+            ]
+            for i, (sv, en, de) in enumerate(rules):
+                db.add(HouseRule(label_sv=sv, label_en=en, label_de=de, sort_order=i))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).warning(f"Kunde inte seeda CMS-default: {e}")
+    finally:
+        db.close()
 
-    for i in range(nights):
-        day = date_from + timedelta(days=i)
-        price, season = get_price_for_date(db, day)
-        if price is None:
-            raise ValueError(_calc_err(lang, "no_price", day=day))
-        base_amount += price
-        daily_prices.append({"date": str(day), "price": float(price)})
-        if season and not dominant_season:
-            dominant_season = season
+_seed_email_templates()
+_seed_cms_defaults()
 
-    # Tillägg
-    articles_data = []
-    articles_amount = Decimal("0")
-    refundable_deposit_amount = Decimal("0")
-    for aid in article_ids:
-        art = db.query(Article).filter(
-            Article.id == aid,
-            Article.active == True,
-            Article.visible == True,
-            Article.bookable == True,
-        ).first()
-        if not art:
-            continue
-        qty = 1
-        if art.price_type in ("per_occasion", "per_pet") and article_quantities:
-            qty = int(article_quantities.get(str(aid), article_quantities.get(aid, 1)))
-            qty = max(1, qty)
-        if art.price_type == "per_night":
-            line_total = art.price * nights
-        elif art.price_type == "per_guest":
-            line_total = art.price * guests_count
-        elif art.price_type == "per_occasion":
-            line_total = art.price * qty
-        elif art.price_type == "per_pet":
-            line_total = art.price * qty
-        else:  # fixed
-            line_total = art.price
-        if getattr(art, "is_deposit", False):
-            refundable_deposit_amount += line_total
-        else:
-            articles_amount += line_total
-        articles_data.append({
-            "article_id": art.id,
-            "name_sv": art.name_sv,
-            "name_en": art.name_en,
-            "name_de": art.name_de,
-            "desc_sv": art.desc_sv,
-            "desc_en": art.desc_en,
-            "desc_de": art.desc_de,
-            "price": float(art.price),
-            "price_type": art.price_type,
-            "quantity": qty,
-            "line_total": float(line_total),
-            "is_deposit": bool(getattr(art, "is_deposit", False)),
-        })
+# Skapa upload-mappar
+upload_dir = Path("/app/uploads")
+upload_dir.mkdir(parents=True, exist_ok=True)
+(upload_dir / "rooms").mkdir(exist_ok=True)
+(upload_dir / "gallery").mkdir(exist_ok=True)
+(upload_dir / "checkin").mkdir(exist_ok=True)
 
-    # Auto-inkludera synliga depositioner (kunden kan inte välja bort dem)
-    included_ids = {a["article_id"] for a in articles_data}
-    for art in db.query(Article).filter(
-        Article.is_deposit == True,
-        Article.visible == True,
-        Article.active == True,
-    ).all():
-        if art.id in included_ids:
-            continue
-        if art.price_type == "per_night":
-            line_total = art.price * nights
-        elif art.price_type == "per_guest":
-            line_total = art.price * guests_count
-        else:
-            line_total = art.price
-        refundable_deposit_amount += line_total
-        articles_data.append({
-            "article_id": art.id,
-            "name_sv": art.name_sv,
-            "name_en": art.name_en,
-            "name_de": art.name_de,
-            "desc_sv": art.desc_sv,
-            "desc_en": art.desc_en,
-            "desc_de": art.desc_de,
-            "price": float(art.price),
-            "price_type": art.price_type,
-            "quantity": 1,
-            "line_total": float(line_total),
-            "is_deposit": True,
-        })
+app = FastAPI(
+    title="Sjölyckan Booking API",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
 
-    # Extra avgift för gäster över threshold
-    extra_guest_fee = Decimal("0")
-    extra_guests = 0
-    extra_guest_rate = Decimal("0")
-    if dominant_season and hasattr(dominant_season, "extra_guest_fee") and dominant_season.extra_guest_fee:
-        threshold = dominant_season.extra_guest_threshold or 4
-        if guests_count > threshold:
-            extra_guests = guests_count - threshold
-            extra_guest_rate = Decimal(str(dominant_season.extra_guest_fee))
-            extra_guest_fee = extra_guest_rate * extra_guests * nights
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+)
 
-    chargeable_amount = base_amount + articles_amount + extra_guest_fee
+# Serva uppladdade bilder statiskt
+app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
 
-    # Applicera rabatt om användaren har discount_pct > 0 (gäller ej deposition)
-    discount_amount = Decimal('0')
-    if discount_pct and discount_pct > 0:
-        discount_amount = (chargeable_amount * discount_pct / 100).quantize(Decimal('1'))
-        chargeable_amount = chargeable_amount - discount_amount
-
-    # Säsongsvillkor (använder dominant säsong eller standardvärden)
-    deposit_pct = Decimal(str(dominant_season.deposit_pct)) if dominant_season else Decimal("10")
-    deposit_days = dominant_season.deposit_days if dominant_season else 7
-    payment_days_before = dominant_season.payment_days_before if dominant_season else 60
-    reminder_1_days = dominant_season.reminder_1_days if dominant_season else 14
-    reminder_2_days = dominant_season.reminder_2_days if dominant_season else 3
-    cancellation_deposit_days = dominant_season.cancellation_deposit_days if dominant_season else 120
-    cancellation_full_days = dominant_season.cancellation_full_days if dominant_season else 60
-    cancellation_refund_deposit = dominant_season.cancellation_refund_deposit if dominant_season else False
-    min_nights = dominant_season.min_nights if dominant_season else 2
-    if min_nights > 0 and nights < min_nights:
-        raise ValueError(_calc_err(lang, "min_nights", n=min_nights))
-
-    deposit_amount = (chargeable_amount * deposit_pct / 100).quantize(Decimal("1"))
-    # Återbetalningsbar deposition läggs på totalen men ingår inte i handpenningen
-    total_amount = chargeable_amount + refundable_deposit_amount
-    deposit_due_date = date.today() + timedelta(days=deposit_days)
-    payment_due_date = date_from - timedelta(days=payment_days_before)
-
-    # Om betalfrist är i det förflutna eller innan handpenning, justera
-    if payment_due_date <= date.today():
-        payment_due_date = date.today() + timedelta(days=1)
-    # Slutbetalning måste alltid vara EFTER handpenning
-    if payment_due_date <= deposit_due_date:
-        payment_due_date = deposit_due_date + timedelta(days=7)
-
-    snapshot = {
-        "season_id": dominant_season.id if dominant_season else None,
-        "season_name_sv": dominant_season.name_sv if dominant_season else "Standard",
-        "season_name_en": dominant_season.name_en if dominant_season else "Standard",
-        "season_name_de": dominant_season.name_de if dominant_season else "Standard",
-        "price_per_night_avg": float(base_amount / nights),
-        "deposit_pct": float(deposit_pct),
-        "deposit_days": deposit_days,
-        "payment_days_before": payment_days_before,
-        "reminder_1_days": reminder_1_days,
-        "reminder_2_days": reminder_2_days,
-        "cancellation_deposit_days": cancellation_deposit_days,
-        "cancellation_full_days": cancellation_full_days,
-        "cancellation_refund_deposit": cancellation_refund_deposit,
-        "min_nights": min_nights,
-        "daily_prices": daily_prices,
-        "articles": articles_data,
-        "extra_guest_fee": float(extra_guest_fee),
-        "refundable_deposit_amount": float(refundable_deposit_amount),
-        "extra_guest_threshold": dominant_season.extra_guest_threshold if dominant_season else 4,
-        "extra_guests": extra_guests,
-        "extra_guest_rate": float(extra_guest_rate),
-        "terms_version": "1.0",
-        "discount_pct": float(discount_pct),
-    }
-
-    return {
-        "nights": nights,
-        "base_amount": base_amount,
-        "articles_amount": articles_amount,
-        "refundable_deposit_amount": refundable_deposit_amount,
-        "total_amount": total_amount,
-        "discount_amount": discount_amount,
-        "deposit_amount": deposit_amount,
-        "extra_guest_fee": extra_guest_fee,
-        "extra_guest_threshold": dominant_season.extra_guest_threshold if dominant_season else 4,
-        "extra_guests": extra_guests,
-        "extra_guest_rate": extra_guest_rate,
-        "deposit_due_date": deposit_due_date,
-        "payment_due_date": payment_due_date,
-        "snapshot": snapshot,
-    }
+app.include_router(auth.router)
+app.include_router(public.router)
+app.include_router(bookings.router)
+app.include_router(admin.router)
+app.include_router(cms_router)
+app.include_router(email_templates_router)
+app.include_router(payments_router)
 
 
-def create_booking_record(db: Session, data: dict, calc: dict) -> Booking:
-    """Skapa bokning med fryst snapshot."""
-    booking = Booking(
-        booking_ref=generate_booking_ref(db),
-        guest_name=data["guest_name"],
-        guest_email=data["guest_email"],
-        guest_phone=data.get("guest_phone"),
-        guest_country=data.get("guest_country", "SE"),
-        message=data.get("message"),
-        lang=data.get("lang", "sv"),
-        guests_count=data.get("guests_count", 2),
-        adults_count=data.get("adults_count"),
-        children_count=data.get("children_count"),
-        pets_count=data.get("pets_count"),
-        date_from=data["date_from"],
-        date_to=data["date_to"],
-        nights=calc["nights"],
-        base_amount=calc["base_amount"],
-        articles_amount=calc["articles_amount"],
-        total_amount=calc["total_amount"],
-        deposit_amount=calc["deposit_amount"],
-        deposit_due_date=calc["deposit_due_date"],
-        payment_due_date=calc["payment_due_date"],
-        snapshot=calc["snapshot"],
-        status=BookingStatus.pending,
-        terms_accepted=data.get("terms_accepted", False),
-        gdpr_accepted=data.get("gdpr_accepted", False),
-        house_rules_accepted=data.get("house_rules_accepted", False),
-        terms_snapshot=data.get("terms_snapshot"),
-    )
-    db.add(booking)
-    db.flush()
-
-    # Spara bokade tillägg
-    for art_data in calc["snapshot"]["articles"]:
-        ba = BookingArticle(
-            booking_id=booking.id,
-            article_id=art_data["article_id"],
-            name_sv=art_data["name_sv"],
-            name_en=art_data["name_en"],
-            name_de=art_data["name_de"],
-            price_snapshot=art_data["price"],
-            price_type=art_data["price_type"],
-            quantity=art_data["quantity"],
-            line_total=art_data["line_total"],
-        )
-        db.add(ba)
-
-    db.commit()
-    db.refresh(booking)
-    return booking
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "service": "Sjölyckan Booking API"}
 
 
-def amount_paid(db: Session, booking: Booking) -> float:
-    """Summa hittills betald (status=paid) för bokningen, oavsett betalningstyp."""
-    from sqlalchemy import func
-    paid = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
-        Payment.booking_id == booking.id,
-        Payment.status == PaymentStatus.paid,
-    ).scalar()
-    return float(paid or 0)
+@app.on_event("startup")
+async def startup_event():
+    from app.models.database import SessionLocal
+    from app.models.models import Setting, Season, Article
+    from app.models.cms_models import Room, GalleryImage, ContentBlock
+    from datetime import date
 
+    db = SessionLocal()
+    try:
+        # Grundinställningar
+        defaults = [
+            ("property_name", "Sjölyckan, Rolsmo"),
+            ("property_address", "Rolsmo, Linneryd, Kronobergs län"),
+            ("checkin_time", "15:00"),
+            ("checkout_time", "12:00"),
+            ("max_guests", "8"),
+            ("swish_number", settings.SWISH_NUMBER),
+            ("booking_ref_style", "sequential"),
+        ]
+        for key, value in defaults:
+            if not db.query(Setting).filter(Setting.key == key).first():
+                db.add(Setting(key=key, value=value))
 
-def recalc_booking_status(db: Session, booking: Booking) -> BookingStatus:
-    """Räknar om bokningens status utifrån faktiskt betalt belopp mot aktuellt
-    total_amount (som kan ha ökat via godkända tilläggsbeställningar).
+        # Grundsäsonger
+        if db.query(Season).count() == 0:
+            seasons = [
+                Season(name_sv="Lågsäsong", name_en="Low season", name_de="Nebensaison",
+                       date_from=date(2026, 1, 1), date_to=date(2026, 4, 30),
+                       price_per_night=1200, deposit_pct=10, deposit_days=7,
+                       payment_days_before=30, min_nights=2),
+                Season(name_sv="Mellansäsong", name_en="Mid season", name_de="Mittelsaison",
+                       date_from=date(2026, 5, 1), date_to=date(2026, 5, 31),
+                       price_per_night=1500, deposit_pct=10, deposit_days=7,
+                       payment_days_before=60, min_nights=2),
+                Season(name_sv="Högsäsong", name_en="High season", name_de="Hochsaison",
+                       date_from=date(2026, 6, 1), date_to=date(2026, 8, 31),
+                       price_per_night=1800, deposit_pct=10, deposit_days=7,
+                       payment_days_before=90, min_nights=7),
+                Season(name_sv="Mellansäsong", name_en="Mid season", name_de="Mittelsaison",
+                       date_from=date(2026, 9, 1), date_to=date(2026, 9, 30),
+                       price_per_night=1500, deposit_pct=10, deposit_days=7,
+                       payment_days_before=60, min_nights=2),
+                Season(name_sv="Lågsäsong", name_en="Low season", name_de="Nebensaison",
+                       date_from=date(2026, 10, 1), date_to=date(2026, 12, 31),
+                       price_per_night=1200, deposit_pct=10, deposit_days=7,
+                       payment_days_before=30, min_nights=2),
+            ]
+            for s in seasons:
+                db.add(s)
 
-    Rör aldrig livscykel-status som inte handlar om betalning
-    (pending, pending_email_verify, cancelled, expired) — de styrs av annan logik.
+        # Grundartiklar
+        if db.query(Article).count() == 0:
+            articles = [
+                Article(name_sv="Sängkläder", name_en="Bed linen", name_de="Bettwäsche",
+                        desc_sv="Påslakan + örngott per person", desc_en="Per person", desc_de="Pro Person",
+                        price=150, price_type="per_guest", icon="ti-bed", sort_order=1),
+                Article(name_sv="Handdukar", name_en="Towels", name_de="Handtücher",
+                        desc_sv="Set per person", desc_en="Per person", desc_de="Pro Person",
+                        price=80, price_type="per_guest", icon="ti-wash", sort_order=2),
+                Article(name_sv="Bastu", name_en="Sauna", name_de="Sauna",
+                        desc_sv="Uppvärmd bastu", desc_en="Heated sauna", desc_de="Beheizte Sauna",
+                        price=300, price_type="per_night", icon="ti-flame", sort_order=3),
+                Article(name_sv="Båt", name_en="Rowing boat", name_de="Ruderboot",
+                        desc_sv="Roddbåt med åror", desc_en="With oars", desc_de="Mit Rudern",
+                        price=200, price_type="per_night", icon="ti-anchor", sort_order=4),
+                Article(name_sv="Kajak", name_en="Kayak", name_de="Kajak",
+                        desc_sv="Enkel havskajak", desc_en="Single sea kayak", desc_de="Einfaches Kajak",
+                        price=250, price_type="per_night", icon="ti-ripple", sort_order=5),
+                Article(name_sv="Kanot", name_en="Canoe", name_de="Kanu",
+                        desc_sv="Kanot för 2 personer", desc_en="For 2 persons", desc_de="Für 2 Personen",
+                        price=200, price_type="per_night", icon="ti-ripple", sort_order=6),
+            ]
+            for a in articles:
+                db.add(a)
 
-    - paid            : allt (inkl. ev. tillägg) är betalt
-    - deposit_paid     : bara handpenningen är betald (normalt flöde, väntar på slutbetalning)
-    - partially_paid   : något är betalt, men varken hela beloppet eller exakt handpenningen
-                          (t.ex. helbetalning gjordes, sedan godkändes ett tillägg som ökade
-                          total_amount, så en del av det nya totalbeloppet saknas)
-    Ändringen sparas inte automatiskt — anroparen ansvarar för db.commit().
-    """
-    if booking.status in (
-        BookingStatus.pending,
-        BookingStatus.pending_email_verify,
-        BookingStatus.cancelled,
-        BookingStatus.expired,
-    ):
-        return booking.status
+        # Standard innehållsblock
+        default_content = [
+            ("hero_title", "Sjölyckan", "Sjölyckan", "Sjölyckan", "Sidans huvudrubrik"),
+            ("hero_subtitle", "Rolsmo, Småland", "Rolsmo, Småland", "Rolsmo, Småland", "Undertitel i hero"),
+            ("hero_tagline", "En sommar att minnas vid Rolsmosjön", "A summer to remember at Rolsmosjön", "Ein Sommer zum Erinnern am Rolsmosjön", "Tagline i hero"),
+            ("about_title", "Om Sjölyckan", "About Sjölyckan", "Über Sjölyckan", "Rubrik för om-sektionen"),
+            ("about_text", "Koppla av med hela familjen i detta fridfulla boende vid Rolsmosjön. Där finns en egen liten badstrand med brygga. Finare badplats finns på 5 minuters gångavstånd (ca 500 meter). Två separata sovrum samt två ytterligare rum med sovplatser. Stort vardagsrum och matsalsrum, kök och tvättstuga.", "Relax with the whole family in this peaceful lakeside retreat at Rolsmosjön. There is a private little beach with a dock. A nicer bathing spot is a 5-minute walk away.", "Erholen Sie sich mit der ganzen Familie in dieser friedvollen Unterkunft am Rolsmosjön.", "Beskrivningstext om stugan"),
+            ("capacity", "8 gäster · 4 sovrum · 4 sängar · 1,5 badrum", "8 guests · 4 bedrooms · 4 beds · 1.5 bathrooms", "8 Gäste · 4 Schlafzimmer · 4 Betten · 1,5 Bäder", "Kapacitetsinfo"),
+            ("checkin_rule", "Incheckning efter kl. 15:00", "Check-in after 3:00 PM", "Check-in ab 15:00 Uhr", "Incheckningsregel"),
+            ("checkout_rule", "Utcheckning innan kl. 12:00", "Check-out before 12:00 PM", "Check-out vor 12:00 Uhr", "Utcheckningsregel"),
+            ("max_guests_rule", "Max 8 gäster", "Maximum 8 guests", "Maximal 8 Gäste", "Max gäster regel"),
+            ("linen_rule", "Egna sängkläder medbringas (eller boka som tillägg)", "Bring your own bed linen (or book as add-on)", "Eigene Bettwäsche mitbringen (oder als Extra buchen)", "Sängklädesregel"),
+            ("pets_rule", "Inga husdjur i sängar eller soffor", "No pets on beds or sofas", "Keine Haustiere auf Betten oder Sofas", "Husdjursregel"),
+            ("cleaning_rule", "Gästen städar vid utcheckning", "Guests clean before checkout", "Gäste reinigen bei Abreise", "Städregel"),
+            ("amenities_title", "Bekvämligheter", "Amenities", "Ausstattung", "Bekvämligheter-rubrik"),
+            ("sleep_title", "Var du sover", "Where you sleep", "Schlafbereiche", "Sovrubrik"),
+            ("rules_title", "Husregler", "House rules", "Hausregeln", "Husregler-rubrik"),
+        ]
+        for key, sv, en, de, desc in default_content:
+            if not db.query(ContentBlock).filter(ContentBlock.key == key).first():
+                db.add(ContentBlock(key=key, value_sv=sv, value_en=en, value_de=de, description=desc))
 
-    total_paid = amount_paid(db, booking)
-    total = float(booking.total_amount or 0)
-    deposit = float(booking.deposit_amount or 0)
+        # Standard rum (om inga finns)
+        if db.query(Room).count() == 0:
+            rooms = [
+                Room(name_sv="Sovrum 1", name_en="Bedroom 1", name_de="Schlafzimmer 1",
+                     beds_sv="1 dubbelsäng", beds_en="1 double bed", beds_de="1 Doppelbett",
+                     image_path=None, sort_order=1),
+                Room(name_sv="Sovrum 2", name_en="Bedroom 2", name_de="Schlafzimmer 2",
+                     beds_sv="1 enkelsäng", beds_en="1 single bed", beds_de="1 Einzelbett",
+                     image_path=None, sort_order=2),
+                Room(name_sv="Sovrum 3", name_en="Bedroom 3", name_de="Schlafzimmer 3",
+                     beds_sv="1 dubbelsäng", beds_en="1 double bed", beds_de="1 Doppelbett",
+                     image_path=None, sort_order=3),
+                Room(name_sv="Sovrum 4", name_en="Bedroom 4", name_de="Schlafzimmer 4",
+                     beds_sv="1 dubbelsäng", beds_en="1 double bed", beds_de="1 Doppelbett",
+                     image_path=None, sort_order=4),
+            ]
+            for r in rooms:
+                db.add(r)
 
-    if total_paid >= total - 1:
-        booking.status = BookingStatus.paid
-    elif total_paid <= 0:
-        booking.status = BookingStatus.confirmed
-    elif total_paid <= deposit + 1:
-        booking.status = BookingStatus.deposit_paid
-    else:
-        booking.status = BookingStatus.partially_paid
-
-    return booking.status
+        db.commit()
+    finally:
+        db.close()
