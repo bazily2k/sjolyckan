@@ -231,17 +231,32 @@ export default function AdminCalendar() {
                           {blk[0].reason && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{blk[0].reason}</div>}
                         </div>
                       ) : isFullDay && mornB ? (
-                        /* Heldag: fylld ruta med max info */
+                        /* Heldag: fylld ruta med max info — normalt flöde så den kan växa */
                         <div onClick={() => setSelected(mornB)} title="Klicka för detaljer" style={{
-                          position: 'absolute', inset: 0, background: mornBg, color: st(mornB.status).color,
+                          minHeight: '100%', background: mornBg, color: st(mornB.status).color,
                           cursor: 'pointer', padding: 6, display: 'flex', flexDirection: 'column',
                         }}>
                           <div style={{ fontWeight: 600, fontSize: 18 }}>{cell.getDate()}</div>
                           <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>{mornB.guest_name}</div>
                           <div style={{ fontSize: 13, marginTop: 2 }}>
                             👥{mornB.guests_count}{mornB.pets_count ? ` 🐾${mornB.pets_count}` : ''}
-                            {((mornB.articles || []).filter(a => a.quantity > 0).length + (mornB.addons || []).length) ? ` 🎁${(mornB.articles || []).filter(a => a.quantity > 0).length + (mornB.addons || []).length}` : ''}
                           </div>
+                          {(() => {
+                            // Samla alla tillägg: ursprungliga (articles) + efterbeställda (addons[].articles)
+                            const items = [];
+                            (mornB.articles || []).filter(a => (a.quantity || 0) > 0).forEach(a => items.push({ name: a.name_sv, qty: a.quantity }));
+                            (mornB.addons || []).forEach(ad => (ad.articles || []).forEach(a => items.push({ name: a.name_sv, qty: a.quantity })));
+                            if (items.length === 0) return null;
+                            return (
+                              <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.3 }}>
+                                {items.map((it, ix) => (
+                                  <div key={ix} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    🎁 {it.name}{it.qty > 1 ? ` ×${it.qty}` : ''}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
                           {(mornB.message || mornB.admin_note) && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
                         </div>
                       ) : (
