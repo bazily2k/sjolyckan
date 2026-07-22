@@ -346,3 +346,51 @@ def create_booking_record(db: Session, data: dict, calc: dict) -> Booking:
     db.commit()
     db.refresh(booking)
     return booking
+
+
+def amount_paid(db: Session, booking: Booking) -> float:
+    """Summa hittills betald (status=paid) för bokningen, oavsett betalningstyp."""
+    from sqlalchemy import func
+    paid = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(
+        Payment.booking_id == booking.id,
+        Payment.status == PaymentStatus.paid,
+    ).scalar()
+    return float(paid or 0)
+
+
+def recalc_booking_status(db: Session, booking: Booking) -> BookingStatus:
+    """Räknar om bokningens status utifrån faktiskt betalt belopp mot aktuellt
+    total_amount (som kan ha ökat via godkända tilläggsbeställningar).
+
+    Rör aldrig livscykel-status som inte handlar om betalning
+    (pending, pending_email_verify, cancelled, expired) — de styrs av annan logik.
+
+    - paid            : allt (inkl. ev. tillägg) är betalt
+    - deposit_paid     : bara handpenningen är betald (normalt flöde, väntar på slutbetalning)
+    - partially_paid   : något är betalt, men varken hela beloppet eller exakt handpenningen
+                          (t.ex. helbetalning gjordes, sedan godkändes ett tillägg som ökade
+                          total_amount, så en del av det nya totalbeloppet saknas)
+    Ändringen sparas inte automatiskt — anroparen ansvarar för db.commit().
+    """
+    if booking.status in (
+        BookingStatus.pending,
+        BookingStatus.pending_email_verify,
+        BookingStatus.cancelled,
+        BookingStatus.expired,
+    ):
+        return booking.status
+
+    total_paid = amount_paid(db, booking)
+    total = float(booking.total_amount or 0)
+    deposit = float(booking.deposit_amount or 0)
+
+    if total_paid >= total - 1:
+        booking.status = BookingStatus.paid
+    elif total_paid <= 0:
+        booking.status = BookingStatus.confirmed
+    elif total_paid <= deposit + 1:
+        booking.status = BookingStatus.deposit_paid
+    else:
+        booking.status = BookingStatus.partially_paid
+
+    return booking.status

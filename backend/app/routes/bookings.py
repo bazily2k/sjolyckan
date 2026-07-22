@@ -758,10 +758,12 @@ def admin_register_payment(
     payment = db.query(Payment).filter(
         Payment.booking_id == booking_id,
         Payment.type == req.payment_type,
+        Payment.status != PaymentStatus.paid,
     ).first()
 
     if payment:
         payment.status = PaymentStatus.paid
+        payment.amount = req.amount
         payment.paid_at = datetime.utcnow()
         payment.reference = req.reference
         payment.note = req.note
@@ -778,14 +780,9 @@ def admin_register_payment(
         )
         db.add(payment)
 
-    # Uppdatera bokningsstatus
-    paid_payments = [p for p in b.payments if p.status == PaymentStatus.paid]
-    total_paid = sum(float(p.amount) for p in paid_payments)
-
-    if total_paid >= float(b.total_amount) - 1:
-        b.status = BookingStatus.paid
-    elif any(p.type == PaymentType.deposit for p in paid_payments):
-        b.status = BookingStatus.deposit_paid
+    # Uppdatera bokningsstatus (räknar om mot faktiskt totalbelopp, inkl. ev. tillägg)
+    from app.core.booking_logic import recalc_booking_status
+    recalc_booking_status(db, b)
 
     db.commit()
     db.refresh(b)
@@ -801,6 +798,8 @@ def admin_register_payment(
 
 # ─── Hjälpfunktioner ────────────────────────────────────
 def _booking_summary(b: Booking) -> dict:
+    paid_sofar = sum(float(p.amount) for p in b.payments if p.status == PaymentStatus.paid)
+    pending_addons = sum(1 for a in b.addons if a.status == "pending")
     return {
         "id": b.id,
         "booking_ref": b.booking_ref,
@@ -815,6 +814,9 @@ def _booking_summary(b: Booking) -> dict:
         "nights": b.nights,
         "total_amount": float(b.total_amount),
         "deposit_amount": float(b.deposit_amount),
+        "amount_paid": paid_sofar,
+        "amount_due": round(float(b.total_amount) - paid_sofar, 2),
+        "pending_addons_count": pending_addons,
         "status": b.status.value,
         "payment_method": b.payment_method.value if b.payment_method else None,
         "payment_methods": b.payment_methods,
@@ -1018,6 +1020,10 @@ def admin_add_article(
     deposit_pct = Decimal(str(b.snapshot.get("deposit_pct", 10)))
     b.deposit_amount = (b.total_amount * deposit_pct / 100).quantize(Decimal("1"))
 
+    # Räkna om status: totalbeloppet har ökat, ev. nedgradering från Betald till Delbetald
+    from app.core.booking_logic import recalc_booking_status
+    recalc_booking_status(db, b)
+
     # Uppdatera snapshot
     snap = dict(b.snapshot)
     snap["articles"] = snap.get("articles", []) + [{
@@ -1132,7 +1138,8 @@ async def create_addon_request(
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
     if booking.status not in (
-        BookingStatus.confirmed, BookingStatus.deposit_paid, BookingStatus.paid
+        BookingStatus.confirmed, BookingStatus.deposit_paid,
+        BookingStatus.partially_paid, BookingStatus.paid,
     ):
         raise HTTPException(status_code=400, detail="Tillägg kan bara läggas till på bekräftade bokningar")
     if not req.article_ids:

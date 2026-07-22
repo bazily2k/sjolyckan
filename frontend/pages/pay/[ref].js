@@ -65,7 +65,9 @@ export default function PayPage() {
   const handleStripe = async () => {
     setPayingStripe(true);
     try {
-      const amount = (payMode === 'full' || booking.deposit_amount === 0) ? booking.total_amount : undefined;
+      const amount = (payMode === 'full' || booking.deposit_amount === 0)
+        ? (booking.status === 'partially_paid' ? booking.due_amount : booking.total_amount)
+        : undefined;
       const r = await axios.post(`/api/pay/${ref}/stripe-create`, amount ? { amount } : {});
       window.location.href = r.data.url;
     } catch (e) {
@@ -77,7 +79,9 @@ export default function PayPage() {
   const handlePayPal = async () => {
     setPaying(true);
     try {
-      const amount = (payMode === 'full' || booking.deposit_amount === 0) ? booking.total_amount : undefined;
+      const amount = (payMode === 'full' || booking.deposit_amount === 0)
+        ? (booking.status === 'partially_paid' ? booking.due_amount : booking.total_amount)
+        : undefined;
       const r = await axios.post(`/api/pay/${ref}/paypal-create`, amount ? { amount } : {});
       window.location.href = r.data.approve_url;
     } catch (e) {

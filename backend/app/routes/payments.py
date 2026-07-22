@@ -38,12 +38,17 @@ def _paypal_base():
            else "https://api-m.sandbox.paypal.com"
 
 
-def _booking_due(booking: Booking):
+def _booking_due(booking: Booking, db: Session = None):
     if booking.status == BookingStatus.confirmed:
         return float(booking.deposit_amount), "deposit", booking.deposit_due_date
     if booking.status == BookingStatus.deposit_paid:
         return (float(booking.total_amount) - float(booking.deposit_amount),
                 "final", booking.payment_due_date)
+    if booking.status == BookingStatus.partially_paid and db is not None:
+        # Uppstår t.ex. när ett tillägg godkänts efter att bokningen redan
+        # var fullbetald — resterande belopp mot det NYA totalbeloppet.
+        remaining = float(booking.total_amount) - _amount_paid(db, booking)
+        return round(remaining, 2), "final", booking.payment_due_date
     return None, None, None
 
 
@@ -84,7 +89,7 @@ async def get_payment_info(ref: str, db: Session = Depends(get_db)):
     booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
-    due_amount, payment_type, due_date = _booking_due(booking)
+    due_amount, payment_type, due_date = _booking_due(booking, db)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
     # Hämta swish-nummer från inställningar
@@ -117,7 +122,7 @@ async def create_paypal_order(ref: str, data: dict = {}, db: Session = Depends(g
     booking = db.query(Booking).filter(Booking.booking_ref == ref).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
-    due_amount, payment_type, _ = _booking_due(booking)
+    due_amount, payment_type, _ = _booking_due(booking, db)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
     # Belopp avgörs server-side (litar ej på klientens belopp)
@@ -187,7 +192,7 @@ async def capture_paypal_order(data: dict, background_tasks: BackgroundTasks,
             "lang":         booking.lang or "en",
         }
 
-    due_amount, payment_type, _ = _booking_due(booking)
+    due_amount, payment_type, _ = _booking_due(booking, db)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
 
@@ -222,8 +227,7 @@ async def capture_paypal_order(data: dict, background_tasks: BackgroundTasks,
         raise
     except Exception:
         pass
-    p_type     = PaymentType.deposit if payment_type == "deposit" else PaymentType.final
-    new_status = BookingStatus.deposit_paid if payment_type == "deposit" else BookingStatus.paid
+    p_type = PaymentType.deposit if payment_type == "deposit" else PaymentType.final
 
     payment = Payment(
         booking_id=booking.id,
@@ -235,8 +239,10 @@ async def capture_paypal_order(data: dict, background_tasks: BackgroundTasks,
         paypal_order_id=order_id,
     )
     db.add(payment)
-    booking.status = new_status
     booking.payment_method = PaymentMethod.paypal
+    db.flush()
+    from app.core.booking_logic import recalc_booking_status
+    new_status = recalc_booking_status(db, booking)
     db.commit()
 
     if new_status == BookingStatus.deposit_paid:
@@ -265,7 +271,7 @@ async def create_stripe_session(ref: str, data: dict = {}, db: Session = Depends
     if not booking:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
 
-    due_amount, payment_type, _ = _booking_due(booking)
+    due_amount, payment_type, _ = _booking_due(booking, db)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
     # Belopp avgörs server-side (litar ej på klientens belopp)
@@ -326,7 +332,7 @@ async def capture_stripe_payment(data: dict, background_tasks: BackgroundTasks,
             "lang":         booking.lang or "en",
         }
 
-    due_amount, payment_type, _ = _booking_due(booking)
+    due_amount, payment_type, _ = _booking_due(booking, db)
     if not payment_type:
         raise HTTPException(status_code=400, detail="Inga betalningar väntar")
 
@@ -347,8 +353,7 @@ async def capture_stripe_payment(data: dict, background_tasks: BackgroundTasks,
     except stripe_lib.error.StripeError as e:
         raise HTTPException(status_code=500, detail=f"Stripe-fel: {str(e)}")
 
-    p_type     = PaymentType.deposit if payment_type == "deposit" else PaymentType.final
-    new_status = BookingStatus.deposit_paid if payment_type == "deposit" else BookingStatus.paid
+    p_type = PaymentType.deposit if payment_type == "deposit" else PaymentType.final
 
     payment = Payment(
         booking_id=booking.id,
@@ -360,8 +365,10 @@ async def capture_stripe_payment(data: dict, background_tasks: BackgroundTasks,
         stripe_session_id=session_id,
     )
     db.add(payment)
-    booking.status = new_status
     booking.payment_method = PaymentMethod.stripe
+    db.flush()
+    from app.core.booking_logic import recalc_booking_status
+    new_status = recalc_booking_status(db, booking)
     db.commit()
 
     if new_status == BookingStatus.deposit_paid:

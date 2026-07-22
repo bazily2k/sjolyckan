@@ -438,7 +438,7 @@ export default function MyPage({ locale }) {
                             </div>
                           )}
                           {/* Komplettera bokning */}
-                          {(b.status === 'confirmed' || b.status === 'deposit_paid' || b.status === 'fully_paid') && (
+                          {(b.status === 'confirmed' || b.status === 'deposit_paid' || b.status === 'partially_paid' || b.status === 'paid') && (
                             <a href={`/addon?ref=${b.booking_ref}`}
                               style={{ display:'block', textAlign:'center', marginTop:12, padding:'10px 0', background:'var(--water-pale)', color:'var(--water)', border:'1px solid var(--water)', borderRadius:'var(--radius-md)', fontSize:13, fontWeight:500, textDecoration:'none' }}>
                               + {lang==='de'?'Buchung ergänzen':lang==='en'?'Add to booking':'Komplettera bokning'}
