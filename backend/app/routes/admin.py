@@ -761,6 +761,7 @@ def list_addon_requests(db: Session = Depends(get_db), _: User = Depends(require
         result.append({
             "id": a.id, "booking_ref": a.booking_ref, "status": a.status,
             "articles": a.articles, "total_amount": float(a.total_amount),
+            "discount_amount": float(a.discount_amount or 0),
             "message": a.message, "admin_note": a.admin_note,
             "created_at": a.created_at.isoformat() if a.created_at else None,
             "guest_name": b.guest_name if b else "", "guest_email": b.guest_email if b else "",
@@ -822,11 +823,16 @@ async def confirm_addon(addon_id: int, data: dict = {}, db: Session = Depends(ge
         "de": f"Hallo {booking.guest_name.split()[0]}! Ihr Zusatz für Buchung <strong>{booking.booking_ref}</strong> wurde genehmigt.",
     }
     pay_labels = {"sv":"Betala nu","en":"Pay now","de":"Jetzt bezahlen"}
+    discount_row = (
+        f"<tr><td colspan=\"2\" style=\"color:#27ae60\">Rabatt</td><td style=\"color:#27ae60\">−{float(addon.discount_amount):,.0f} kr</td></tr>"
+        if addon.discount_amount and float(addon.discount_amount) > 0 else ""
+    )
     html = f"""<h2>{subjects[lang]}</h2>
     <p>{intros[lang]}</p>
     <table border="1" cellpadding="6">
     <tr><th>Tillägg</th><th>Antal</th><th>Belopp</th></tr>
     {rows}
+    {discount_row}
     <tr><td colspan="2"><strong>Totalt</strong></td><td><strong>{float(addon.total_amount):,.0f} kr</strong></td></tr>
     </table>
     {"<p><em>" + (addon.admin_note or "") + "</em></p>" if addon.admin_note else ""}
@@ -872,4 +878,4 @@ async def reject_addon(addon_id: int, data: dict = {}, db: Session = Depends(get
 def get_booking_addons(booking_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     from app.models.models import BookingAddon
     addons = db.query(BookingAddon).filter(BookingAddon.booking_id == booking_id).order_by(BookingAddon.created_at.desc()).all()
-    return [{"id":a.id,"status":a.status,"articles":a.articles,"total_amount":float(a.total_amount),"message":a.message,"admin_note":a.admin_note,"created_at":a.created_at.isoformat() if a.created_at else None} for a in addons]
+    return [{"id":a.id,"status":a.status,"articles":a.articles,"total_amount":float(a.total_amount),"discount_amount":float(a.discount_amount or 0),"message":a.message,"admin_note":a.admin_note,"created_at":a.created_at.isoformat() if a.created_at else None} for a in addons]
