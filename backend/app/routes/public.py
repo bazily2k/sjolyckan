@@ -222,7 +222,10 @@ def booking_lookup(ref: str, db: Session = Depends(get_db)):
     b = db.query(Booking).filter(Booking.booking_ref == ref.strip().upper()).first()
     if not b:
         raise HTTPException(status_code=404, detail="Bokning hittades inte")
-    if b.status not in (BookingStatus.confirmed, BookingStatus.deposit_paid, BookingStatus.paid):
+    if b.status not in (
+        BookingStatus.confirmed, BookingStatus.deposit_paid,
+        BookingStatus.partially_paid, BookingStatus.paid,
+    ):
         raise HTTPException(status_code=400, detail="Bokningen är inte bekräftad")
     return {
         "booking_ref": b.booking_ref,
