@@ -800,6 +800,12 @@ async def confirm_addon(addon_id: int, data: dict = {}, db: Session = Depends(ge
 
     # Uppdatera bokningens totalbelopp
     booking.total_amount = (booking.total_amount or Decimal("0")) + Decimal(str(addon.total_amount))
+
+    # Räkna om status: om bokningen redan var "Betald" innan tillägget kan den nu
+    # vara "Delbetald" eftersom totalbeloppet ökat utan att motsvarande betalts.
+    from app.core.booking_logic import recalc_booking_status
+    recalc_booking_status(db, booking)
+
     db.commit()
 
     # Skicka bekräftelsemail till gäst med betalningslänk
