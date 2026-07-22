@@ -758,10 +758,12 @@ def admin_register_payment(
     payment = db.query(Payment).filter(
         Payment.booking_id == booking_id,
         Payment.type == req.payment_type,
+        Payment.status != PaymentStatus.paid,
     ).first()
 
     if payment:
         payment.status = PaymentStatus.paid
+        payment.amount = req.amount
         payment.paid_at = datetime.utcnow()
         payment.reference = req.reference
         payment.note = req.note
