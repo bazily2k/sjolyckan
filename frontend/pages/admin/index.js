@@ -248,7 +248,10 @@ export default function AdminBookings() {
   const registerPay = async (id, type) => {
     setActionLoading(true);
     try {
-      await adminApi.registerPayment(id, { payment_type: type, amount: 0, reference: payRef });
+      const amt = type === 'deposit'
+        ? selected.deposit_amount
+        : (selected.amount_due ?? (selected.total_amount - selected.deposit_amount));
+      await adminApi.registerPayment(id, { payment_type: type, amount: amt, reference: payRef });
       setMsg('Betalning registrerad!');
       load();
       const res = await adminApi.getBooking(id);
@@ -664,7 +667,7 @@ export default function AdminBookings() {
               )}
 
               {/* Registrera betalning */}
-              {(selected.status === 'confirmed' || selected.status === 'deposit_paid') && (
+              {(selected.status === 'confirmed' || selected.status === 'deposit_paid' || selected.status === 'partially_paid') && (
                 <div style={{ borderTop: '1px solid var(--sand-dark)', paddingTop: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Registrera betalning</div>
                   <input placeholder="Referens (Swish-nr, kvittonr etc)" value={payRef}
@@ -683,6 +686,12 @@ export default function AdminBookings() {
                         Slutbetalning mottagen
                       </button>
                     )}
+                    {selected.status === 'partially_paid' && (
+                      <button onClick={() => registerPay(selected.id, 'final')} disabled={actionLoading}
+                        style={{ flex: 1, padding: 9, background: 'var(--forest)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
+                        Kvarstående mottaget ({selected.amount_due?.toLocaleString('sv-SE')} kr)
+                      </button>
+                    )}
                   </div>
                   <div style={{ marginTop: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 6 }}>Skicka betalningslänk till gäst:</div>
@@ -698,13 +707,13 @@ export default function AdminBookings() {
                             🔵 Kopiera länk – handpenning ({selected.deposit_amount?.toLocaleString('sv-SE')} kr)
                           </button>
                         )}
-                        {selected.status === 'deposit_paid' && (
+                        {(selected.status === 'deposit_paid' || selected.status === 'partially_paid') && (
                           <button onClick={async () => {
                             const link = `${window.location.origin}/pay/${selected.booking_ref}`;
                             navigator.clipboard.writeText(link);
                             setMsg('Betalningslänk kopierad: ' + link);
                           }} style={{ flex: 1, padding: 9, background: '#003087', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
-                            🔵 Kopiera länk – slutbetalning ({(selected.total_amount - selected.deposit_amount)?.toLocaleString('sv-SE')} kr)
+                            🔵 Kopiera länk – kvarstående ({(selected.amount_due ?? (selected.total_amount - selected.deposit_amount))?.toLocaleString('sv-SE')} kr)
                           </button>
                         )}
                       </div>
@@ -719,13 +728,13 @@ export default function AdminBookings() {
                             💳 Kopiera länk – handpenning ({selected.deposit_amount?.toLocaleString('sv-SE')} kr)
                           </button>
                         )}
-                        {selected.status === 'deposit_paid' && (
+                        {(selected.status === 'deposit_paid' || selected.status === 'partially_paid') && (
                           <button onClick={async () => {
                             const link = `${window.location.origin}/pay/${selected.booking_ref}`;
                             navigator.clipboard.writeText(link);
                             setMsg('Betalningslänk kopierad: ' + link);
                           }} style={{ flex: 1, padding: 9, background: '#635bff', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>
-                            💳 Kopiera länk – slutbetalning ({(selected.total_amount - selected.deposit_amount)?.toLocaleString('sv-SE')} kr)
+                            💳 Kopiera länk – kvarstående ({(selected.amount_due ?? (selected.total_amount - selected.deposit_amount))?.toLocaleString('sv-SE')} kr)
                           </button>
                         )}
                       </div>
