@@ -207,56 +207,77 @@ export default function AdminCalendar() {
                   const ids = arr => arr.map(b => b.id).sort().join(',');
                   const isFullDay = morn.length > 0 && ids(morn) === ids(aft);
 
-                  const chip = (b, half) => {
-                    const st_ = st(b.status);
-                    const addonCount = (b.articles || []).filter(a => a.quantity > 0).length + (b.addons || []).length;
-                    const ph = phaseLabel(b, dstr);
-                    return (
-                      <div key={half + b.id} onClick={() => setSelected(b)} title="Klicka för detaljer" style={{
-                        background: st_.bg, color: st_.color, borderRadius: 4, padding: '3px 6px',
-                        marginBottom: 3, cursor: 'pointer', lineHeight: 1.25,
-                      }}>
-                        <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.guest_name}</div>
-                        {ph && <div style={{ fontSize: 13, fontWeight: 500 }}>{ph}</div>}
-                        <div style={{ fontSize: 14 }}>
-                          👥{b.guests_count}{b.pets_count ? ` 🐾${b.pets_count}` : ''}{addonCount ? ` 🎁${addonCount}` : ''}
-                        </div>
-                        {(b.message || b.admin_note) && <div style={{ fontSize: 14 }}>💬</div>}
-                      </div>
-                    );
-                  };
+                  // Diagonal design: övre vänster triangel = avresa (fm),
+                  // nedre höger triangel = ankomst (em). Heldag = fylld ruta.
+                  const mornB = morn[0];
+                  const aftB = aft[0];
+                  const mornBg = mornB ? st(mornB.status).bg : null;
+                  const aftBg = aftB ? st(aftB.status).bg : null;
+                  const short = (n) => (n || '').split(' ')[0];
 
                   return (
                     <div key={i} style={{
-                      minHeight: 132, border: '1px solid var(--sand-dark)', borderRadius: 6,
-                      padding: 6, background: 'white', fontSize: 15, overflow: 'hidden',
+                      position: 'relative', minHeight: 132, border: '1px solid var(--sand-dark)',
+                      borderRadius: 6, background: 'white', fontSize: 15, overflow: 'hidden',
                     }}>
-                      <div style={{ color: 'var(--ink-light)', fontWeight: 600, fontSize: 18, marginBottom: 4 }}>{cell.getDate()}</div>
-                      {blk.map(bl => (
-                        <div key={'x' + bl.id} onClick={() => setSelected({ ...bl, _type: 'blocked' })} title="Blockerad – klicka för detaljer" style={{
-                          background: BLOCK_BG, color: BLOCK_FG, borderRadius: 4, padding: '4px 6px',
-                          marginBottom: 4, cursor: 'pointer', lineHeight: 1.3,
+                      {/* Blockerad täcker hela rutan */}
+                      {blk.length > 0 ? (
+                        <div onClick={() => setSelected({ ...blk[0], _type: 'blocked' })} title="Blockerad – klicka för detaljer" style={{
+                          position: 'absolute', inset: 0, background: BLOCK_BG, color: BLOCK_FG,
+                          cursor: 'pointer', padding: 6, display: 'flex', flexDirection: 'column',
                         }}>
-                          <div style={{ fontWeight: 600 }}>🚫 Blockerad</div>
-                          {bl.reason && <div style={{ fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{bl.reason}</div>}
+                          <div style={{ fontWeight: 600, fontSize: 18 }}>{cell.getDate()}</div>
+                          <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🚫 Blockerad</div>
+                          {blk[0].reason && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{blk[0].reason}</div>}
                         </div>
-                      ))}
-                      {/* Heldag: samma bokning fm + em → ett sammanhängande block.
-                          Växlingsdag: dela rutan i förmiddag / eftermiddag. */}
-                      {isFullDay ? (
-                        morn.map(b => chip(b, 'full'))
+                      ) : isFullDay && mornB ? (
+                        /* Heldag: fylld ruta med max info */
+                        <div onClick={() => setSelected(mornB)} title="Klicka för detaljer" style={{
+                          position: 'absolute', inset: 0, background: mornBg, color: st(mornB.status).color,
+                          cursor: 'pointer', padding: 6, display: 'flex', flexDirection: 'column',
+                        }}>
+                          <div style={{ fontWeight: 600, fontSize: 18 }}>{cell.getDate()}</div>
+                          <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>{mornB.guest_name}</div>
+                          <div style={{ fontSize: 13, marginTop: 2 }}>
+                            👥{mornB.guests_count}{mornB.pets_count ? ` 🐾${mornB.pets_count}` : ''}
+                            {((mornB.articles || []).filter(a => a.quantity > 0).length + (mornB.addons || []).length) ? ` 🎁${(mornB.articles || []).filter(a => a.quantity > 0).length + (mornB.addons || []).length}` : ''}
+                          </div>
+                          {(mornB.message || mornB.admin_note) && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
+                        </div>
                       ) : (
                         <>
-                          <div style={{ borderBottom: '1px dashed var(--sand-dark)', paddingBottom: 3, marginBottom: 3, minHeight: 20 }}>
-                            {morn.length > 0
-                              ? morn.map(b => chip(b, 'm'))
-                              : <div style={{ fontSize: 12, color: 'var(--sand-dark)' }}>fm</div>}
-                          </div>
-                          <div style={{ minHeight: 20 }}>
-                            {aft.length > 0
-                              ? aft.map(b => chip(b, 'a'))
-                              : <div style={{ fontSize: 12, color: 'var(--sand-dark)' }}>em</div>}
-                          </div>
+                          {/* Övre vänster triangel = avresa (fm) */}
+                          {mornB && (
+                            <div onClick={() => setSelected(mornB)} title={`${mornB.guest_name} – avresa`} style={{
+                              position: 'absolute', inset: 0, background: mornBg,
+                              clipPath: 'polygon(0 0, 100% 0, 0 100%)', cursor: 'pointer',
+                            }} />
+                          )}
+                          {/* Nedre höger triangel = ankomst (em) */}
+                          {aftB && (
+                            <div onClick={() => setSelected(aftB)} title={`${aftB.guest_name} – ankomst`} style={{
+                              position: 'absolute', inset: 0, background: aftBg,
+                              clipPath: 'polygon(100% 0, 100% 100%, 0 100%)', cursor: 'pointer',
+                            }} />
+                          )}
+                          {/* Datum uppe till vänster */}
+                          <div style={{ position: 'absolute', top: 4, left: 6, fontWeight: 600, fontSize: 18, color: 'var(--ink-light)', pointerEvents: 'none' }}>{cell.getDate()}</div>
+                          {/* Avresetext (uppe vänster, under datum) */}
+                          {mornB && (
+                            <div style={{ position: 'absolute', top: 26, left: 6, fontSize: 12, fontWeight: 600, color: st(mornB.status).color, lineHeight: 1.15, pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {short(mornB.guest_name)}<br /><span style={{ fontWeight: 400 }}>ut</span>
+                            </div>
+                          )}
+                          {/* Ankomsttext (nere höger) */}
+                          {aftB && (
+                            <div style={{ position: 'absolute', bottom: 5, right: 6, fontSize: 12, fontWeight: 600, color: st(aftB.status).color, lineHeight: 1.15, textAlign: 'right', pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {short(aftB.guest_name)}<br /><span style={{ fontWeight: 400 }}>in</span>
+                            </div>
+                          )}
+                          {/* Helt ledig dag */}
+                          {!mornB && !aftB && (
+                            <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', fontSize: 12, color: 'var(--sand-dark)', pointerEvents: 'none' }}>ledig</div>
+                          )}
                         </>
                       )}
                     </div>
