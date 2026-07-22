@@ -778,14 +778,9 @@ def admin_register_payment(
         )
         db.add(payment)
 
-    # Uppdatera bokningsstatus
-    paid_payments = [p for p in b.payments if p.status == PaymentStatus.paid]
-    total_paid = sum(float(p.amount) for p in paid_payments)
-
-    if total_paid >= float(b.total_amount) - 1:
-        b.status = BookingStatus.paid
-    elif any(p.type == PaymentType.deposit for p in paid_payments):
-        b.status = BookingStatus.deposit_paid
+    # Uppdatera bokningsstatus (räknar om mot faktiskt totalbelopp, inkl. ev. tillägg)
+    from app.core.booking_logic import recalc_booking_status
+    recalc_booking_status(db, b)
 
     db.commit()
     db.refresh(b)
@@ -801,6 +796,7 @@ def admin_register_payment(
 
 # ─── Hjälpfunktioner ────────────────────────────────────
 def _booking_summary(b: Booking) -> dict:
+    paid_sofar = sum(float(p.amount) for p in b.payments if p.status == PaymentStatus.paid)
     return {
         "id": b.id,
         "booking_ref": b.booking_ref,
@@ -815,6 +811,8 @@ def _booking_summary(b: Booking) -> dict:
         "nights": b.nights,
         "total_amount": float(b.total_amount),
         "deposit_amount": float(b.deposit_amount),
+        "amount_paid": paid_sofar,
+        "amount_due": round(float(b.total_amount) - paid_sofar, 2),
         "status": b.status.value,
         "payment_method": b.payment_method.value if b.payment_method else None,
         "payment_methods": b.payment_methods,
@@ -1017,6 +1015,10 @@ def admin_add_article(
     b.total_amount = b.base_amount + new_articles_amount
     deposit_pct = Decimal(str(b.snapshot.get("deposit_pct", 10)))
     b.deposit_amount = (b.total_amount * deposit_pct / 100).quantize(Decimal("1"))
+
+    # Räkna om status: totalbeloppet har ökat, ev. nedgradering från Betald till Delbetald
+    from app.core.booking_logic import recalc_booking_status
+    recalc_booking_status(db, b)
 
     # Uppdatera snapshot
     snap = dict(b.snapshot)
