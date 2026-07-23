@@ -762,6 +762,7 @@ def list_addon_requests(db: Session = Depends(get_db), _: User = Depends(require
             "id": a.id, "booking_ref": a.booking_ref, "status": a.status,
             "articles": a.articles, "total_amount": float(a.total_amount),
             "discount_amount": float(a.discount_amount or 0),
+            "discount_pct": float((b.snapshot or {}).get("discount_pct") or 0) if b else 0,
             "message": a.message, "admin_note": a.admin_note,
             "created_at": a.created_at.isoformat() if a.created_at else None,
             "guest_name": b.guest_name if b else "", "guest_email": b.guest_email if b else "",
@@ -823,8 +824,9 @@ async def confirm_addon(addon_id: int, data: dict = {}, db: Session = Depends(ge
         "de": f"Hallo {booking.guest_name.split()[0]}! Ihr Zusatz für Buchung <strong>{booking.booking_ref}</strong> wurde genehmigt.",
     }
     pay_labels = {"sv":"Betala nu","en":"Pay now","de":"Jetzt bezahlen"}
+    addon_discount_pct = float((booking.snapshot or {}).get("discount_pct") or 0)
     discount_row = (
-        f"<tr><td colspan=\"2\" style=\"color:#27ae60\">Rabatt</td><td style=\"color:#27ae60\">−{float(addon.discount_amount):,.0f} kr</td></tr>"
+        f"<tr><td colspan=\"2\" style=\"color:#27ae60\">Rabatt ({addon_discount_pct:.0f}%)</td><td style=\"color:#27ae60\">−{float(addon.discount_amount):,.0f} kr</td></tr>"
         if addon.discount_amount and float(addon.discount_amount) > 0 else ""
     )
     html = f"""<h2>{subjects[lang]}</h2>
@@ -878,4 +880,7 @@ async def reject_addon(addon_id: int, data: dict = {}, db: Session = Depends(get
 def get_booking_addons(booking_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     from app.models.models import BookingAddon
     addons = db.query(BookingAddon).filter(BookingAddon.booking_id == booking_id).order_by(BookingAddon.created_at.desc()).all()
-    return [{"id":a.id,"status":a.status,"articles":a.articles,"total_amount":float(a.total_amount),"discount_amount":float(a.discount_amount or 0),"message":a.message,"admin_note":a.admin_note,"created_at":a.created_at.isoformat() if a.created_at else None} for a in addons]
+    disc_pct = 0
+    if addons and addons[0].booking:
+        disc_pct = float((addons[0].booking.snapshot or {}).get("discount_pct") or 0)
+    return [{"id":a.id,"status":a.status,"articles":a.articles,"total_amount":float(a.total_amount),"discount_amount":float(a.discount_amount or 0),"discount_pct":disc_pct,"message":a.message,"admin_note":a.admin_note,"created_at":a.created_at.isoformat() if a.created_at else None} for a in addons]
