@@ -817,6 +817,8 @@ def _booking_summary(b: Booking) -> dict:
         "amount_paid": paid_sofar,
         "amount_due": round(float(b.total_amount) - paid_sofar, 2),
         "pending_addons_count": pending_addons,
+        "discount_pct": float((b.snapshot or {}).get("discount_pct") or 0),
+        "discount_amount": float((b.snapshot or {}).get("discount_amount") or 0),
         "status": b.status.value,
         "payment_method": b.payment_method.value if b.payment_method else None,
         "payment_methods": b.payment_methods,
@@ -1189,6 +1191,8 @@ async def create_addon_request(
         "addon_id": addon.id,
         "booking_ref": booking.booking_ref,
         "total_amount": float(total),
+        "discount_amount": float(discount_amount),
+        "discount_pct": discount_pct,
         "articles": articles_snap,
     }
 
