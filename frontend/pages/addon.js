@@ -161,6 +161,11 @@ export default function AddonPage() {
               <h2 style={{ fontSize:22, fontFamily:'Georgia,serif', marginBottom:12 }}>{t.done_title}</h2>
               <p style={{ color:'#666', fontSize:14 }}>{t.done_text}</p>
               {result && <p style={{ color:'#888', fontSize:13, marginTop:8 }}>Ref: {result.booking_ref} · {result.total_amount?.toLocaleString('sv-SE')} kr</p>}
+              {result?.discount_amount > 0 && (
+                <p style={{ color:'#2f855a', fontSize:13, marginTop:2 }}>
+                  Rabatt ({result.discount_pct}%): −{result.discount_amount.toLocaleString('sv-SE')} kr
+                </p>
+              )}
             </div>
           )}
         </div>
