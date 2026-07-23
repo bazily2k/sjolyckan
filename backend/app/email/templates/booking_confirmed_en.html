@@ -42,7 +42,7 @@
     <tr><td>{{ art.name_en }}{% if art.desc_en %}<br><span style="font-size:11px;color:#888">{{ art.desc_en }}</span>{% endif %}</td><td>{{ "{:,.0f}".format(art.line_total).replace(",", "\xa0") }} SEK</td></tr>
     {% endfor %}
     {% if snap.discount_amount is defined and snap.discount_amount > 0 %}
-    <tr><td style="color:#27ae60">Discount</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount).replace(",", "\xa0") }} kr</td></tr>
+    <tr><td style="color:#27ae60">Discount ({{ "{:.0f}".format(snap.discount_pct) }}%)</td><td style="color:#27ae60">−{{ "{:,.0f}".format(snap.discount_amount).replace(",", "\xa0") }} kr</td></tr>
     {% endif %}
     <tr class="total"><td>Total</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} SEK</td></tr>
   </table>

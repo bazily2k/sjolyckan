@@ -367,6 +367,7 @@ class BookingAddon(Base):
     status       = Column(String(20), default="pending")   # pending | confirmed | rejected
     articles     = Column(JSON, nullable=False, default=list)  # snapshot
     total_amount = Column(Numeric(10, 2), default=0)
+    discount_amount = Column(Numeric(10, 2), default=0)  # samma rabatt-% som gällde vid bokningen
     message      = Column(Text, nullable=True)
     admin_note   = Column(Text, nullable=True)
     created_at   = Column(DateTime(timezone=True), server_default=func.now())

@@ -46,7 +46,7 @@ export default function AddonPage() {
     } finally { setLoading(false); }
   };
 
-  const totalAmount = () => {
+  const rawAmount = () => {
     return articles.reduce((sum, a) => {
       const qty = selected[a.id] || 0;
       if (!qty) return sum;
@@ -55,6 +55,12 @@ export default function AddonPage() {
       return sum + a.price * qty;
     }, 0);
   };
+  const discountPct = () => booking?.discount_pct || 0;
+  const discountAmount = () => {
+    const pct = discountPct();
+    return pct > 0 ? Math.round(rawAmount() * pct / 100) : 0;
+  };
+  const totalAmount = () => rawAmount() - discountAmount();
 
   const submit = async () => {
     const article_ids = Object.keys(selected).filter(k => selected[k] > 0).map(Number);
@@ -140,10 +146,18 @@ export default function AddonPage() {
                 <textarea value={message} onChange={e=>setMessage(e.target.value)} placeholder={t.message_placeholder}
                   rows={3} style={{ ...inp, resize:'vertical', fontFamily:'inherit' }} />
               </div>
-              {totalAmount() > 0 && (
-                <div style={{ marginTop:16, padding:'12px 16px', background:'#f8f5f0', borderRadius:8, display:'flex', justifyContent:'space-between', fontWeight:500 }}>
-                  <span>{t.total}</span>
-                  <span>{totalAmount().toLocaleString('sv-SE')} kr</span>
+              {rawAmount() > 0 && (
+                <div style={{ marginTop:16, padding:'12px 16px', background:'#f8f5f0', borderRadius:8 }}>
+                  {discountAmount() > 0 && (
+                    <div style={{ display:'flex', justifyContent:'space-between', color:'#2f855a', fontSize:13, marginBottom:6 }}>
+                      <span>Rabatt ({discountPct()}%)</span>
+                      <span>−{discountAmount().toLocaleString('sv-SE')} kr</span>
+                    </div>
+                  )}
+                  <div style={{ display:'flex', justifyContent:'space-between', fontWeight:500 }}>
+                    <span>{t.total}</span>
+                    <span>{totalAmount().toLocaleString('sv-SE')} kr</span>
+                  </div>
                 </div>
               )}
               <button onClick={submit} disabled={loading} style={btn}>
@@ -159,6 +173,11 @@ export default function AddonPage() {
               <h2 style={{ fontSize:22, fontFamily:'Georgia,serif', marginBottom:12 }}>{t.done_title}</h2>
               <p style={{ color:'#666', fontSize:14 }}>{t.done_text}</p>
               {result && <p style={{ color:'#888', fontSize:13, marginTop:8 }}>Ref: {result.booking_ref} · {result.total_amount?.toLocaleString('sv-SE')} kr</p>}
+              {result?.discount_amount > 0 && (
+                <p style={{ color:'#2f855a', fontSize:13, marginTop:2 }}>
+                  Rabatt ({result.discount_pct}%): −{result.discount_amount.toLocaleString('sv-SE')} kr
+                </p>
+              )}
             </div>
           )}
         </div>

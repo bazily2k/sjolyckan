@@ -236,4 +236,5 @@ def booking_lookup(ref: str, db: Session = Depends(get_db)):
         "guests_count": b.guests_count,
         "lang": b.lang or "sv",
         "status": b.status.value,
+        "discount_pct": float((b.snapshot or {}).get("discount_pct") or 0),
     }

@@ -336,9 +336,18 @@ export default function AdminBookings() {
                         <span title={`${b.pending_addons_count} väntande tilläggsbeställning${b.pending_addons_count > 1 ? 'ar' : ''} att hantera`}
                           style={{ marginLeft: 6, cursor: 'default' }}>🔔</span>
                       )}
+                      {typeof b.discount_amount === 'number' && b.discount_amount > 0 && (
+                        <span title={`Rabatt ${b.discount_pct}% (−${b.discount_amount.toLocaleString('sv-SE')} kr)`}
+                          style={{ marginLeft: 6, cursor: 'default' }}>🏷️</span>
+                      )}
                       {typeof b.amount_due === 'number' && b.amount_due > 0 && (
                         <div style={{ fontSize: 11, fontWeight: 400, color: '#c0392b', marginTop: 2 }}>
                           Kvar: {b.amount_due.toLocaleString('sv-SE')} kr
+                        </div>
+                      )}
+                      {typeof b.discount_amount === 'number' && b.discount_amount > 0 && (
+                        <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--forest)', marginTop: 2 }}>
+                          Rabatt {b.discount_pct}%: −{b.discount_amount.toLocaleString('sv-SE')} kr
                         </div>
                       )}
                     </td>
@@ -421,7 +430,7 @@ export default function AdminBookings() {
                 ))}
                 {selected.snapshot?.discount_amount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--forest)' }}>
-                    <span>Rabatt</span>
+                    <span>Rabatt ({selected.snapshot.discount_pct}%)</span>
                     <span>−{selected.snapshot.discount_amount?.toLocaleString('sv-SE')} kr</span>
                   </div>
                 )}
@@ -756,6 +765,12 @@ export default function AdminBookings() {
                             <span style={{ color:'var(--ink-pale)' }}>{Number(x.line_total).toLocaleString('sv-SE')} kr</span>
                           </div>
                         ))}
+                        {a.discount_amount > 0 && (
+                          <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'var(--forest)', marginBottom:2 }}>
+                            <span>Rabatt ({a.discount_pct}%)</span>
+                            <span>−{Number(a.discount_amount).toLocaleString('sv-SE')} kr</span>
+                          </div>
+                        )}
                         <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:600, borderTop:'1px solid var(--sand-dark)', marginTop:4, paddingTop:4 }}>
                           <span>Totalt</span>
                           <span>{Number(a.total_amount).toLocaleString('sv-SE')} kr</span>

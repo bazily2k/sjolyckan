@@ -275,6 +275,7 @@ def calculate_booking_price(
         "extra_guest_rate": float(extra_guest_rate),
         "terms_version": "1.0",
         "discount_pct": float(discount_pct),
+        "discount_amount": float(discount_amount),
     }
 
     return {
