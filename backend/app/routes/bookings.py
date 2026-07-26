@@ -583,7 +583,13 @@ def admin_calendar(
         "end": str(end_d),
         "bookings": [_cal(b) for b in bookings],
         "blocked": [
-            {"id": bl.id, "date_from": str(bl.date_from), "date_to": str(bl.date_to), "reason": bl.reason}
+            {
+                "id": bl.id, "date_from": str(bl.date_from), "date_to": str(bl.date_to), "reason": bl.reason,
+                "agent_id": bl.agent_id, "agent_name": bl.agent.name if bl.agent_id and bl.agent else None,
+                "guest_name": bl.guest_name, "guest_email": bl.guest_email, "guest_phone": bl.guest_phone,
+                "guest_country": bl.guest_country, "adults_count": bl.adults_count,
+                "children_count": bl.children_count, "pets_count": bl.pets_count,
+            }
             for bl in blocks
         ],
     }
