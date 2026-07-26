@@ -26,6 +26,9 @@ export default function AdminUsers() {
   }, []);
   const [myRole, setMyRole] = useState(null);
   const isAdmin = myRole === 'admin';
+  const GUEST_ROLES = ['guest', 'friend'];
+  const guestUsers = users.filter(u => GUEST_ROLES.includes(u.role));
+  const staffUsers = users.filter(u => !GUEST_ROLES.includes(u.role));
 
   const load = () => adminApi.listUsers()
     .then(r => setUsers(Array.isArray(r.data) ? r.data : (r.data.items || [])))
@@ -105,6 +108,96 @@ export default function AdminUsers() {
     }
   };
 
+  const renderUserList = (list) => (
+    <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden', overflowX:'auto' }}>
+      {list.length === 0 ? (
+        <div style={{ padding:'20px 16px', fontSize:13, color:'var(--ink-pale)' }}>Inga användare i denna kategori.</div>
+      ) : isMobile ? (
+        /* Kortlista på mobil */
+        <div>
+          {list.map(u => (
+            <div key={u.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid var(--sand)' }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:500 }}>{u.first_name} {u.last_name}</div>
+                <div style={{ fontSize:12, color:'var(--ink-light)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</div>
+                <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:2 }}>
+                  {u.role === 'admin' ? 'Admin' : u.role === 'staff' ? 'Personal' : u.role === 'friend' ? 'Vän' : 'Gäst'}
+                  {u.discount_pct > 0 ? ` · ${u.discount_pct}% rabatt` : ''}
+                  {!u.is_active ? ' · Inaktiv' : ''}
+                </div>
+              </div>
+              <button onClick={() => startEdit(u)} disabled={u.role === 'admin' && !isAdmin}
+                style={{ padding:'6px 12px', fontSize:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:(u.role==='admin'&&!isAdmin)?'not-allowed':'pointer', opacity:(u.role==='admin'&&!isAdmin)?0.5:1, flexShrink:0 }}>
+                Redigera
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Tabell på desktop/surfplatta */
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+        <thead>
+          <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
+            {['Namn','E-post','Roll','Rabatt %','Konto','Senast inloggad','Status',''].map((h,i) => (
+              <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {list.map(u => (
+            <tr key={u.id} style={{ borderBottom:'1px solid var(--sand)' }}>
+              <td style={{ padding:'10px 14px', fontWeight:500, whiteSpace:'nowrap' }}>{u.first_name} {u.last_name}</td>
+              <td style={{ padding:'10px 14px', color:'var(--ink-light)', maxWidth: isMobile ? 150 : 'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</td>
+              <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
+                <select value={u.role} onChange={e => updateRole(u.id, e.target.value)}
+                  disabled={u.role === 'admin' && !isAdmin}
+                  style={{ padding:'3px 8px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12,
+                    background: u.role === 'admin' ? '#faeeda' : u.role === 'staff' ? '#d1ecf1' : u.role === 'friend' ? '#d4edda' : '#e2e3e5',
+                    color: u.role === 'admin' ? '#854F0B' : u.role === 'staff' ? '#0c5460' : u.role === 'friend' ? '#155724' : '#383d41',
+                  }}>
+                  <option value="guest">Gäst</option>
+                  <option value="friend">Vän/Bekant</option>
+                  <option value="staff">Personal</option>
+                  {(isAdmin || u.role === 'admin') && <option value="admin">Admin</option>}
+                </select>
+              </td>
+              <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <input type='number' min='0' max='100'
+                    defaultValue={u.discount_pct || 0}
+                    onBlur={e => updateDiscount(u.id, e.target.value)}
+                    disabled={u.role === 'admin' && !isAdmin}
+                    style={{ width:50, padding:'4px 6px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12, textAlign:'center' }}
+                  />
+                  <span style={{ fontSize:11, color:'var(--ink-pale)' }}>%</span>
+                </div>
+              </td>
+              <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
+                {u.account_registered ? (
+                  <span style={{ fontSize:11, color:'var(--forest)' }} title="Kunden har själv satt ett lösenord">✓ Registrerat</span>
+                ) : (
+                  <span style={{ fontSize:11, color:'var(--ink-pale)' }} title="Auto-skapat konto — kunden har inte satt eget lösenord">– Ej registrerat</span>
+                )}
+              </td>
+              <td style={{ padding:'10px 14px', color:'var(--ink-pale)', fontSize:12, display: isMobile ? 'none' : '' }}>
+                {u.last_login ? new Date(u.last_login).toLocaleDateString('sv-SE') : '–'}
+              </td>
+              <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
+                <span style={{ fontSize:11, color: u.is_active ? 'var(--forest)' : 'var(--red)' }}>
+                  {u.is_active ? '● Aktiv' : '● Inaktiv'}
+                </span>
+              </td>
+              <td style={{ padding:'10px 14px' }}>
+                <button onClick={() => startEdit(u)} disabled={u.role === 'admin' && !isAdmin} style={{ padding:'4px 10px', fontSize:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:(u.role === 'admin' && !isAdmin)?'not-allowed':'pointer', opacity:(u.role === 'admin' && !isAdmin)?0.5:1 }}>Redigera</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        </table>
+      )}
+    </div>
+  );
+
   return (
     <>
       <Head><title>Användare — Admin Sjölyckan</title></Head>
@@ -112,90 +205,13 @@ export default function AdminUsers() {
         {msg && <div style={msgBox}>{msg} <button onClick={() => setMsg('')} style={{ border:'none', background:'none', cursor:'pointer' }}>×</button></div>}
         <div style={{ display:'grid', gridTemplateColumns:isAdmin && !isMobile?'1fr 280px':'1fr', gap:20, alignItems:'start' }}>
           {/* Lista */}
-          <div style={{ background:'white', borderRadius:'var(--radius-lg)', border:'1px solid var(--sand-dark)', overflow:'hidden', overflowX:'auto', order: isMobile ? 2 : 1 }}>
-            {isMobile ? (
-              /* Kortlista på mobil */
-              <div>
-                {users.map(u => (
-                  <div key={u.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom:'1px solid var(--sand)' }}>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:500 }}>{u.first_name} {u.last_name}</div>
-                      <div style={{ fontSize:12, color:'var(--ink-light)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</div>
-                      <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:2 }}>
-                        {u.role === 'admin' ? 'Admin' : u.role === 'staff' ? 'Personal' : u.role === 'friend' ? 'Vän' : 'Gäst'}
-                        {u.discount_pct > 0 ? ` · ${u.discount_pct}% rabatt` : ''}
-                        {!u.is_active ? ' · Inaktiv' : ''}
-                      </div>
-                    </div>
-                    <button onClick={() => startEdit(u)} disabled={u.role === 'admin' && !isAdmin}
-                      style={{ padding:'6px 12px', fontSize:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:(u.role==='admin'&&!isAdmin)?'not-allowed':'pointer', opacity:(u.role==='admin'&&!isAdmin)?0.5:1, flexShrink:0 }}>
-                      Redigera
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              /* Tabell på desktop/surfplatta */
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-              <thead>
-                <tr style={{ background:'var(--sand)', borderBottom:'1px solid var(--sand-dark)' }}>
-                  {['Namn','E-post','Roll','Rabatt %','Konto','Senast inloggad','Status',''].map((h,i) => (
-                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:500, color:'var(--ink-light)', fontSize:11, textTransform:'uppercase' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id} style={{ borderBottom:'1px solid var(--sand)' }}>
-                    <td style={{ padding:'10px 14px', fontWeight:500, whiteSpace:'nowrap' }}>{u.first_name} {u.last_name}</td>
-                    <td style={{ padding:'10px 14px', color:'var(--ink-light)', maxWidth: isMobile ? 150 : 'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</td>
-                    <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
-                      <select value={u.role} onChange={e => updateRole(u.id, e.target.value)}
-                        disabled={u.role === 'admin' && !isAdmin}
-                        style={{ padding:'3px 8px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12,
-                          background: u.role === 'admin' ? '#faeeda' : u.role === 'staff' ? '#d1ecf1' : u.role === 'friend' ? '#d4edda' : '#e2e3e5',
-                          color: u.role === 'admin' ? '#854F0B' : u.role === 'staff' ? '#0c5460' : u.role === 'friend' ? '#155724' : '#383d41',
-                        }}>
-                        <option value="guest">Gäst</option>
-                        <option value="friend">Vän/Bekant</option>
-                        <option value="staff">Personal</option>
-                        {(isAdmin || u.role === 'admin') && <option value="admin">Admin</option>}
-                      </select>
-                    </td>
-                    <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                        <input type='number' min='0' max='100'
-                          defaultValue={u.discount_pct || 0}
-                          onBlur={e => updateDiscount(u.id, e.target.value)}
-                          disabled={u.role === 'admin' && !isAdmin}
-                          style={{ width:50, padding:'4px 6px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:12, textAlign:'center' }}
-                        />
-                        <span style={{ fontSize:11, color:'var(--ink-pale)' }}>%</span>
-                      </div>
-                    </td>
-                    <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
-                      {u.account_registered ? (
-                        <span style={{ fontSize:11, color:'var(--forest)' }} title="Kunden har själv satt ett lösenord">✓ Registrerat</span>
-                      ) : (
-                        <span style={{ fontSize:11, color:'var(--ink-pale)' }} title="Auto-skapat konto — kunden har inte satt eget lösenord">– Ej registrerat</span>
-                      )}
-                    </td>
-                    <td style={{ padding:'10px 14px', color:'var(--ink-pale)', fontSize:12, display: isMobile ? 'none' : '' }}>
-                      {u.last_login ? new Date(u.last_login).toLocaleDateString('sv-SE') : '–'}
-                    </td>
-                    <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
-                      <span style={{ fontSize:11, color: u.is_active ? 'var(--forest)' : 'var(--red)' }}>
-                        {u.is_active ? '● Aktiv' : '● Inaktiv'}
-                      </span>
-                    </td>
-                    <td style={{ padding:'10px 14px' }}>
-                      <button onClick={() => startEdit(u)} disabled={u.role === 'admin' && !isAdmin} style={{ padding:'4px 10px', fontSize:12, background:'var(--water)', color:'white', border:'none', borderRadius:'var(--radius-md)', cursor:(u.role === 'admin' && !isAdmin)?'not-allowed':'pointer', opacity:(u.role === 'admin' && !isAdmin)?0.5:1 }}>Redigera</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              </table>
-            )}
+          <div style={{ order: isMobile ? 2 : 1 }}>
+            <CollapsibleSection title="Gäster" badge={guestUsers.length} defaultOpen storageKey="admin-users-guests">
+              {renderUserList(guestUsers)}
+            </CollapsibleSection>
+            <CollapsibleSection title="Användare" badge={staffUsers.length} defaultOpen storageKey="admin-users-staff">
+              {renderUserList(staffUsers)}
+            </CollapsibleSection>
           </div>
 
           {/* Redigera användare */}
