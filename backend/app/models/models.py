@@ -349,6 +349,19 @@ class EmailLog(Base):
     booking = relationship("Booking", back_populates="email_logs")
 
 
+class Agent(Base):
+    """Förmedlare (t.ex. Airbnb, Booking.com) som vi hyr ut via."""
+    __tablename__ = "agents"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), nullable=False)
+    url = Column(String(500))
+    notes = Column(Text, nullable=True)  # allmän info, t.ex. adress/villkor
+    # Kontaktpersoner: [{"name": "", "email": "", "mobile": "", "is_primary": bool}, ...]
+    contacts = Column(JSON, nullable=False, default=list)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class BlockedDate(Base):
     __tablename__ = "blocked_dates"
     id = Column(Integer, primary_key=True)
@@ -356,6 +369,20 @@ class BlockedDate(Base):
     date_to = Column(Date, nullable=False)
     reason = Column(String(500))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Förmedlar-bokning: om agent_id är satt representerar blockeringen en
+    # gästbokning gjord via en extern förmedlare, med samma typ av gästinfo
+    # som våra egna bokningar (visas i admin-kalendern med annan färg).
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    guest_name = Column(String(200), nullable=True)
+    guest_email = Column(String(255), nullable=True)
+    guest_phone = Column(String(50), nullable=True)
+    guest_country = Column(String(10), nullable=True)
+    adults_count = Column(Integer, nullable=True)
+    children_count = Column(Integer, nullable=True)
+    pets_count = Column(Integer, nullable=True)
+
+    agent = relationship("Agent")
 
 class BookingAddon(Base):
     """Tilläggsbegäran kopplad till en bekräftad bokning."""
