@@ -73,9 +73,9 @@ async def resend_verify_email(
     return {"status": "sent", "booking_ref": booking.booking_ref}
 
 
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------------------
 # SÄSONGER
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------------------
 class SeasonSchema(BaseModel):
     name_sv: str
     name_en: str
@@ -145,9 +145,9 @@ def delete_season(season_id: int, db: Session = Depends(get_db), _: User = Depen
     return {"ok": True}
 
 
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------------------
 # PRISÖVERSTYRING (enskilda datum)
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------------------
 class OverrideSchema(BaseModel):
     date: date
     price_per_night: float
@@ -188,9 +188,9 @@ def delete_override(override_id: int, db: Session = Depends(get_db), _: User = D
     return {"ok": True}
 
 
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------------------
 # ARTIKLAR / TILLÄGG
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------------------
 class ArticleSchema(BaseModel):
     name_sv: str
     name_en: str
@@ -279,7 +279,7 @@ def delete_article(article_id: int, db: Session = Depends(get_db), _: User = Dep
     return {"ok": True}
 
 
-# ─── Incheckningsinfo-punkter (egna infoblock i incheckningsmailet) ───
+# --- Incheckningsinfo-punkter (egna infoblock i incheckningsmailet) ---
 @router.get("/checkin-info")
 def list_checkin_info(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     return db.query(CheckinInfoItem).order_by(CheckinInfoItem.sort_order, CheckinInfoItem.id).all()
@@ -343,9 +343,9 @@ def delete_checkin_image(item_id: int, db: Session = Depends(get_db), _: User = 
     return {"ok": True}
 
 
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------------------
 # GLOBALA INSTÄLLNINGAR
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------------------
 @router.get("/settings")
 def get_settings(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     settings_list = db.query(Setting).all()
@@ -364,7 +364,7 @@ def update_setting(key: str, value: str, db: Session = Depends(get_db), _: User 
     return {"key": key, "value": value}
 
 
-# ─── E-postlogg ──────────────────────────────────────
+# --- E-postlogg --------------------------------------
 @router.get("/email-logs")
 def get_email_logs(
     db: Session = Depends(get_db),
@@ -388,7 +388,7 @@ def get_email_logs(
         "sent_at": str(log.sent_at),
     } for log, booking in logs]
 
-# ─── Radera e-postlogg ───────────────────────────────
+# --- Radera e-postlogg -------------------------------
 @router.delete("/email-logs/{log_id}")
 def delete_email_log(
     log_id: int,
@@ -404,7 +404,7 @@ def delete_email_log(
     return {"ok": True}
 
 
-# ─── Radera alla e-postloggar ────────────────────────
+# --- Radera alla e-postloggar ------------------------
 @router.delete("/email-logs")
 def delete_all_email_logs(
     db: Session = Depends(get_db),
@@ -415,7 +415,7 @@ def delete_all_email_logs(
     db.commit()
     return {"ok": True}
 
-# ─── Blockerade datum ─────────────────────────────────
+# --- Blockerade datum ---------------------------------
 @router.get("/blocked-dates")
 def list_blocked_dates(
     db: Session = Depends(get_db),
@@ -423,7 +423,16 @@ def list_blocked_dates(
 ):
     from app.models.models import BlockedDate
     blocks = db.query(BlockedDate).order_by(BlockedDate.date_from).all()
-    return [{"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason} for b in blocks]
+    return [_blocked_dict(b) for b in blocks]
+
+def _blocked_dict(b) -> dict:
+    return {
+        "id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason,
+        "agent_id": b.agent_id, "agent_name": b.agent.name if b.agent_id and b.agent else None,
+        "guest_name": b.guest_name, "guest_email": b.guest_email, "guest_phone": b.guest_phone,
+        "guest_country": b.guest_country, "adults_count": b.adults_count,
+        "children_count": b.children_count, "pets_count": b.pets_count,
+    }
 
 @router.post("/blocked-dates")
 def create_blocked_date(
@@ -431,17 +440,27 @@ def create_blocked_date(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.models.models import BlockedDate
-    from datetime import date
+    from app.models.models import BlockedDate, Agent
+    agent_id = data.get("agent_id") or None
+    if agent_id and not db.query(Agent).filter(Agent.id == agent_id).first():
+        raise HTTPException(status_code=400, detail="Okänd förmedlare")
     b = BlockedDate(
         date_from=date.fromisoformat(data["date_from"]),
         date_to=date.fromisoformat(data["date_to"]),
         reason=data.get("reason", ""),
+        agent_id=agent_id,
+        guest_name=data.get("guest_name") or None,
+        guest_email=data.get("guest_email") or None,
+        guest_phone=data.get("guest_phone") or None,
+        guest_country=data.get("guest_country") or None,
+        adults_count=data.get("adults_count"),
+        children_count=data.get("children_count"),
+        pets_count=data.get("pets_count"),
     )
     db.add(b)
     db.commit()
     db.refresh(b)
-    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
+    return _blocked_dict(b)
 
 @router.put("/blocked-dates/{block_id}")
 def update_blocked_date(
@@ -450,13 +469,18 @@ def update_blocked_date(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.models.models import BlockedDate
+    from app.models.models import BlockedDate, Agent
     b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
     if not b: raise HTTPException(status_code=404, detail="Hittades inte")
-    for field in ("date_from", "date_to", "reason"):
+    if "agent_id" in data and data["agent_id"]:
+        if not db.query(Agent).filter(Agent.id == data["agent_id"]).first():
+            raise HTTPException(status_code=400, detail="Okänd förmedlare")
+    for field in ("date_from", "date_to", "reason", "agent_id", "guest_name",
+                  "guest_email", "guest_phone", "guest_country",
+                  "adults_count", "children_count", "pets_count"):
         if field in data: setattr(b, field, data[field] or None)
     db.commit(); db.refresh(b)
-    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
+    return _blocked_dict(b)
 
 @router.delete("/blocked-dates/{block_id}")
 def delete_blocked_date(
@@ -472,7 +496,69 @@ def delete_blocked_date(
     db.commit()
     return {"ok": True}
 
-# ─── Skicka om e-post ───────────────────────────────────
+# --- Förmedlare -----------------------------------------
+def _agent_dict(a) -> dict:
+    return {
+        "id": a.id, "name": a.name, "url": a.url, "notes": a.notes,
+        "contacts": a.contacts or [], "is_active": a.is_active,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+    }
+
+@router.get("/agents")
+def list_agents(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Agent
+    agents = db.query(Agent).order_by(Agent.name).all()
+    return [_agent_dict(a) for a in agents]
+
+@router.post("/agents")
+def create_agent(data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Agent
+    if not data.get("name"):
+        raise HTTPException(status_code=400, detail="Namn krävs")
+    contacts = data.get("contacts") or []
+    _validate_contacts(contacts)
+    a = Agent(
+        name=data["name"], url=data.get("url"), notes=data.get("notes"),
+        contacts=contacts, is_active=data.get("is_active", True),
+    )
+    db.add(a); db.commit(); db.refresh(a)
+    return _agent_dict(a)
+
+@router.put("/agents/{agent_id}")
+def update_agent(agent_id: int, data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Agent
+    a = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Hittades inte")
+    if "contacts" in data:
+        _validate_contacts(data["contacts"] or [])
+    for field in ("name", "url", "notes", "contacts", "is_active"):
+        if field in data:
+            setattr(a, field, data[field])
+    db.commit(); db.refresh(a)
+    return _agent_dict(a)
+
+@router.delete("/agents/{agent_id}")
+def delete_agent(agent_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Agent, BlockedDate
+    a = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Hittades inte")
+    in_use = db.query(BlockedDate).filter(BlockedDate.agent_id == agent_id).count()
+    if in_use > 0:
+        raise HTTPException(status_code=400, detail=f"Förmedlaren används av {in_use} blockering(ar) och kan inte tas bort. Avaktivera den istället.")
+    db.delete(a)
+    db.commit()
+    return {"ok": True}
+
+def _validate_contacts(contacts: list):
+    if not isinstance(contacts, list):
+        raise HTTPException(status_code=400, detail="Kontaktpersoner måste vara en lista")
+    primaries = sum(1 for c in contacts if c.get("is_primary"))
+    if primaries > 1:
+        raise HTTPException(status_code=400, detail="Endast en kontaktperson kan vara huvudkontakt")
+
+# --- Skicka om e-post -----------------------------------
 @router.post("/email-logs/{log_id}/resend")
 async def resend_email(
     log_id: int,
@@ -534,7 +620,7 @@ async def resend_email(
     raise HTTPException(status_code=500, detail="Misslyckades skicka mail")
 
 
-# ─── Generera PDF för villkor/GDPR ──────────────────────
+# --- Generera PDF för villkor/GDPR ----------------------
 @router.get("/pdf/{doc_type}")
 async def generate_pdf(
     doc_type: str,
@@ -614,7 +700,7 @@ async def generate_pdf(
         raise HTTPException(status_code=500, detail=f"PDF-generering misslyckades: {str(e)}")
 
 
-# ─── Kopiera säsong ──────────────────────────────────────
+# --- Kopiera säsong --------------------------------------
 @router.post("/seasons/{season_id}/copy")
 def copy_season(season_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     from app.models.models import Season
@@ -750,7 +836,7 @@ async def brevo_webhook(request: Request, db: Session = Depends(get_db)):
     db.commit()
     return {"ok": True, "processed": processed}
 
-# ─── Tilläggsbegäran (admin) ──────────────────────────────────────────────────
+# --- Tilläggsbegäran (admin) --------------------------------------------------
 @router.get("/addon-requests")
 def list_addon_requests(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     from app.models.models import BookingAddon
@@ -826,7 +912,7 @@ async def confirm_addon(addon_id: int, data: dict = {}, db: Session = Depends(ge
     pay_labels = {"sv":"Betala nu","en":"Pay now","de":"Jetzt bezahlen"}
     addon_discount_pct = float((booking.snapshot or {}).get("discount_pct") or 0)
     discount_row = (
-        f"<tr><td colspan=\"2\" style=\"color:#27ae60\">Rabatt ({addon_discount_pct:.0f}%)</td><td style=\"color:#27ae60\">−{float(addon.discount_amount):,.0f} kr</td></tr>"
+        f"<tr><td colspan=\"2\" style=\"color:#27ae60\">Rabatt ({addon_discount_pct:.0f}%)</td><td style=\"color:#27ae60\">-{float(addon.discount_amount):,.0f} kr</td></tr>"
         if addon.discount_amount and float(addon.discount_amount) > 0 else ""
     )
     html = f"""<h2>{subjects[lang]}</h2>
@@ -838,7 +924,7 @@ async def confirm_addon(addon_id: int, data: dict = {}, db: Session = Depends(ge
     <tr><td colspan="2"><strong>Totalt</strong></td><td><strong>{float(addon.total_amount):,.0f} kr</strong></td></tr>
     </table>
     {"<p><em>" + (addon.admin_note or "") + "</em></p>" if addon.admin_note else ""}
-    <p><a href="{pay_url}" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none">{pay_labels[lang]} →</a></p>"""
+    <p><a href="{pay_url}" style="background:#2563eb;color:white;padding:12px 24px;border-radius:6px;text-decoration:none">{pay_labels[lang]} ?</a></p>"""
 
     recipient = (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
     await send_email(recipient, subjects[lang], html)
