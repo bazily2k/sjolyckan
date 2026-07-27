@@ -14,6 +14,8 @@ const STATUS = {
 };
 const BLOCK_BG = '#f1d9d9';
 const BLOCK_FG = '#7d2b2b';
+const AGENT_BG = '#e0d4f0';
+const AGENT_FG = '#4b2e78';
 const WEEKDAYS = ['Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör', 'Sön'];
 const MONTHS = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december'];
 
@@ -114,6 +116,36 @@ function BookingCard({ b }) {
 }
 
 function BlockedCard({ bl }) {
+  if (bl.agent_name) {
+    return (
+      <div style={{ background: 'white', border: '1px solid var(--sand-dark)', borderLeft: `4px solid ${AGENT_FG}`, borderRadius: 'var(--radius-md)', padding: 18, marginBottom: 14 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 19 }}>🤝 Förmedlar-bokning – {bl.agent_name}</div>
+        <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>{bl.date_from} – {bl.date_to}</div>
+        {bl.guest_name && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Gäst:</span> {bl.guest_name}</div>}
+        {bl.guest_email && <div style={{ marginTop: 4, fontSize: 14 }}><span style={{ fontWeight: 600 }}>E-post:</span> {bl.guest_email}</div>}
+        {bl.guest_phone && <div style={{ marginTop: 4, fontSize: 14 }}><span style={{ fontWeight: 600 }}>Telefon:</span> {bl.guest_phone}</div>}
+        {bl.guest_country && <div style={{ marginTop: 4, fontSize: 14 }}><span style={{ fontWeight: 600 }}>Land:</span> {bl.guest_country}</div>}
+        {(bl.adults_count != null || bl.children_count != null || bl.pets_count != null) && (
+          <div style={{ marginTop: 4, fontSize: 14 }}>
+            <span style={{ fontWeight: 600 }}>Gäster:</span> {bl.adults_count ?? 0} vuxna
+            {bl.children_count ? `, ${bl.children_count} barn` : ''}
+            {bl.pets_count ? `, ${bl.pets_count} husdjur` : ''}
+          </div>
+        )}
+        {(bl.articles || []).filter(a => (a.quantity || 0) > 0).length > 0 && (
+          <div style={{ marginTop: 9, fontSize: 15 }}>
+            <span style={{ fontWeight: 600 }}>Tillägg:</span>
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              {bl.articles.filter(a => (a.quantity || 0) > 0).map((a, ix) => (
+                <li key={ix} style={{ fontSize: 14 }}>{a.name_sv}{a.quantity > 1 ? ` ×${a.quantity}` : ''}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar:</span> {bl.reason}</div>}
+      </div>
+    );
+  }
   return (
     <div style={{ background: 'white', border: '1px solid var(--sand-dark)', borderLeft: '4px solid #c0392b', borderRadius: 'var(--radius-md)', padding: 18, marginBottom: 14 }}>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 19 }}>🚫 Blockerad period</div>
@@ -222,13 +254,39 @@ export default function AdminCalendar() {
                     }}>
                       {/* Blockerad täcker hela rutan */}
                       {blk.length > 0 ? (
-                        <div onClick={() => setSelected({ ...blk[0], _type: 'blocked' })} title="Blockerad – klicka för detaljer" style={{
-                          position: 'absolute', inset: 0, background: BLOCK_BG, color: BLOCK_FG,
+                        <div onClick={() => setSelected({ ...blk[0], _type: 'blocked' })} title={blk[0].agent_name ? `Förmedlar-bokning – ${blk[0].agent_name}` : "Blockerad – klicka för detaljer"} style={{
+                          minHeight: '100%',
+                          background: blk[0].agent_name ? AGENT_BG : BLOCK_BG,
+                          color: blk[0].agent_name ? AGENT_FG : BLOCK_FG,
                           cursor: 'pointer', padding: 6, display: 'flex', flexDirection: 'column',
                         }}>
                           <div style={{ fontWeight: 600, fontSize: 18 }}>{cell.getDate()}</div>
-                          <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🚫 Blockerad</div>
-                          {blk[0].reason && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{blk[0].reason}</div>}
+                          {blk[0].agent_name ? (
+                            <>
+                              <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🤝 {blk[0].agent_name}</div>
+                              {blk[0].guest_name && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{blk[0].guest_name}</div>}
+                              {(blk[0].adults_count != null || blk[0].pets_count) && (
+                                <div style={{ fontSize: 13, marginTop: 2 }}>
+                                  👥{blk[0].adults_count ?? 0}{blk[0].children_count ? `+${blk[0].children_count}` : ''}{blk[0].pets_count ? ` 🐾${blk[0].pets_count}` : ''}
+                                </div>
+                              )}
+                              {(blk[0].articles || []).filter(a => (a.quantity || 0) > 0).length > 0 && (
+                                <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.3 }}>
+                                  {blk[0].articles.filter(a => (a.quantity || 0) > 0).map((a, ix) => (
+                                    <div key={ix} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      🎁 {a.name_sv}{a.quantity > 1 ? ` ×${a.quantity}` : ''}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {blk[0].reason && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🚫 Blockerad</div>
+                              {blk[0].reason && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{blk[0].reason}</div>}
+                            </>
+                          )}
                         </div>
                       ) : isFullDay && mornB ? (
                         /* Heldag: fylld ruta med max info — normalt flöde så den kan växa */

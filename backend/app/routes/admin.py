@@ -423,7 +423,17 @@ def list_blocked_dates(
 ):
     from app.models.models import BlockedDate
     blocks = db.query(BlockedDate).order_by(BlockedDate.date_from).all()
-    return [{"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason} for b in blocks]
+    return [_blocked_dict(b) for b in blocks]
+
+def _blocked_dict(b) -> dict:
+    return {
+        "id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason,
+        "agent_id": b.agent_id, "agent_name": b.agent.name if b.agent_id and b.agent else None,
+        "guest_name": b.guest_name, "guest_email": b.guest_email, "guest_phone": b.guest_phone,
+        "guest_country": b.guest_country, "adults_count": b.adults_count,
+        "children_count": b.children_count, "pets_count": b.pets_count,
+        "articles": b.articles or [],
+    }
 
 @router.post("/blocked-dates")
 def create_blocked_date(
@@ -431,17 +441,28 @@ def create_blocked_date(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.models.models import BlockedDate
-    from datetime import date
+    from app.models.models import BlockedDate, Agent
+    agent_id = data.get("agent_id") or None
+    if agent_id and not db.query(Agent).filter(Agent.id == agent_id).first():
+        raise HTTPException(status_code=400, detail="Okänd förmedlare")
     b = BlockedDate(
         date_from=date.fromisoformat(data["date_from"]),
         date_to=date.fromisoformat(data["date_to"]),
         reason=data.get("reason", ""),
+        agent_id=agent_id,
+        guest_name=data.get("guest_name") or None,
+        guest_email=data.get("guest_email") or None,
+        guest_phone=data.get("guest_phone") or None,
+        guest_country=data.get("guest_country") or None,
+        adults_count=data.get("adults_count"),
+        children_count=data.get("children_count"),
+        pets_count=data.get("pets_count"),
+        articles=data.get("articles") or [],
     )
     db.add(b)
     db.commit()
     db.refresh(b)
-    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
+    return _blocked_dict(b)
 
 @router.put("/blocked-dates/{block_id}")
 def update_blocked_date(
@@ -450,13 +471,18 @@ def update_blocked_date(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.models.models import BlockedDate
+    from app.models.models import BlockedDate, Agent
     b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
     if not b: raise HTTPException(status_code=404, detail="Hittades inte")
-    for field in ("date_from", "date_to", "reason"):
-        if field in data: setattr(b, field, data[field] or None)
+    if "agent_id" in data and data["agent_id"]:
+        if not db.query(Agent).filter(Agent.id == data["agent_id"]).first():
+            raise HTTPException(status_code=400, detail="Okänd förmedlare")
+    for field in ("date_from", "date_to", "reason", "agent_id", "guest_name",
+                  "guest_email", "guest_phone", "guest_country",
+                  "adults_count", "children_count", "pets_count", "articles"):
+        if field in data: setattr(b, field, data[field] or ([] if field == "articles" else None))
     db.commit(); db.refresh(b)
-    return {"id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason}
+    return _blocked_dict(b)
 
 @router.delete("/blocked-dates/{block_id}")
 def delete_blocked_date(
@@ -471,6 +497,68 @@ def delete_blocked_date(
     db.delete(b)
     db.commit()
     return {"ok": True}
+
+# ─── Förmedlare ─────────────────────────────────────────
+def _agent_dict(a) -> dict:
+    return {
+        "id": a.id, "name": a.name, "url": a.url, "notes": a.notes,
+        "contacts": a.contacts or [], "is_active": a.is_active,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+    }
+
+@router.get("/agents")
+def list_agents(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Agent
+    agents = db.query(Agent).order_by(Agent.name).all()
+    return [_agent_dict(a) for a in agents]
+
+@router.post("/agents")
+def create_agent(data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Agent
+    if not data.get("name"):
+        raise HTTPException(status_code=400, detail="Namn krävs")
+    contacts = data.get("contacts") or []
+    _validate_contacts(contacts)
+    a = Agent(
+        name=data["name"], url=data.get("url"), notes=data.get("notes"),
+        contacts=contacts, is_active=data.get("is_active", True),
+    )
+    db.add(a); db.commit(); db.refresh(a)
+    return _agent_dict(a)
+
+@router.put("/agents/{agent_id}")
+def update_agent(agent_id: int, data: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Agent
+    a = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Hittades inte")
+    if "contacts" in data:
+        _validate_contacts(data["contacts"] or [])
+    for field in ("name", "url", "notes", "contacts", "is_active"):
+        if field in data:
+            setattr(a, field, data[field])
+    db.commit(); db.refresh(a)
+    return _agent_dict(a)
+
+@router.delete("/agents/{agent_id}")
+def delete_agent(agent_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models.models import Agent, BlockedDate
+    a = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Hittades inte")
+    in_use = db.query(BlockedDate).filter(BlockedDate.agent_id == agent_id).count()
+    if in_use > 0:
+        raise HTTPException(status_code=400, detail=f"Förmedlaren används av {in_use} blockering(ar) och kan inte tas bort. Avaktivera den istället.")
+    db.delete(a)
+    db.commit()
+    return {"ok": True}
+
+def _validate_contacts(contacts: list):
+    if not isinstance(contacts, list):
+        raise HTTPException(status_code=400, detail="Kontaktpersoner måste vara en lista")
+    primaries = sum(1 for c in contacts if c.get("is_primary"))
+    if primaries > 1:
+        raise HTTPException(status_code=400, detail="Endast en kontaktperson kan vara huvudkontakt")
 
 # ─── Skicka om e-post ───────────────────────────────────
 @router.post("/email-logs/{log_id}/resend")
