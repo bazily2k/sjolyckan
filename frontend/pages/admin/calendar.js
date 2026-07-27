@@ -255,7 +255,7 @@ export default function AdminCalendar() {
                       {/* Blockerad täcker hela rutan */}
                       {blk.length > 0 ? (
                         <div onClick={() => setSelected({ ...blk[0], _type: 'blocked' })} title={blk[0].agent_name ? `Förmedlar-bokning – ${blk[0].agent_name}` : "Blockerad – klicka för detaljer"} style={{
-                          position: 'absolute', inset: 0,
+                          minHeight: '100%',
                           background: blk[0].agent_name ? AGENT_BG : BLOCK_BG,
                           color: blk[0].agent_name ? AGENT_FG : BLOCK_FG,
                           cursor: 'pointer', padding: 6, display: 'flex', flexDirection: 'column',
