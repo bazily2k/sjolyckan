@@ -432,6 +432,7 @@ def _blocked_dict(b) -> dict:
         "guest_name": b.guest_name, "guest_email": b.guest_email, "guest_phone": b.guest_phone,
         "guest_country": b.guest_country, "adults_count": b.adults_count,
         "children_count": b.children_count, "pets_count": b.pets_count,
+        "articles": b.articles or [],
     }
 
 @router.post("/blocked-dates")
@@ -456,6 +457,7 @@ def create_blocked_date(
         adults_count=data.get("adults_count"),
         children_count=data.get("children_count"),
         pets_count=data.get("pets_count"),
+        articles=data.get("articles") or [],
     )
     db.add(b)
     db.commit()
@@ -477,8 +479,8 @@ def update_blocked_date(
             raise HTTPException(status_code=400, detail="Okänd förmedlare")
     for field in ("date_from", "date_to", "reason", "agent_id", "guest_name",
                   "guest_email", "guest_phone", "guest_country",
-                  "adults_count", "children_count", "pets_count"):
-        if field in data: setattr(b, field, data[field] or None)
+                  "adults_count", "children_count", "pets_count", "articles"):
+        if field in data: setattr(b, field, data[field] or ([] if field == "articles" else None))
     db.commit(); db.refresh(b)
     return _blocked_dict(b)
 
