@@ -589,6 +589,7 @@ def admin_calendar(
                 "guest_name": bl.guest_name, "guest_email": bl.guest_email, "guest_phone": bl.guest_phone,
                 "guest_country": bl.guest_country, "adults_count": bl.adults_count,
                 "children_count": bl.children_count, "pets_count": bl.pets_count,
+                "articles": bl.articles or [],
             }
             for bl in blocks
         ],
