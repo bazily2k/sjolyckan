@@ -381,6 +381,8 @@ class BlockedDate(Base):
     adults_count = Column(Integer, nullable=True)
     children_count = Column(Integer, nullable=True)
     pets_count = Column(Integer, nullable=True)
+    # Aktiva tillägg för förmedlar-bokningen: [{"article_id","name_sv","name_en","name_de","quantity"}, ...]
+    articles = Column(JSON, nullable=False, default=list)
 
     agent = relationship("Agent")
 
