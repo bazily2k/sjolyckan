@@ -6,12 +6,13 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 const emptyForm = () => ({
   date_from: '', date_to: '', reason: '', agent_id: '',
   guest_name: '', guest_email: '', guest_phone: '', guest_country: '',
-  adults_count: '', children_count: '', pets_count: '',
+  adults_count: '', children_count: '', pets_count: '', articles: [],
 });
 
 export default function BlockedDatesPage() {
   const [blocks, setBlocks]   = useState([]);
   const [agents, setAgents]   = useState([]);
+  const [articleCatalog, setArticleCatalog] = useState([]);
   const [form, setForm]       = useState(emptyForm());
   const [editing, setEditing] = useState(null); // id of block being edited
   const [msg, setMsg]         = useState('');
@@ -20,6 +21,7 @@ export default function BlockedDatesPage() {
   useEffect(() => {
     load();
     adminApi.listAgents().then(r => setAgents(r.data.filter(a => a.is_active))).catch(() => {});
+    adminApi.listArticles().then(r => setArticleCatalog((Array.isArray(r.data) ? r.data : []).filter(a => a.bookable && a.visible))).catch(() => {});
   }, []);
 
   const save = async () => {
@@ -53,6 +55,7 @@ export default function BlockedDatesPage() {
       agent_id: b.agent_id || '', guest_name: b.guest_name || '', guest_email: b.guest_email || '',
       guest_phone: b.guest_phone || '', guest_country: b.guest_country || '',
       adults_count: b.adults_count ?? '', children_count: b.children_count ?? '', pets_count: b.pets_count ?? '',
+      articles: b.articles || [],
     });
     setMsg('');
   };
@@ -72,6 +75,20 @@ export default function BlockedDatesPage() {
   const inp = { width:'100%', padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13, outline:'none', boxSizing:'border-box' };
   const lbl = { display:'block', fontSize:11, fontWeight:500, color:'var(--ink-pale)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:4 };
   const isAgentBooking = !!form.agent_id;
+
+  const setArticleQty = (art, qty) => {
+    setForm(f => {
+      const rest = f.articles.filter(a => a.article_id !== art.id);
+      if (qty <= 0) return { ...f, articles: rest };
+      return {
+        ...f,
+        articles: [...rest, {
+          article_id: art.id, name_sv: art.name_sv, name_en: art.name_en, name_de: art.name_de, quantity: qty,
+        }],
+      };
+    });
+  };
+  const qtyOf = (articleId) => form.articles.find(a => a.article_id === articleId)?.quantity || 0;
 
   return (
     <AdminLayout title="Blockerade datum">
@@ -192,6 +209,24 @@ export default function BlockedDatesPage() {
                     onChange={e => setForm(f => ({ ...f, pets_count: e.target.value }))} style={inp} />
                 </div>
               </div>
+
+              {articleCatalog.length > 0 && (
+                <div style={{ marginTop:12 }}>
+                  <label style={lbl}>Aktiva tillägg</label>
+                  {articleCatalog.map(art => (
+                    <div key={art.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--sand-dark)' }}>
+                      <div style={{ fontSize:13 }}>{art.name_sv}</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <button type="button" onClick={() => setArticleQty(art, qtyOf(art.id) - 1)}
+                          style={{ width:24, height:24, border:'1px solid var(--sand-dark)', borderRadius:'50%', background:'white', cursor:'pointer', fontSize:14, lineHeight:1 }}>–</button>
+                        <span style={{ fontSize:13, minWidth:16, textAlign:'center' }}>{qtyOf(art.id)}</span>
+                        <button type="button" onClick={() => setArticleQty(art, qtyOf(art.id) + 1)}
+                          style={{ width:24, height:24, border:'1px solid var(--sand-dark)', borderRadius:'50%', background:'white', cursor:'pointer', fontSize:14, lineHeight:1 }}>+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
