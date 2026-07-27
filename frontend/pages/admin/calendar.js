@@ -132,6 +132,16 @@ function BlockedCard({ bl }) {
             {bl.pets_count ? `, ${bl.pets_count} husdjur` : ''}
           </div>
         )}
+        {(bl.articles || []).filter(a => (a.quantity || 0) > 0).length > 0 && (
+          <div style={{ marginTop: 9, fontSize: 15 }}>
+            <span style={{ fontWeight: 600 }}>Tillägg:</span>
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              {bl.articles.filter(a => (a.quantity || 0) > 0).map((a, ix) => (
+                <li key={ix} style={{ fontSize: 14 }}>{a.name_sv}{a.quantity > 1 ? ` ×${a.quantity}` : ''}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar:</span> {bl.reason}</div>}
       </div>
     );
@@ -255,6 +265,21 @@ export default function AdminCalendar() {
                             <>
                               <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🤝 {blk[0].agent_name}</div>
                               {blk[0].guest_name && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{blk[0].guest_name}</div>}
+                              {(blk[0].adults_count != null || blk[0].pets_count) && (
+                                <div style={{ fontSize: 13, marginTop: 2 }}>
+                                  👥{blk[0].adults_count ?? 0}{blk[0].children_count ? `+${blk[0].children_count}` : ''}{blk[0].pets_count ? ` 🐾${blk[0].pets_count}` : ''}
+                                </div>
+                              )}
+                              {(blk[0].articles || []).filter(a => (a.quantity || 0) > 0).length > 0 && (
+                                <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.3 }}>
+                                  {blk[0].articles.filter(a => (a.quantity || 0) > 0).map((a, ix) => (
+                                    <div key={ix} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      🎁 {a.name_sv}{a.quantity > 1 ? ` ×${a.quantity}` : ''}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {blk[0].reason && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
                             </>
                           ) : (
                             <>
