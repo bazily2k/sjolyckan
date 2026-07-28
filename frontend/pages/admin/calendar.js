@@ -75,6 +75,19 @@ function shortLabel(e) {
   return e.guest_name;
 }
 
+// Rena blockeringar (utan förmedlare, t.ex. "stängt hus") representerar ingen
+// verklig gäst-in/utcheckning, så de ska alltid täcka hela dagen (fm+em) i sin
+// helhet — bara förmedlar-bokningar (som är riktiga gästvistelser) och riktiga
+// bokningar deltar i ankomst/avrese-uppdelningen.
+function entryOccupiesMorning(e, dstr) {
+  if (e._type === 'blocked' && !e.agent_name) return dstr >= e.date_from && dstr < e.date_to;
+  return occupiesMorning(e, dstr);
+}
+function entryOccupiesAfternoon(e, dstr) {
+  if (e._type === 'blocked' && !e.agent_name) return dstr >= e.date_from && dstr < e.date_to;
+  return occupiesAfternoon(e, dstr);
+}
+
 function personsLine(b) {
   if (b.adults_count != null || b.children_count != null) {
     const parts = [`${b.adults_count ?? 0} vuxna`, `${b.children_count ?? 0} barn`];
@@ -196,8 +209,8 @@ export default function AdminCalendar() {
     ...bookings.map(b => ({ ...b, _type: 'booking' })),
     ...blocked.map(bl => ({ ...bl, _type: 'blocked' })),
   ];
-  const morningOn = (dstr) => allEntries.filter(e => occupiesMorning(e, dstr));
-  const afternoonOn = (dstr) => allEntries.filter(e => occupiesAfternoon(e, dstr));
+  const morningOn = (dstr) => allEntries.filter(e => entryOccupiesMorning(e, dstr));
+  const afternoonOn = (dstr) => allEntries.filter(e => entryOccupiesAfternoon(e, dstr));
 
   const listItems = [
     ...bookings.map(b => ({ key: 'b' + b.id, date: b.date_from, node: <BookingCard b={b} /> })),
