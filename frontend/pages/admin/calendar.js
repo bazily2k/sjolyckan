@@ -60,6 +60,34 @@ function phaseLabel(b, dstr) {
   return null;
 }
 
+// Generisk bakgrund/text-färg/etikett för både riktiga bokningar och
+// blockerade/förmedlar-poster, så de kan blandas i samma diagonal-logik.
+function bgOf(e) {
+  if (e._type === 'blocked') return e.agent_name ? AGENT_BG : BLOCK_BG;
+  return st(e.status).bg;
+}
+function fgOf(e) {
+  if (e._type === 'blocked') return e.agent_name ? AGENT_FG : BLOCK_FG;
+  return st(e.status).color;
+}
+function shortLabel(e) {
+  if (e._type === 'blocked') return e.agent_name || 'Blockerad';
+  return e.guest_name;
+}
+
+// Rena blockeringar (utan förmedlare, t.ex. "stängt hus") representerar ingen
+// verklig gäst-in/utcheckning, så de ska alltid täcka hela dagen (fm+em) i sin
+// helhet — bara förmedlar-bokningar (som är riktiga gästvistelser) och riktiga
+// bokningar deltar i ankomst/avrese-uppdelningen.
+function entryOccupiesMorning(e, dstr) {
+  if (e._type === 'blocked' && !e.agent_name) return dstr >= e.date_from && dstr < e.date_to;
+  return occupiesMorning(e, dstr);
+}
+function entryOccupiesAfternoon(e, dstr) {
+  if (e._type === 'blocked' && !e.agent_name) return dstr >= e.date_from && dstr < e.date_to;
+  return occupiesAfternoon(e, dstr);
+}
+
 function personsLine(b) {
   if (b.adults_count != null || b.children_count != null) {
     const parts = [`${b.adults_count ?? 0} vuxna`, `${b.children_count ?? 0} barn`];
@@ -174,9 +202,15 @@ export default function AdminCalendar() {
 
   const bookings = data?.bookings || [];
   const blocked = data?.blocked || [];
-  const morningOn = (dstr) => bookings.filter(b => occupiesMorning(b, dstr));
-  const afternoonOn = (dstr) => bookings.filter(b => occupiesAfternoon(b, dstr));
-  const blockedOn = (dstr) => blocked.filter(bl => dstr >= bl.date_from && dstr < bl.date_to);
+  // Tagga varje post med _type så diagonal-rendern kan avgöra hur den ska visas,
+  // och slå ihop dem i samma pool så blockerade/förmedlar-datum får samma
+  // ankomst/avresa-triangel-uppdelning som riktiga bokningar.
+  const allEntries = [
+    ...bookings.map(b => ({ ...b, _type: 'booking' })),
+    ...blocked.map(bl => ({ ...bl, _type: 'blocked' })),
+  ];
+  const morningOn = (dstr) => allEntries.filter(e => entryOccupiesMorning(e, dstr));
+  const afternoonOn = (dstr) => allEntries.filter(e => entryOccupiesAfternoon(e, dstr));
 
   const listItems = [
     ...bookings.map(b => ({ key: 'b' + b.id, date: b.date_from, node: <BookingCard b={b} /> })),
@@ -232,103 +266,108 @@ export default function AdminCalendar() {
                 {monthCells(year, month).map((cell, i) => {
                   if (!cell) return <div key={i} style={{ minHeight: 132 }} />;
                   const dstr = ymd(cell);
-                  const blk = blockedOn(dstr);
                   const morn = morningOn(dstr);
                   const aft = afternoonOn(dstr);
-                  // Heldag = exakt samma bokningar täcker både fm och em (ingen växling)
-                  const ids = arr => arr.map(b => b.id).sort().join(',');
+                  // Heldag = exakt samma poster (bokning ELLER block) täcker både fm och em (ingen växling)
+                  const ids = arr => arr.map(e => `${e._type}${e.id}`).sort().join(',');
                   const isFullDay = morn.length > 0 && ids(morn) === ids(aft);
 
                   // Diagonal design: övre vänster triangel = avresa (fm),
                   // nedre höger triangel = ankomst (em). Heldag = fylld ruta.
+                  // Gäller lika för riktiga bokningar och blockerade/förmedlar-poster.
                   const mornB = morn[0];
                   const aftB = aft[0];
-                  const mornBg = mornB ? st(mornB.status).bg : null;
-                  const aftBg = aftB ? st(aftB.status).bg : null;
+                  const mornBg = mornB ? bgOf(mornB) : null;
+                  const aftBg = aftB ? bgOf(aftB) : null;
                   const short = (n) => (n || '').split(' ')[0];
+
+                  // Innehåll för en post (bokning eller block) i "heldags"-läge (normalt flöde, kan växa)
+                  const fullDayContent = (e) => e._type === 'blocked' ? (
+                    e.agent_name ? (
+                      <>
+                        <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🤝 {e.agent_name}</div>
+                        {e.guest_name && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.guest_name}</div>}
+                        {(e.adults_count != null || e.pets_count) && (
+                          <div style={{ fontSize: 13, marginTop: 2 }}>
+                            👥{e.adults_count ?? 0}{e.children_count ? `+${e.children_count}` : ''}{e.pets_count ? ` 🐾${e.pets_count}` : ''}
+                          </div>
+                        )}
+                        {(e.articles || []).filter(a => (a.quantity || 0) > 0).length > 0 && (
+                          <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.3 }}>
+                            {e.articles.filter(a => (a.quantity || 0) > 0).map((a, ix) => (
+                              <div key={ix} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                🎁 {a.name_sv}{a.quantity > 1 ? ` ×${a.quantity}` : ''}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {e.reason && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🚫 Blockerad</div>
+                        {e.reason && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.reason}</div>}
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>{e.guest_name}</div>
+                      <div style={{ fontSize: 13, marginTop: 2 }}>
+                        👥{e.guests_count}{e.pets_count ? ` 🐾${e.pets_count}` : ''}
+                      </div>
+                      {(() => {
+                        const items = [];
+                        (e.articles || []).filter(a => (a.quantity || 0) > 0).forEach(a => items.push({ name: a.name_sv, qty: a.quantity }));
+                        (e.addons || []).forEach(ad => (ad.articles || []).forEach(a => items.push({ name: a.name_sv, qty: a.quantity })));
+                        if (items.length === 0) return null;
+                        return (
+                          <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.3 }}>
+                            {items.map((it, ix) => (
+                              <div key={ix} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                🎁 {it.name}{it.qty > 1 ? ` ×${it.qty}` : ''}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      {(e.message || e.admin_note) && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
+                    </>
+                  );
+
+                  const titleFor = (e, phase) => {
+                    if (e._type === 'blocked') {
+                      const label = e.agent_name ? `Förmedlar-bokning – ${e.agent_name}` : 'Blockerad';
+                      return phase ? `${label} – ${phase}` : `${label} – klicka för detaljer`;
+                    }
+                    return phase ? `${e.guest_name} – ${phase}` : 'Klicka för detaljer';
+                  };
 
                   return (
                     <div key={i} style={{
                       position: 'relative', minHeight: 132, border: '1px solid var(--sand-dark)',
                       borderRadius: 6, background: 'white', fontSize: 15, overflow: 'hidden',
                     }}>
-                      {/* Blockerad täcker hela rutan */}
-                      {blk.length > 0 ? (
-                        <div onClick={() => setSelected({ ...blk[0], _type: 'blocked' })} title={blk[0].agent_name ? `Förmedlar-bokning – ${blk[0].agent_name}` : "Blockerad – klicka för detaljer"} style={{
-                          minHeight: '100%',
-                          background: blk[0].agent_name ? AGENT_BG : BLOCK_BG,
-                          color: blk[0].agent_name ? AGENT_FG : BLOCK_FG,
-                          cursor: 'pointer', padding: 6, display: 'flex', flexDirection: 'column',
-                        }}>
-                          <div style={{ fontWeight: 600, fontSize: 18 }}>{cell.getDate()}</div>
-                          {blk[0].agent_name ? (
-                            <>
-                              <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🤝 {blk[0].agent_name}</div>
-                              {blk[0].guest_name && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{blk[0].guest_name}</div>}
-                              {(blk[0].adults_count != null || blk[0].pets_count) && (
-                                <div style={{ fontSize: 13, marginTop: 2 }}>
-                                  👥{blk[0].adults_count ?? 0}{blk[0].children_count ? `+${blk[0].children_count}` : ''}{blk[0].pets_count ? ` 🐾${blk[0].pets_count}` : ''}
-                                </div>
-                              )}
-                              {(blk[0].articles || []).filter(a => (a.quantity || 0) > 0).length > 0 && (
-                                <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.3 }}>
-                                  {blk[0].articles.filter(a => (a.quantity || 0) > 0).map((a, ix) => (
-                                    <div key={ix} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      🎁 {a.name_sv}{a.quantity > 1 ? ` ×${a.quantity}` : ''}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              {blk[0].reason && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
-                            </>
-                          ) : (
-                            <>
-                              <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🚫 Blockerad</div>
-                              {blk[0].reason && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{blk[0].reason}</div>}
-                            </>
-                          )}
-                        </div>
-                      ) : isFullDay && mornB ? (
+                      {isFullDay && mornB ? (
                         /* Heldag: fylld ruta med max info — normalt flöde så den kan växa */
-                        <div onClick={() => setSelected(mornB)} title="Klicka för detaljer" style={{
-                          minHeight: '100%', background: mornBg, color: st(mornB.status).color,
+                        <div onClick={() => setSelected(mornB)} title={titleFor(mornB)} style={{
+                          minHeight: '100%', background: mornBg, color: fgOf(mornB),
                           cursor: 'pointer', padding: 6, display: 'flex', flexDirection: 'column',
                         }}>
                           <div style={{ fontWeight: 600, fontSize: 18 }}>{cell.getDate()}</div>
-                          <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>{mornB.guest_name}</div>
-                          <div style={{ fontSize: 13, marginTop: 2 }}>
-                            👥{mornB.guests_count}{mornB.pets_count ? ` 🐾${mornB.pets_count}` : ''}
-                          </div>
-                          {(() => {
-                            // Samla alla tillägg: ursprungliga (articles) + efterbeställda (addons[].articles)
-                            const items = [];
-                            (mornB.articles || []).filter(a => (a.quantity || 0) > 0).forEach(a => items.push({ name: a.name_sv, qty: a.quantity }));
-                            (mornB.addons || []).forEach(ad => (ad.articles || []).forEach(a => items.push({ name: a.name_sv, qty: a.quantity })));
-                            if (items.length === 0) return null;
-                            return (
-                              <div style={{ fontSize: 12, marginTop: 3, lineHeight: 1.3 }}>
-                                {items.map((it, ix) => (
-                                  <div key={ix} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    🎁 {it.name}{it.qty > 1 ? ` ×${it.qty}` : ''}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })()}
-                          {(mornB.message || mornB.admin_note) && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
+                          {fullDayContent(mornB)}
                         </div>
                       ) : (
                         <>
                           {/* Övre vänster triangel = avresa (fm) */}
                           {mornB && (
-                            <div onClick={() => setSelected(mornB)} title={`${mornB.guest_name} – avresa`} style={{
+                            <div onClick={() => setSelected(mornB)} title={titleFor(mornB, 'avresa')} style={{
                               position: 'absolute', inset: 0, background: mornBg,
                               clipPath: 'polygon(0 0, 100% 0, 0 100%)', cursor: 'pointer',
                             }} />
                           )}
                           {/* Nedre höger triangel = ankomst (em) */}
                           {aftB && (
-                            <div onClick={() => setSelected(aftB)} title={`${aftB.guest_name} – ankomst`} style={{
+                            <div onClick={() => setSelected(aftB)} title={titleFor(aftB, 'ankomst')} style={{
                               position: 'absolute', inset: 0, background: aftBg,
                               clipPath: 'polygon(100% 0, 100% 100%, 0 100%)', cursor: 'pointer',
                             }} />
@@ -337,14 +376,14 @@ export default function AdminCalendar() {
                           <div style={{ position: 'absolute', top: 4, left: 6, fontWeight: 600, fontSize: 18, color: 'var(--ink-light)', pointerEvents: 'none' }}>{cell.getDate()}</div>
                           {/* Avresetext (uppe vänster, under datum) */}
                           {mornB && (
-                            <div style={{ position: 'absolute', top: 26, left: 6, fontSize: 12, fontWeight: 600, color: st(mornB.status).color, lineHeight: 1.15, pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {short(mornB.guest_name)}<br /><span style={{ fontWeight: 400 }}>ut</span>
+                            <div style={{ position: 'absolute', top: 26, left: 6, fontSize: 12, fontWeight: 600, color: fgOf(mornB), lineHeight: 1.15, pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {short(shortLabel(mornB))}<br /><span style={{ fontWeight: 400 }}>ut</span>
                             </div>
                           )}
                           {/* Ankomsttext (nere höger) */}
                           {aftB && (
-                            <div style={{ position: 'absolute', bottom: 5, right: 6, fontSize: 12, fontWeight: 600, color: st(aftB.status).color, lineHeight: 1.15, textAlign: 'right', pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {short(aftB.guest_name)}<br /><span style={{ fontWeight: 400 }}>in</span>
+                            <div style={{ position: 'absolute', bottom: 5, right: 6, fontSize: 12, fontWeight: 600, color: fgOf(aftB), lineHeight: 1.15, textAlign: 'right', pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {short(shortLabel(aftB))}<br /><span style={{ fontWeight: 400 }}>in</span>
                             </div>
                           )}
                           {/* Helt ledig dag */}
