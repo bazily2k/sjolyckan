@@ -303,12 +303,12 @@ export default function AdminCalendar() {
                             ))}
                           </div>
                         )}
-                        {e.reason && <div style={{ fontSize: 12, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>💬 {e.reason}</div>}
+                        {e.reason && <div style={{ fontSize: 12, marginTop: 2, lineHeight: 1.3, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>💬 {e.reason}</div>}
                       </>
                     ) : (
                       <>
                         <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🚫 Blockerad</div>
-                        {e.reason && <div style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>💬 {e.reason}</div>}
+                        {e.reason && <div style={{ fontSize: 12, lineHeight: 1.3, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>💬 {e.reason}</div>}
                       </>
                     )
                   ) : (
@@ -387,14 +387,14 @@ export default function AdminCalendar() {
                           <div style={{ position: 'absolute', top: 4, left: 6, fontWeight: 600, fontSize: 18, color: 'var(--ink-light)', pointerEvents: 'none' }}>{cell.getDate()}</div>
                           {/* Avresetext (uppe vänster, under datum) */}
                           {mornB && (
-                            <div style={{ position: 'absolute', top: 26, left: 6, fontSize: 12, fontWeight: 600, color: fgOf(mornB), lineHeight: 1.15, pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {short(shortLabel(mornB))}<br /><span style={{ fontWeight: 400 }}>ut</span>
+                            <div style={{ position: 'absolute', top: 26, left: 6, fontSize: 12, fontWeight: 600, color: fgOf(mornB), lineHeight: 1.15, pointerEvents: 'none', maxWidth: '80%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {short(shortLabel(mornB))}<br /><span style={{ fontWeight: 700, fontSize: 9, letterSpacing: 0.3 }}>UTCHECKNING</span>
                             </div>
                           )}
                           {/* Ankomsttext (nere höger) */}
                           {aftB && (
-                            <div style={{ position: 'absolute', bottom: 5, right: 6, fontSize: 12, fontWeight: 600, color: fgOf(aftB), lineHeight: 1.15, textAlign: 'right', pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {short(shortLabel(aftB))}<br /><span style={{ fontWeight: 400 }}>in</span>
+                            <div style={{ position: 'absolute', bottom: 5, right: 6, fontSize: 12, fontWeight: 600, color: fgOf(aftB), lineHeight: 1.15, textAlign: 'right', pointerEvents: 'none', maxWidth: '80%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {short(shortLabel(aftB))}<br /><span style={{ fontWeight: 700, fontSize: 9, letterSpacing: 0.3 }}>INCHECKNING</span>
                             </div>
                           )}
                           {/* Helt ledig dag */}
