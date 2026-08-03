@@ -368,6 +368,9 @@ class BlockedDate(Base):
     date_from = Column(Date, nullable=False)
     date_to = Column(Date, nullable=False)
     reason = Column(String(500))
+    # Intern anteckning som ALDRIG visas i admin-kalendern (bara i detaljvyn), till
+    # skillnad från `reason` som syns direkt på dagcellen i kalendern.
+    internal_note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Förmedlar-bokning: om agent_id är satt representerar blockeringen en
