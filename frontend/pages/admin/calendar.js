@@ -170,7 +170,8 @@ function BlockedCard({ bl }) {
             </ul>
           </div>
         )}
-        {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar:</span> {bl.reason}</div>}
+        {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar (syns i kalendern):</span> {bl.reason}</div>}
+        {bl.internal_note && <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}><span style={{ fontWeight: 600 }}>🔒 Intern anteckning (syns ej i kalendern):</span> {bl.internal_note}</div>}
       </div>
     );
   }
@@ -178,7 +179,8 @@ function BlockedCard({ bl }) {
     <div style={{ background: 'white', border: '1px solid var(--sand-dark)', borderLeft: '4px solid #c0392b', borderRadius: 'var(--radius-md)', padding: 18, marginBottom: 14 }}>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 19 }}>🚫 Blockerad period</div>
       <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>{bl.date_from} – {bl.date_to}</div>
-      {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar:</span> {bl.reason}</div>}
+      {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar (syns i kalendern):</span> {bl.reason}</div>}
+      {bl.internal_note && <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}><span style={{ fontWeight: 600 }}>🔒 Intern anteckning (syns ej i kalendern):</span> {bl.internal_note}</div>}
     </div>
   );
 }
@@ -301,12 +303,12 @@ export default function AdminCalendar() {
                             ))}
                           </div>
                         )}
-                        {e.reason && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
+                        {e.reason && <div style={{ fontSize: 12, marginTop: 2, lineHeight: 1.3, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>💬 {e.reason}</div>}
                       </>
                     ) : (
                       <>
                         <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🚫 Blockerad</div>
-                        {e.reason && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.reason}</div>}
+                        {e.reason && <div style={{ fontSize: 12, lineHeight: 1.3, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>💬 {e.reason}</div>}
                       </>
                     )
                   ) : (
@@ -372,18 +374,27 @@ export default function AdminCalendar() {
                               clipPath: 'polygon(100% 0, 100% 100%, 0 100%)', cursor: 'pointer',
                             }} />
                           )}
+                          {/* Tydlig skiljelinje mellan avresa/ankomst-trianglarna (dubbel linje: vit yttre
+                              för kontrast mot mörka bakgrunder, mörk inre för kontrast mot ljusa) */}
+                          {mornB && aftB && (
+                            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                              viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <line x1="100" y1="0" x2="0" y2="100" stroke="white" strokeWidth="4.5" vectorEffect="non-scaling-stroke" />
+                              <line x1="100" y1="0" x2="0" y2="100" stroke="rgba(0,0,0,0.45)" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+                            </svg>
+                          )}
                           {/* Datum uppe till vänster */}
                           <div style={{ position: 'absolute', top: 4, left: 6, fontWeight: 600, fontSize: 18, color: 'var(--ink-light)', pointerEvents: 'none' }}>{cell.getDate()}</div>
                           {/* Avresetext (uppe vänster, under datum) */}
                           {mornB && (
-                            <div style={{ position: 'absolute', top: 26, left: 6, fontSize: 12, fontWeight: 600, color: fgOf(mornB), lineHeight: 1.15, pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {short(shortLabel(mornB))}<br /><span style={{ fontWeight: 400 }}>ut</span>
+                            <div style={{ position: 'absolute', top: 26, left: 6, fontSize: 12, fontWeight: 600, color: fgOf(mornB), lineHeight: 1.15, pointerEvents: 'none', maxWidth: '80%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {short(shortLabel(mornB))}<br /><span style={{ fontWeight: 700, fontSize: 9, letterSpacing: 0.3 }}>UTCHECKNING</span>
                             </div>
                           )}
                           {/* Ankomsttext (nere höger) */}
                           {aftB && (
-                            <div style={{ position: 'absolute', bottom: 5, right: 6, fontSize: 12, fontWeight: 600, color: fgOf(aftB), lineHeight: 1.15, textAlign: 'right', pointerEvents: 'none', maxWidth: '60%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {short(shortLabel(aftB))}<br /><span style={{ fontWeight: 400 }}>in</span>
+                            <div style={{ position: 'absolute', bottom: 5, right: 6, fontSize: 12, fontWeight: 600, color: fgOf(aftB), lineHeight: 1.15, textAlign: 'right', pointerEvents: 'none', maxWidth: '80%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {short(shortLabel(aftB))}<br /><span style={{ fontWeight: 700, fontSize: 9, letterSpacing: 0.3 }}>INCHECKNING</span>
                             </div>
                           )}
                           {/* Helt ledig dag */}
