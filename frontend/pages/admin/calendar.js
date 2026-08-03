@@ -374,6 +374,15 @@ export default function AdminCalendar() {
                               clipPath: 'polygon(100% 0, 100% 100%, 0 100%)', cursor: 'pointer',
                             }} />
                           )}
+                          {/* Tydlig skiljelinje mellan avresa/ankomst-trianglarna (dubbel linje: vit yttre
+                              för kontrast mot mörka bakgrunder, mörk inre för kontrast mot ljusa) */}
+                          {mornB && aftB && (
+                            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                              viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <line x1="100" y1="0" x2="0" y2="100" stroke="white" strokeWidth="4.5" vectorEffect="non-scaling-stroke" />
+                              <line x1="100" y1="0" x2="0" y2="100" stroke="rgba(0,0,0,0.45)" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+                            </svg>
+                          )}
                           {/* Datum uppe till vänster */}
                           <div style={{ position: 'absolute', top: 4, left: 6, fontWeight: 600, fontSize: 18, color: 'var(--ink-light)', pointerEvents: 'none' }}>{cell.getDate()}</div>
                           {/* Avresetext (uppe vänster, under datum) */}
