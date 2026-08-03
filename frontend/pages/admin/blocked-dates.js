@@ -4,7 +4,7 @@ import { adminApi } from '../../lib/api';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 
 const emptyForm = () => ({
-  date_from: '', date_to: '', reason: '', agent_id: '',
+  date_from: '', date_to: '', reason: '', internal_note: '', agent_id: '',
   guest_name: '', guest_email: '', guest_phone: '', guest_country: '',
   adults_count: '', children_count: '', pets_count: '', articles: [],
 });
@@ -52,6 +52,7 @@ export default function BlockedDatesPage() {
     setEditing(b.id);
     setForm({
       date_from: b.date_from, date_to: b.date_to, reason: b.reason || '',
+      internal_note: b.internal_note || '',
       agent_id: b.agent_id || '', guest_name: b.guest_name || '', guest_email: b.guest_email || '',
       guest_phone: b.guest_phone || '', guest_country: b.guest_country || '',
       adults_count: b.adults_count ?? '', children_count: b.children_count ?? '', pets_count: b.pets_count ?? '',
@@ -123,6 +124,7 @@ export default function BlockedDatesPage() {
                           {b.guest_name && <> · {b.guest_name}</>}
                         </>
                       ) : (b.reason || '–')}
+                      {b.internal_note && <span title="Intern anteckning finns" style={{ marginLeft:6 }}>🔒</span>}
                     </td>
                     <td style={{ padding:'10px 14px', textAlign:'right', whiteSpace:'nowrap' }}>
                       <button onClick={() => startEdit(b)}
@@ -164,13 +166,19 @@ export default function BlockedDatesPage() {
             </select>
           </div>
 
-          {!isAgentBooking && (
-            <div style={{ marginBottom:16 }}>
-              <label style={lbl}>Anledning (valfri)</label>
-              <input value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-                placeholder="t.ex. Underhåll, Privat vistelse" style={inp} />
-            </div>
-          )}
+          <div style={{ marginBottom:12 }}>
+            <label style={lbl}>Kommentar (syns i admin-kalendern)</label>
+            <textarea value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+              placeholder="Visas direkt på dagcellen i kalendern, t.ex. Stängt för målning"
+              rows={2} style={{ ...inp, height:'auto', resize:'vertical', fontFamily:'inherit' }} />
+          </div>
+
+          <div style={{ marginBottom:16 }}>
+            <label style={lbl}>Intern anteckning (syns EJ i kalendern)</label>
+            <textarea value={form.internal_note} onChange={e => setForm(f => ({ ...f, internal_note: e.target.value }))}
+              placeholder="Bara synlig här och i detaljvyn – aldrig i kalenderrutan"
+              rows={2} style={{ ...inp, height:'auto', resize:'vertical', fontFamily:'inherit' }} />
+          </div>
 
           {isAgentBooking && (
             <div style={{ border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', padding:12, marginBottom:16, background:'var(--sand)' }}>
