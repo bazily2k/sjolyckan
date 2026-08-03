@@ -170,7 +170,8 @@ function BlockedCard({ bl }) {
             </ul>
           </div>
         )}
-        {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar:</span> {bl.reason}</div>}
+        {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar (syns i kalendern):</span> {bl.reason}</div>}
+        {bl.internal_note && <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}><span style={{ fontWeight: 600 }}>🔒 Intern anteckning (syns ej i kalendern):</span> {bl.internal_note}</div>}
       </div>
     );
   }
@@ -178,7 +179,8 @@ function BlockedCard({ bl }) {
     <div style={{ background: 'white', border: '1px solid var(--sand-dark)', borderLeft: '4px solid #c0392b', borderRadius: 'var(--radius-md)', padding: 18, marginBottom: 14 }}>
       <div style={{ fontFamily: 'var(--font-display)', fontSize: 19 }}>🚫 Blockerad period</div>
       <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>{bl.date_from} – {bl.date_to}</div>
-      {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar:</span> {bl.reason}</div>}
+      {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar (syns i kalendern):</span> {bl.reason}</div>}
+      {bl.internal_note && <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}><span style={{ fontWeight: 600 }}>🔒 Intern anteckning (syns ej i kalendern):</span> {bl.internal_note}</div>}
     </div>
   );
 }
@@ -301,12 +303,12 @@ export default function AdminCalendar() {
                             ))}
                           </div>
                         )}
-                        {e.reason && <div style={{ fontSize: 13, marginTop: 2 }}>💬</div>}
+                        {e.reason && <div style={{ fontSize: 12, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>💬 {e.reason}</div>}
                       </>
                     ) : (
                       <>
                         <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>🚫 Blockerad</div>
-                        {e.reason && <div style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.reason}</div>}
+                        {e.reason && <div style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>💬 {e.reason}</div>}
                       </>
                     )
                   ) : (
