@@ -428,6 +428,7 @@ def list_blocked_dates(
 def _blocked_dict(b) -> dict:
     return {
         "id": b.id, "date_from": str(b.date_from), "date_to": str(b.date_to), "reason": b.reason,
+        "internal_note": b.internal_note,
         "agent_id": b.agent_id, "agent_name": b.agent.name if b.agent_id and b.agent else None,
         "guest_name": b.guest_name, "guest_email": b.guest_email, "guest_phone": b.guest_phone,
         "guest_country": b.guest_country, "adults_count": b.adults_count,
@@ -449,6 +450,7 @@ def create_blocked_date(
         date_from=date.fromisoformat(data["date_from"]),
         date_to=date.fromisoformat(data["date_to"]),
         reason=data.get("reason", ""),
+        internal_note=data.get("internal_note") or None,
         agent_id=agent_id,
         guest_name=data.get("guest_name") or None,
         guest_email=data.get("guest_email") or None,
@@ -477,7 +479,7 @@ def update_blocked_date(
     if "agent_id" in data and data["agent_id"]:
         if not db.query(Agent).filter(Agent.id == data["agent_id"]).first():
             raise HTTPException(status_code=400, detail="Okänd förmedlare")
-    for field in ("date_from", "date_to", "reason", "agent_id", "guest_name",
+    for field in ("date_from", "date_to", "reason", "internal_note", "agent_id", "guest_name",
                   "guest_email", "guest_phone", "guest_country",
                   "adults_count", "children_count", "pets_count", "articles"):
         if field in data: setattr(b, field, data[field] or ([] if field == "articles" else None))
