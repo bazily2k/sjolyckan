@@ -388,6 +388,22 @@ class BlockedDate(Base):
     articles = Column(JSON, nullable=False, default=list)
 
     agent = relationship("Agent")
+    files = relationship("BlockedDateFile", back_populates="blocked_date",
+                          cascade="all, delete-orphan", order_by="BlockedDateFile.uploaded_at")
+
+
+class BlockedDateFile(Base):
+    """Bifogad fil (PDF, Word, e-postfil m.m.) kopplad till ett blockerat datum/förmedlar-bokning."""
+    __tablename__ = "blocked_date_files"
+    id = Column(Integer, primary_key=True)
+    blocked_date_id = Column(Integer, ForeignKey("blocked_dates.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(255), nullable=False)   # ursprungligt filnamn, t.ex. "avtal.pdf"
+    url = Column(String(500), nullable=False)         # lagringssökväg, t.ex. /uploads/blocked/<uuid>.pdf
+    content_type = Column(String(150), nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    blocked_date = relationship("BlockedDate", back_populates="files")
 
 class BookingAddon(Base):
     """Tilläggsbegäran kopplad till en bekräftad bokning."""
