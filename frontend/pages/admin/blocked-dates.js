@@ -6,7 +6,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 const emptyForm = () => ({
   date_from: '', date_to: '', reason: '', internal_note: '', agent_id: '',
   guest_name: '', guest_email: '', guest_phone: '', guest_country: '',
-  adults_count: '', children_count: '', pets_count: '', articles: [],
+  adults_count: '', children_count: '', pets_count: '', articles: [], files: [],
 });
 
 export default function BlockedDatesPage() {
@@ -16,6 +16,7 @@ export default function BlockedDatesPage() {
   const [form, setForm]       = useState(emptyForm());
   const [editing, setEditing] = useState(null); // id of block being edited
   const [msg, setMsg]         = useState('');
+  const [fileBusy, setFileBusy] = useState(false);
 
   const load = () => adminApi.getBlockedDates().then(r => setBlocks(r.data)).catch(() => {});
   useEffect(() => {
@@ -56,7 +57,7 @@ export default function BlockedDatesPage() {
       agent_id: b.agent_id || '', guest_name: b.guest_name || '', guest_email: b.guest_email || '',
       guest_phone: b.guest_phone || '', guest_country: b.guest_country || '',
       adults_count: b.adults_count ?? '', children_count: b.children_count ?? '', pets_count: b.pets_count ?? '',
-      articles: b.articles || [],
+      articles: b.articles || [], files: b.files || [],
     });
     setMsg('');
   };
@@ -71,6 +72,54 @@ export default function BlockedDatesPage() {
     if (!confirm('Ta bort blockerat datum?')) return;
     try { await adminApi.deleteBlockedDate(id); load(); }
     catch(e) { setMsg('Fel: ' + (e.response?.data?.detail || e.message)); }
+  };
+
+  const ALLOWED_FILE_EXT = ['pdf', 'doc', 'docx', 'eml', 'msg'];
+  const uploadFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // så samma fil kan väljas igen
+    if (!file || !editing) return;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!ALLOWED_FILE_EXT.includes(ext)) {
+      setMsg('Endast PDF, Word (.doc/.docx) och e-postfiler (.eml/.msg) tillåts');
+      return;
+    }
+    setFileBusy(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await adminApi.uploadBlockedDateFile(editing, fd);
+      setForm(f => ({ ...f, files: [...f.files, r.data] }));
+      load();
+    } catch(e2) {
+      setMsg('Fel vid uppladdning: ' + (e2.response?.data?.detail || e2.message));
+    } finally {
+      setFileBusy(false);
+    }
+  };
+
+  const deleteFile = async (fileId) => {
+    if (!editing || !confirm('Ta bort filen?')) return;
+    try {
+      await adminApi.deleteBlockedDateFile(editing, fileId);
+      setForm(f => ({ ...f, files: f.files.filter(x => x.id !== fileId) }));
+      load();
+    } catch(e2) {
+      setMsg('Fel: ' + (e2.response?.data?.detail || e2.message));
+    }
+  };
+
+  const fileSize = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+  const fileIcon = (filename) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return '📕';
+    if (ext === 'doc' || ext === 'docx') return '📘';
+    if (ext === 'eml' || ext === 'msg') return '✉️';
+    return '📎';
   };
 
   const inp = { width:'100%', padding:'8px 10px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', fontSize:13, outline:'none', boxSizing:'border-box' };
@@ -125,6 +174,7 @@ export default function BlockedDatesPage() {
                         </>
                       ) : (b.reason || '–')}
                       {b.internal_note && <span title="Intern anteckning finns" style={{ marginLeft:6 }}>🔒</span>}
+                      {b.files?.length > 0 && <span title={`${b.files.length} bifogad(e) fil(er)`} style={{ marginLeft:6 }}>📎 {b.files.length}</span>}
                     </td>
                     <td style={{ padding:'10px 14px', textAlign:'right', whiteSpace:'nowrap' }}>
                       <button onClick={() => startEdit(b)}
@@ -178,6 +228,43 @@ export default function BlockedDatesPage() {
             <textarea value={form.internal_note} onChange={e => setForm(f => ({ ...f, internal_note: e.target.value }))}
               placeholder="Bara synlig här och i detaljvyn – aldrig i kalenderrutan"
               rows={2} style={{ ...inp, height:'auto', resize:'vertical', fontFamily:'inherit' }} />
+          </div>
+
+          <div style={{ marginBottom:16 }}>
+            <label style={lbl}>Bifogade filer (PDF, Word, e-post)</label>
+            {!editing ? (
+              <div style={{ fontSize:12, color:'var(--ink-pale)', fontStyle:'italic' }}>
+                Spara perioden först – därefter kan du bifoga filer.
+              </div>
+            ) : (
+              <>
+                {form.files.length > 0 && (
+                  <div style={{ marginBottom:8 }}>
+                    {form.files.map(f => (
+                      <div key={f.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 8px', border:'1px solid var(--sand-dark)', borderRadius:'var(--radius-md)', marginBottom:6, fontSize:13 }}>
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color:'var(--ink)', textDecoration:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                          {fileIcon(f.filename)} {f.filename}
+                          {f.size_bytes ? <span style={{ color:'var(--ink-pale)' }}> ({fileSize(f.size_bytes)})</span> : null}
+                        </a>
+                        <button type="button" onClick={() => deleteFile(f.id)}
+                          style={{ marginLeft:8, padding:'2px 8px', background:'white', color:'var(--red)', border:'1px solid var(--red)', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}>
+                          🗑
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label style={{
+                  display:'inline-block', padding:'7px 12px', border:'1px dashed var(--sand-dark)',
+                  borderRadius:'var(--radius-md)', cursor: fileBusy ? 'default' : 'pointer', fontSize:12,
+                  color:'var(--ink-light)', opacity: fileBusy ? 0.6 : 1,
+                }}>
+                  {fileBusy ? 'Laddar upp…' : '+ Bifoga fil'}
+                  <input type="file" accept=".pdf,.doc,.docx,.eml,.msg" onChange={uploadFile} disabled={fileBusy} style={{ display:'none' }} />
+                </label>
+                <div style={{ fontSize:11, color:'var(--ink-pale)', marginTop:4 }}>Max 20 MB per fil.</div>
+              </>
+            )}
           </div>
 
           {isAgentBooking && (
