@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
-import { adminApi } from '../../lib/api';
+import { adminApi, bookingApi } from '../../lib/api';
 import axios from 'axios';
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -51,6 +51,23 @@ export default function AdminBookings() {
   const [sortBy, setSortBy] = useState('booking_ref');
   const [sortDir, setSortDir] = useState('desc');
   const [hiddenIds, setHiddenIds] = useState(new Set());
+
+  // Admin: skapa bokning direkt
+  const emptyNewBooking = () => ({
+    user_id: null, guest_name: '', guest_email: '', guest_phone: '', guest_country: 'SE',
+    date_from: '', date_to: '', guests_count: 2, adults_count: '', children_count: '', pets_count: '',
+    message: '', payment_method: 'manual', admin_note: '', mark_fully_paid: false,
+  });
+  const [showNewBooking, setShowNewBooking] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
+  const [nb, setNb] = useState(emptyNewBooking());
+  const [nbUserSearch, setNbUserSearch] = useState('');
+  const [nbArticleQtys, setNbArticleQtys] = useState({});
+  const [nbPriceCheck, setNbPriceCheck] = useState(null);
+  const [nbPriceLoading, setNbPriceLoading] = useState(false);
+  const [nbSaving, setNbSaving] = useState(false);
+  const [nbError, setNbError] = useState('');
+
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -141,6 +158,85 @@ export default function AdminBookings() {
   };
 
   useEffect(() => { load(); }, [filter, showHidden]);
+
+  useEffect(() => {
+    if (showNewBooking && allUsers.length === 0) {
+      adminApi.listUsers().then(r => setAllUsers(r.data.items || r.data || [])).catch(() => {});
+    }
+  }, [showNewBooking]);
+
+  const nbFilteredUsers = nbUserSearch.trim().length < 2 ? [] : allUsers.filter(u => {
+    const q = nbUserSearch.toLowerCase();
+    return (u.email || '').toLowerCase().includes(q)
+      || `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase().includes(q);
+  }).slice(0, 8);
+
+  const nbSelectUser = (u) => {
+    setNb(f => ({
+      ...f, user_id: u.id, guest_name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+      guest_email: u.email, guest_phone: u.phone || '', guest_country: u.country || 'SE',
+    }));
+    setNbUserSearch('');
+    setNbPriceCheck(null);
+  };
+
+  const nbSetArticleQty = (articleId, qty) => {
+    setNbArticleQtys(prev => {
+      const next = { ...prev };
+      if (qty <= 0) delete next[articleId]; else next[articleId] = qty;
+      return next;
+    });
+    setNbPriceCheck(null);
+  };
+
+  const nbCheckPrice = async () => {
+    if (!nb.date_from || !nb.date_to) { setNbError('Ange ankomst- och avresedatum först'); return; }
+    setNbPriceLoading(true); setNbError('');
+    const article_ids = Object.keys(nbArticleQtys).map(Number);
+    try {
+      const r = await bookingApi.priceCheck({
+        date_from: nb.date_from, date_to: nb.date_to, guests_count: Number(nb.guests_count) || 2,
+        article_ids, article_quantities: nbArticleQtys, guest_email: nb.guest_email || undefined, lang: 'sv',
+      });
+      setNbPriceCheck(r.data);
+    } catch (e) {
+      setNbPriceCheck(null);
+      setNbError(e.response?.data?.detail || 'Kunde inte beräkna pris');
+    } finally {
+      setNbPriceLoading(false);
+    }
+  };
+
+  const nbSubmit = async () => {
+    if (!nb.guest_name.trim() || !nb.guest_email.trim() || !nb.date_from || !nb.date_to) {
+      setNbError('Namn, e-post och datum krävs');
+      return;
+    }
+    setNbSaving(true); setNbError('');
+    try {
+      const payload = {
+        ...nb,
+        user_id: nb.user_id || undefined,
+        adults_count: nb.adults_count === '' ? undefined : Number(nb.adults_count),
+        children_count: nb.children_count === '' ? undefined : Number(nb.children_count),
+        pets_count: nb.pets_count === '' ? undefined : Number(nb.pets_count),
+        guests_count: Number(nb.guests_count) || 2,
+        article_ids: Object.keys(nbArticleQtys).map(Number),
+        article_quantities: nbArticleQtys,
+      };
+      const r = await adminApi.createBooking(payload);
+      alert(`Bokning skapad: ${r.data.booking_ref}`);
+      setShowNewBooking(false);
+      setNb(emptyNewBooking());
+      setNbArticleQtys({});
+      setNbPriceCheck(null);
+      load();
+    } catch (e) {
+      setNbError(e.response?.data?.detail || e.message);
+    } finally {
+      setNbSaving(false);
+    }
+  };
 
   useEffect(() => {
     adminApi.getBlockedDates()
@@ -299,13 +395,21 @@ export default function AdminBookings() {
               </button>
             ))}
           </div>
-          <button onClick={() => setShowHidden(h => !h)} style={{
-            padding: '6px 14px', fontSize: 12, border: '1px solid var(--sand-dark)',
-            borderRadius: 20, background: showHidden ? 'var(--ink)' : 'white',
-            color: showHidden ? 'white' : 'var(--ink-light)', cursor: 'pointer',
-          }}>
-            {showHidden ? '👁 Döljer dolda' : '👁 Visa dolda'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowHidden(h => !h)} style={{
+              padding: '6px 14px', fontSize: 12, border: '1px solid var(--sand-dark)',
+              borderRadius: 20, background: showHidden ? 'var(--ink)' : 'white',
+              color: showHidden ? 'white' : 'var(--ink-light)', cursor: 'pointer',
+            }}>
+              {showHidden ? '👁 Döljer dolda' : '👁 Visa dolda'}
+            </button>
+            <button onClick={() => setShowNewBooking(true)} style={{
+              padding: '6px 16px', fontSize: 13, fontWeight: 600, border: 'none',
+              borderRadius: 20, background: 'var(--forest)', color: 'white', cursor: 'pointer',
+            }}>
+              + Ny bokning
+            </button>
+          </div>
         </div>
 
         {/* Förmedlar-bokningar (från Blockerade datum, kopplade till en förmedlare) */}
@@ -443,6 +547,169 @@ export default function AdminBookings() {
         </div>
 
         {/* Detalj-modal */}
+        {showNewBooking && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+            onClick={e => { if (e.target === e.currentTarget) setShowNewBooking(false); }}>
+            <div style={{ background: 'white', borderRadius: 'var(--radius-xl)', padding: 28, maxWidth: 600, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20 }}>Ny bokning</h2>
+                <button onClick={() => setShowNewBooking(false)} style={{ border: 'none', background: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--ink-pale)' }}>×</button>
+              </div>
+
+              {nbError && (
+                <div style={{ background: '#fdecea', color: '#c0392b', borderRadius: 'var(--radius-md)', padding: '8px 12px', marginBottom: 14, fontSize: 13 }}>{nbError}</div>
+              )}
+
+              {/* Kund */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Sök befintlig kund (valfritt)</label>
+                <input value={nbUserSearch} onChange={e => setNbUserSearch(e.target.value)}
+                  placeholder="Namn eller e-post…"
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                {nbFilteredUsers.length > 0 && (
+                  <div style={{ border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', marginTop: 4, maxHeight: 160, overflowY: 'auto' }}>
+                    {nbFilteredUsers.map(u => (
+                      <div key={u.id} onClick={() => nbSelectUser(u)} style={{ padding: '7px 10px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid var(--sand-dark)' }}>
+                        {u.first_name} {u.last_name} <span style={{ color: 'var(--ink-pale)' }}>· {u.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {nb.user_id && (
+                  <div style={{ fontSize: 12, color: 'var(--forest)', marginTop: 4 }}>
+                    ✓ Kopplad till konto #{nb.user_id}
+                    <button onClick={() => setNb(f => ({ ...f, user_id: null }))} style={{ marginLeft: 8, border: 'none', background: 'none', color: 'var(--ink-pale)', cursor: 'pointer', fontSize: 12 }}>(ta bort koppling)</button>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Namn</label>
+                  <input value={nb.guest_name} onChange={e => setNb(f => ({ ...f, guest_name: e.target.value }))}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>E-post</label>
+                  <input value={nb.guest_email} onChange={e => setNb(f => ({ ...f, guest_email: e.target.value }))}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Telefon</label>
+                  <input value={nb.guest_phone} onChange={e => setNb(f => ({ ...f, guest_phone: e.target.value }))}
+                    placeholder="+46701234567"
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Land</label>
+                  <input value={nb.guest_country} onChange={e => setNb(f => ({ ...f, guest_country: e.target.value }))}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Ankomst</label>
+                  <input type="date" value={nb.date_from} onChange={e => { setNb(f => ({ ...f, date_from: e.target.value })); setNbPriceCheck(null); }}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Avresa</label>
+                  <input type="date" value={nb.date_to} onChange={e => { setNb(f => ({ ...f, date_to: e.target.value })); setNbPriceCheck(null); }}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+                {[
+                  ['guests_count', 'Gäster totalt'], ['adults_count', 'Vuxna'],
+                  ['children_count', 'Barn'], ['pets_count', 'Husdjur'],
+                ].map(([key, label]) => (
+                  <div key={key}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>{label}</label>
+                    <input type="number" min="0" value={nb[key]}
+                      onChange={e => { setNb(f => ({ ...f, [key]: e.target.value })); setNbPriceCheck(null); }}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                  </div>
+                ))}
+              </div>
+
+              {availableArticles.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Tillägg</label>
+                  <div style={{ border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', marginTop: 4, maxHeight: 180, overflowY: 'auto' }}>
+                    {availableArticles.map(a => (
+                      <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderBottom: '1px solid var(--sand-dark)', fontSize: 13 }}>
+                        <span>{a.name_sv}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <button onClick={() => nbSetArticleQty(a.id, (nbArticleQtys[a.id] || 0) - 1)} style={{ width: 22, height: 22, border: '1px solid var(--sand-dark)', borderRadius: 4, background: 'white', cursor: 'pointer' }}>−</button>
+                          <span style={{ minWidth: 16, textAlign: 'center' }}>{nbArticleQtys[a.id] || 0}</span>
+                          <button onClick={() => nbSetArticleQty(a.id, (nbArticleQtys[a.id] || 0) + 1)} style={{ width: 22, height: 22, border: '1px solid var(--sand-dark)', borderRadius: 4, background: 'white', cursor: 'pointer' }}>+</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Meddelande (valfritt)</label>
+                <textarea value={nb.message} onChange={e => setNb(f => ({ ...f, message: e.target.value }))} rows={2}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4, fontFamily: 'inherit', resize: 'vertical' }} />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <button onClick={nbCheckPrice} disabled={nbPriceLoading} style={{
+                  padding: '8px 16px', border: '1px solid var(--water)', color: 'var(--water)', background: 'white',
+                  borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                }}>
+                  {nbPriceLoading ? 'Beräknar…' : '💰 Beräkna pris'}
+                </button>
+                {nbPriceCheck && (
+                  <div style={{ fontSize: 13 }}>
+                    <strong>{nbPriceCheck.nights} nätter · {nbPriceCheck.total_amount.toLocaleString('sv-SE')} kr</strong>
+                    {nbPriceCheck.deposit_amount > 0 && <span style={{ color: 'var(--ink-light)' }}> (varav handpenning {nbPriceCheck.deposit_amount.toLocaleString('sv-SE')} kr)</span>}
+                    {nbPriceCheck.discount_amount > 0 && <span style={{ color: 'var(--forest)' }}> · rabatt {nbPriceCheck.discount_pct}%</span>}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Betalningsmetod</label>
+                <select value={nb.payment_method} onChange={e => setNb(f => ({ ...f, payment_method: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }}>
+                  <option value="manual">Manuell</option>
+                  <option value="swish">Swish</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="stripe">Stripe</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Admin-anteckning (valfri, syns bara internt)</label>
+                <textarea value={nb.admin_note} onChange={e => setNb(f => ({ ...f, admin_note: e.target.value }))} rows={2}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4, fontFamily: 'inherit', resize: 'vertical' }} />
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 20, cursor: 'pointer' }}>
+                <input type="checkbox" checked={nb.mark_fully_paid} onChange={e => setNb(f => ({ ...f, mark_fully_paid: e.target.checked }))} />
+                Hela beloppet är redan betalt (t.ex. via bank/Swish innan bokningen lades in)
+              </label>
+
+              <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 14 }}>
+                Bokningen bekräftas direkt och ett bekräftelsemejl skickas till gästen, precis som vid en vanlig godkänd bokning.
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button onClick={() => setShowNewBooking(false)} style={{ padding: '9px 18px', border: '1px solid var(--sand-dark)', background: 'white', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13 }}>Avbryt</button>
+                <button onClick={nbSubmit} disabled={nbSaving} style={{ padding: '9px 18px', border: 'none', background: 'var(--forest)', color: 'white', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, fontWeight: 600, opacity: nbSaving ? 0.6 : 1 }}>
+                  {nbSaving ? 'Skapar…' : 'Skapa bokning'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {selected && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
             onClick={e => { if (e.target === e.currentTarget) setSelected(null); }}>
