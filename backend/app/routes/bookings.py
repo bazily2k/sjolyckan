@@ -12,7 +12,7 @@ from app.models.database import get_db
 from app.models.models import (
     Booking, BookingStatus, PaymentMethod, Payment,
     PaymentType, PaymentStatus, User, EmailLog,
-    BookingCheckinCode, CheckinInfoItem, UserRole
+    BookingCheckinCode, CheckinInfoItem
 )
 from app.core.booking_logic import calculate_booking_price, create_booking_record
 from app.core.auth import get_current_user, require_admin
@@ -70,30 +70,6 @@ class AdminConfirmRequest(BaseModel):
     admin_note: Optional[str] = None
     deposit_due_date: Optional[date] = None   # åsidosätter beräknat datum
     payment_due_date: Optional[date] = None   # åsidosätter beräknat datum
-
-
-class AdminCreateBookingRequest(BaseModel):
-    """Admin skapar en riktig bokning direkt (t.ex. per telefon/mejl) —
-    bokningen bekräftas omedelbart, precis som en normal godkänd bokning."""
-    user_id: Optional[int] = None   # befintlig kund; annars skapas/matchas via guest_email
-    guest_name: str
-    guest_email: EmailStr
-    guest_phone: Optional[str] = None
-    guest_country: str = "SE"
-    guest_address: Optional[str] = None
-    lang: str = "sv"
-    guests_count: int = 2
-    adults_count: Optional[int] = None
-    children_count: Optional[int] = None
-    pets_count: Optional[int] = None
-    date_from: date
-    date_to: date
-    article_ids: List[int] = []
-    article_quantities: dict = {}
-    message: Optional[str] = None
-    payment_method: PaymentMethod
-    admin_note: Optional[str] = None
-    mark_fully_paid: bool = False   # registrera hela beloppet som betalt direkt (t.ex. redan betalt via bank)
 
 
 class AdminPaymentRequest(BaseModel):
@@ -609,11 +585,17 @@ def admin_calendar(
         "blocked": [
             {
                 "id": bl.id, "date_from": str(bl.date_from), "date_to": str(bl.date_to), "reason": bl.reason,
+                "internal_note": bl.internal_note,
                 "agent_id": bl.agent_id, "agent_name": bl.agent.name if bl.agent_id and bl.agent else None,
                 "guest_name": bl.guest_name, "guest_email": bl.guest_email, "guest_phone": bl.guest_phone,
                 "guest_country": bl.guest_country, "adults_count": bl.adults_count,
                 "children_count": bl.children_count, "pets_count": bl.pets_count,
                 "articles": bl.articles or [],
+                "files": [
+                    {"id": f.id, "filename": f.filename, "url": f.url,
+                     "content_type": f.content_type, "size_bytes": f.size_bytes}
+                    for f in (bl.files or [])
+                ],
             }
             for bl in blocks
         ],
@@ -670,53 +652,69 @@ def admin_get_booking(
     return _booking_detail(b)
 
 
-# ─── Delad logik: bekräfta bokning + skapa betalningsposter ─────
-def _confirm_booking_and_create_payments(
-    db: Session, b: Booking, payment_method: PaymentMethod,
-    payment_methods: str = None, admin_note: str = None,
-    payment_due_date=None, deposit_due_date=None,
-    background_tasks: BackgroundTasks = None, send_email: bool = True,
-) -> dict:
-    """Sätter en bokning till 'confirmed', skapar handpenning/slutbetalning som
-    Payment-poster, och skickar (valfritt) bekräftelsemejl. Används både när en
-    väntande bokning godkänns manuellt och när admin skapar en ny bokning direkt."""
+# ─── Admin: Godkänn bokning ─────────────────────────────
+@router.post("/admin/{booking_id}/confirm")
+async def admin_confirm_booking(
+    booking_id: int,
+    req: AdminConfirmRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    b = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Bokning hittades inte")
+    if b.status != BookingStatus.pending:
+        raise HTTPException(status_code=400, detail="Bokningen är inte i väntande status")
+
+    from datetime import datetime
     b.status = BookingStatus.confirmed
-    b.payment_method = payment_method
-    b.payment_methods = payment_methods or payment_method.value
-    if admin_note is not None:
-        b.admin_note = admin_note
+    b.payment_method = req.payment_method
+    b.payment_methods = req.payment_methods or req.payment_method.value
+    b.admin_note = req.admin_note
     b.confirmed_at = datetime.utcnow()
 
-    if payment_due_date:
-        b.payment_due_date = payment_due_date
+    # Admin kan justera förfallodatum vid godkännande
+    if req.payment_due_date:
+        b.payment_due_date = req.payment_due_date
 
     has_deposit = b.deposit_amount and b.deposit_amount > 0
     if has_deposit:
-        if deposit_due_date:
-            b.deposit_due_date = deposit_due_date
+        if req.deposit_due_date:
+            b.deposit_due_date = req.deposit_due_date
     else:
+        # Ingen handpenning — inget förfallodatum ska visas för kunden
         b.deposit_due_date = None
 
+    # Skapa betalningsposter (handpenning bara om beloppet är > 0)
     deposit = None
     if has_deposit:
         deposit = Payment(
-            booking_id=b.id, type=PaymentType.deposit, method=payment_method,
-            amount=b.deposit_amount, status=PaymentStatus.pending, due_date=b.deposit_due_date,
+            booking_id=b.id,
+            type=PaymentType.deposit,
+            method=req.payment_method,
+            amount=b.deposit_amount,
+            status=PaymentStatus.pending,
+            due_date=b.deposit_due_date,
         )
         db.add(deposit)
     final = Payment(
-        booking_id=b.id, type=PaymentType.final, method=payment_method,
+        booking_id=b.id,
+        type=PaymentType.final,
+        method=req.payment_method,
         amount=b.total_amount - (b.deposit_amount or 0),
-        status=PaymentStatus.pending, due_date=b.payment_due_date,
+        status=PaymentStatus.pending,
+        due_date=b.payment_due_date,
     )
     db.add(final)
     db.commit()
     db.refresh(b)
 
-    if send_email and background_tasks is not None:
-        background_tasks.add_task(send_booking_email_by_id, b.id, "booking_confirmed")
+    # Skicka bekräftelse till gäst
+    background_tasks.add_task(send_booking_email_by_id, b.id, "booking_confirmed")
 
-    if has_deposit and payment_method == PaymentMethod.stripe and settings.STRIPE_SECRET_KEY:
+    # Om Stripe — skapa betalningslänk för handpenning
+    if has_deposit and req.payment_method == PaymentMethod.stripe and settings.STRIPE_SECRET_KEY:
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
             line_items=[{
@@ -738,131 +736,6 @@ def _confirm_booking_and_create_payments(
         return {"status": "confirmed", "stripe_url": session.url}
 
     return {"status": "confirmed"}
-
-
-# ─── Admin: Godkänn bokning ─────────────────────────────
-@router.post("/admin/{booking_id}/confirm")
-async def admin_confirm_booking(
-    booking_id: int,
-    req: AdminConfirmRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    b = db.query(Booking).filter(Booking.id == booking_id).first()
-    if not b:
-        raise HTTPException(status_code=404, detail="Bokning hittades inte")
-    if b.status != BookingStatus.pending:
-        raise HTTPException(status_code=400, detail="Bokningen är inte i väntande status")
-
-    return _confirm_booking_and_create_payments(
-        db, b, req.payment_method,
-        payment_methods=req.payment_methods, admin_note=req.admin_note,
-        payment_due_date=req.payment_due_date, deposit_due_date=req.deposit_due_date,
-        background_tasks=background_tasks, send_email=True,
-    )
-
-
-# ─── Admin: Skapa bokning direkt (t.ex. per telefon/mejl) ───
-@router.post("/admin/bookings")
-async def admin_create_booking(
-    req: AdminCreateBookingRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    from app.models.models import BlockedDate
-
-    # Tillgänglighetskontroll — samma regler som det publika bokningsflödet
-    conflict = db.query(Booking).filter(
-        Booking.status != BookingStatus.cancelled,
-        Booking.date_from < req.date_to,
-        Booking.date_to > req.date_from,
-    ).first()
-    if conflict:
-        raise HTTPException(status_code=409, detail="De valda datumen krockar med en befintlig bokning")
-    blocked = db.query(BlockedDate).filter(
-        BlockedDate.date_from < req.date_to,
-        BlockedDate.date_to > req.date_from,
-    ).first()
-    if blocked:
-        raise HTTPException(status_code=409, detail="De valda datumen är blockerade")
-
-    # Hitta/länka kund — befintligt konto (via id eller e-post) eller skapa nytt,
-    # på samma sätt som när en gäst bokar själv.
-    user = None
-    if req.user_id:
-        user = db.query(User).filter(User.id == req.user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="Kunden hittades inte")
-    else:
-        email_norm = req.guest_email.strip().lower()
-        user = db.query(User).filter(User.email == email_norm).first()
-        if not user:
-            from app.core.auth import hash_password
-            name = req.guest_name.strip()
-            first_name = name.split(" ")[0] if name else ""
-            last_name = name.split(" ", 1)[1] if " " in name else ""
-            user = User(
-                email=email_norm,
-                password_hash=hash_password(secrets.token_urlsafe(32)),
-                first_name=first_name or None,
-                last_name=last_name or None,
-                phone=req.guest_phone or None,
-                country=req.guest_country or "SE",
-                role=UserRole.guest,
-                is_active=True,
-                password_set_by_user=False,
-            )
-            db.add(user)
-            db.flush()
-
-    # Prisberäkning — samma funktion som det publika flödet, inkl. kundens ev. rabatt
-    discount_pct = Decimal(str(user.discount_pct)) if user.discount_pct else Decimal('0')
-    try:
-        calc = calculate_booking_price(
-            db, req.date_from, req.date_to, req.guests_count, req.article_ids,
-            discount_pct=discount_pct, article_quantities=req.article_quantities, lang=req.lang,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    data = req.dict()
-    data["guest_email"] = user.email
-    try:
-        booking = create_booking_record(db, data, calc)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="De valda datumen är inte längre tillgängliga")
-
-    booking.user_id = user.id
-    db.commit()
-    db.refresh(booking)
-
-    # Bekräfta direkt — skapar betalningsposter och skickar bekräftelsemejl,
-    # precis som när en väntande bokning godkänns manuellt.
-    result = _confirm_booking_and_create_payments(
-        db, booking, req.payment_method,
-        admin_note=req.admin_note, background_tasks=background_tasks, send_email=True,
-    )
-
-    # Ev. markera hela beloppet som redan betalt (t.ex. betalning mottagen via bank/Swish innan bokningen lades in)
-    if req.mark_fully_paid:
-        for p in booking.payments:
-            if p.status != PaymentStatus.paid:
-                p.status = PaymentStatus.paid
-                p.paid_at = datetime.utcnow()
-                p.note = "Manuellt registrerad vid admin-skapad bokning"
-        db.commit()
-        from app.core.booking_logic import recalc_booking_status
-        recalc_booking_status(db, booking)
-        db.commit()
-        db.refresh(booking)
-
-    return {
-        "status": "created", "booking_id": booking.id, "booking_ref": booking.booking_ref,
-        "booking_status": booking.status.value, "stripe_url": result.get("stripe_url"),
-    }
 
 
 # ─── Admin: Neka bokning ────────────────────────────────
