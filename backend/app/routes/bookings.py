@@ -585,11 +585,17 @@ def admin_calendar(
         "blocked": [
             {
                 "id": bl.id, "date_from": str(bl.date_from), "date_to": str(bl.date_to), "reason": bl.reason,
+                "internal_note": bl.internal_note,
                 "agent_id": bl.agent_id, "agent_name": bl.agent.name if bl.agent_id and bl.agent else None,
                 "guest_name": bl.guest_name, "guest_email": bl.guest_email, "guest_phone": bl.guest_phone,
                 "guest_country": bl.guest_country, "adults_count": bl.adults_count,
                 "children_count": bl.children_count, "pets_count": bl.pets_count,
                 "articles": bl.articles or [],
+                "files": [
+                    {"id": f.id, "filename": f.filename, "url": f.url,
+                     "content_type": f.content_type, "size_bytes": f.size_bytes}
+                    for f in (bl.files or [])
+                ],
             }
             for bl in blocks
         ],
