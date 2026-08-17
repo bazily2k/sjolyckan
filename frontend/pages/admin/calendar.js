@@ -143,6 +143,31 @@ function BookingCard({ b }) {
   );
 }
 
+function BlockedFilesList({ files }) {
+  if (!files || files.length === 0) return null;
+  const fileIcon = (filename) => {
+    const ext = (filename || '').split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return '📕';
+    if (ext === 'doc' || ext === 'docx') return '📘';
+    if (ext === 'eml' || ext === 'msg') return '✉️';
+    return '📎';
+  };
+  return (
+    <div style={{ marginTop: 9, fontSize: 15 }}>
+      <span style={{ fontWeight: 600 }}>Bifogade filer:</span>
+      <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+        {files.map(f => (
+          <li key={f.id} style={{ fontSize: 14 }}>
+            <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--water)' }}>
+              {fileIcon(f.filename)} {f.filename}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function BlockedCard({ bl }) {
   if (bl.agent_name) {
     return (
@@ -172,6 +197,7 @@ function BlockedCard({ bl }) {
         )}
         {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar (syns i kalendern):</span> {bl.reason}</div>}
         {bl.internal_note && <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}><span style={{ fontWeight: 600 }}>🔒 Intern anteckning (syns ej i kalendern):</span> {bl.internal_note}</div>}
+        <BlockedFilesList files={bl.files} />
       </div>
     );
   }
@@ -181,6 +207,7 @@ function BlockedCard({ bl }) {
       <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>{bl.date_from} – {bl.date_to}</div>
       {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar (syns i kalendern):</span> {bl.reason}</div>}
       {bl.internal_note && <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}><span style={{ fontWeight: 600 }}>🔒 Intern anteckning (syns ej i kalendern):</span> {bl.internal_note}</div>}
+      <BlockedFilesList files={bl.files} />
     </div>
   );
 }
