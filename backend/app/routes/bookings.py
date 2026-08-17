@@ -92,6 +92,7 @@ class AdminCreateBookingRequest(BaseModel):
     article_quantities: dict = {}
     message: Optional[str] = None
     payment_method: PaymentMethod
+    payment_methods: Optional[str] = None  # kommaseparerad: swish,paypal,stripe,manual
     admin_note: Optional[str] = None
     mark_fully_paid: bool = False   # registrera hela beloppet som betalt direkt (t.ex. redan betalt via bank)
 
@@ -877,7 +878,8 @@ async def admin_create_booking(
     # precis som när en väntande bokning godkänns manuellt.
     result = _confirm_booking_and_create_payments(
         db, booking, req.payment_method,
-        admin_note=req.admin_note, background_tasks=background_tasks, send_email=True,
+        payment_methods=req.payment_methods, admin_note=req.admin_note,
+        background_tasks=background_tasks, send_email=True,
     )
 
     # Ev. markera hela beloppet som redan betalt (t.ex. betalning mottagen via bank/Swish innan bokningen lades in)
