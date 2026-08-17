@@ -56,7 +56,7 @@ export default function AdminBookings() {
   const emptyNewBooking = () => ({
     user_id: null, guest_name: '', guest_email: '', guest_phone: '', guest_country: 'SE', guest_address: '',
     date_from: '', date_to: '', guests_count: 2, adults_count: '', children_count: '', pets_count: '',
-    message: '', payment_method: 'manual', admin_note: '', mark_fully_paid: false,
+    message: '', payment_method: 'manual', admin_note: '', mark_fully_paid: false, lang: 'sv',
   });
   const [showNewBooking, setShowNewBooking] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
@@ -184,7 +184,7 @@ export default function AdminBookings() {
     setNb(f => ({
       ...f, user_id: u.id, guest_name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
       guest_email: u.email, guest_phone: u.phone || '', guest_country: u.country || 'SE',
-      guest_address: addressParts.join(', '),
+      guest_address: addressParts.join(', '), lang: u.lang || 'sv',
     }));
     setNbUserSearch('');
     setNbPriceCheck(null);
@@ -221,7 +221,7 @@ export default function AdminBookings() {
     try {
       const r = await bookingApi.priceCheck({
         date_from: nb.date_from, date_to: nb.date_to, guests_count: Number(nb.guests_count) || 2,
-        article_ids, article_quantities: nbArticleQtys, guest_email: nb.guest_email || undefined, lang: 'sv',
+        article_ids, article_quantities: nbArticleQtys, guest_email: nb.guest_email || undefined, lang: nb.lang,
       });
       setNbPriceCheck(r.data);
     } catch (e) {
@@ -650,6 +650,15 @@ export default function AdminBookings() {
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Land</label>
                   <input value={nb.guest_country} onChange={e => setNb(f => ({ ...f, guest_country: e.target.value }))}
                     style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Språk (för mejl m.m.)</label>
+                  <select value={nb.lang} onChange={e => setNb(f => ({ ...f, lang: e.target.value }))}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }}>
+                    <option value="sv">🇸🇪 Svenska</option>
+                    <option value="en">🇬🇧 English</option>
+                    <option value="de">🇩🇪 Deutsch</option>
+                  </select>
                 </div>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Adress (valfritt)</label>
