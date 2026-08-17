@@ -143,6 +143,31 @@ function BookingCard({ b }) {
   );
 }
 
+function BlockedFilesList({ files }) {
+  if (!files || files.length === 0) return null;
+  const fileIcon = (filename) => {
+    const ext = (filename || '').split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') return '📕';
+    if (ext === 'doc' || ext === 'docx') return '📘';
+    if (ext === 'eml' || ext === 'msg') return '✉️';
+    return '📎';
+  };
+  return (
+    <div style={{ marginTop: 9, fontSize: 15 }}>
+      <span style={{ fontWeight: 600 }}>Bifogade filer:</span>
+      <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+        {files.map(f => (
+          <li key={f.id} style={{ fontSize: 14 }}>
+            <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--water)' }}>
+              {fileIcon(f.filename)} {f.filename}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function BlockedCard({ bl }) {
   if (bl.agent_name) {
     return (
@@ -172,6 +197,7 @@ function BlockedCard({ bl }) {
         )}
         {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar (syns i kalendern):</span> {bl.reason}</div>}
         {bl.internal_note && <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}><span style={{ fontWeight: 600 }}>🔒 Intern anteckning (syns ej i kalendern):</span> {bl.internal_note}</div>}
+        <BlockedFilesList files={bl.files} />
       </div>
     );
   }
@@ -181,6 +207,7 @@ function BlockedCard({ bl }) {
       <div style={{ fontSize: 14, color: 'var(--ink-light)', marginTop: 5 }}>{bl.date_from} – {bl.date_to}</div>
       {bl.reason && <div style={{ marginTop: 9, fontSize: 15 }}><span style={{ fontWeight: 600 }}>Kommentar (syns i kalendern):</span> {bl.reason}</div>}
       {bl.internal_note && <div style={{ marginTop: 7, fontSize: 14, background: '#fff4e5', borderRadius: 6, padding: '10px 12px' }}><span style={{ fontWeight: 600 }}>🔒 Intern anteckning (syns ej i kalendern):</span> {bl.internal_note}</div>}
+      <BlockedFilesList files={bl.files} />
     </div>
   );
 }
@@ -194,13 +221,26 @@ export default function AdminCalendar() {
     if (typeof window !== 'undefined' && window.innerWidth < 768) setView('list');
   }, []);
   const [selected, setSelected] = useState(null);
+  // 0 = dagens standardvy (nuvarande beteende: aktuell månad t.o.m. horisonten).
+  // Vid navigering (≠ 0) hämtas bara den enskilda valda månaden, så man kan
+  // bläddra bakåt till tidigare månader utan att sidan svämmar över av framtida månader.
+  const [monthOffset, setMonthOffset] = useState(0);
 
   useEffect(() => {
-    adminApi.getCalendar()
+    setLoading(true);
+    const req = monthOffset === 0
+      ? adminApi.getCalendar()
+      : (() => {
+          const now = new Date();
+          const anchor = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+          const next = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 1);
+          return adminApi.getCalendar(ymd(anchor), ymd(next));
+        })();
+    req
       .then(r => setData(r.data))
       .catch(() => setData({ bookings: [], blocked: [], start: null, end: null }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [monthOffset]);
 
   const bookings = data?.bookings || [];
   const blocked = data?.blocked || [];
@@ -223,15 +263,33 @@ export default function AdminCalendar() {
     <AdminLayout title="Kalender">
       <Head><title>Kalender – Admin</title></Head>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {[['month', '🗓️ Månad'], ['list', '📋 Lista']].map(([v, label]) => (
-          <button key={v} onClick={() => setView(v)} style={{
-            padding: '9px 18px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 14,
-            border: '1px solid var(--sand-dark)',
-            background: view === v ? 'var(--water)' : 'white',
-            color: view === v ? 'white' : 'var(--ink)',
-          }}>{label}</button>
-        ))}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[['month', '🗓️ Månad'], ['list', '📋 Lista']].map(([v, label]) => (
+            <button key={v} onClick={() => setView(v)} style={{
+              padding: '9px 18px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 14,
+              border: '1px solid var(--sand-dark)',
+              background: view === v ? 'var(--water)' : 'white',
+              color: view === v ? 'white' : 'var(--ink)',
+            }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button onClick={() => setMonthOffset(m => m - 1)} title="Föregående månad" style={{
+            padding: '9px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 14,
+            border: '1px solid var(--sand-dark)', background: 'white', color: 'var(--ink)',
+          }}>◀</button>
+          {monthOffset !== 0 && (
+            <button onClick={() => setMonthOffset(0)} style={{
+              padding: '9px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 14,
+              border: '1px solid var(--sand-dark)', background: 'white', color: 'var(--water)', fontWeight: 600,
+            }}>Idag</button>
+          )}
+          <button onClick={() => setMonthOffset(m => m + 1)} title="Nästa månad" style={{
+            padding: '9px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 14,
+            border: '1px solid var(--sand-dark)', background: 'white', color: 'var(--ink)',
+          }}>▶</button>
+        </div>
       </div>
 
       {loading && <div style={{ color: 'var(--ink-light)' }}>Laddar kalender…</div>}

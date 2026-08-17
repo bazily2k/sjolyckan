@@ -196,6 +196,7 @@ upload_dir.mkdir(parents=True, exist_ok=True)
 (upload_dir / "rooms").mkdir(exist_ok=True)
 (upload_dir / "gallery").mkdir(exist_ok=True)
 (upload_dir / "checkin").mkdir(exist_ok=True)
+(upload_dir / "blocked").mkdir(exist_ok=True)
 
 app = FastAPI(
     title="Sjölyckan Booking API",

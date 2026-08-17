@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from pathlib import Path
+import uuid
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
@@ -434,6 +436,11 @@ def _blocked_dict(b) -> dict:
         "guest_country": b.guest_country, "adults_count": b.adults_count,
         "children_count": b.children_count, "pets_count": b.pets_count,
         "articles": b.articles or [],
+        "files": [
+            {"id": f.id, "filename": f.filename, "url": f.url,
+             "content_type": f.content_type, "size_bytes": f.size_bytes}
+            for f in (b.files or [])
+        ],
     }
 
 @router.post("/blocked-dates")
@@ -497,6 +504,74 @@ def delete_blocked_date(
     if not b:
         raise HTTPException(status_code=404, detail="Hittades inte")
     db.delete(b)
+    db.commit()
+    return {"ok": True}
+
+# ─── Bifogade filer till blockerade datum (PDF, Word, e-post m.m.) ─────
+BLOCKED_FILES_ALLOWED_EXT = {"pdf", "doc", "docx", "eml", "msg"}
+BLOCKED_FILES_MAX_SIZE = 20 * 1024 * 1024  # 20 MB
+
+def _save_blocked_date_file(file: UploadFile) -> dict:
+    ext = (file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "").lower()
+    if ext not in BLOCKED_FILES_ALLOWED_EXT:
+        raise HTTPException(
+            status_code=400,
+            detail="Endast PDF, Word (.doc/.docx) och e-postfiler (.eml/.msg) tillåts",
+        )
+    content = file.file.read()
+    if len(content) > BLOCKED_FILES_MAX_SIZE:
+        raise HTTPException(status_code=400, detail="Filen är för stor (max 20 MB)")
+    stored_name = f"{uuid.uuid4().hex}.{ext}"
+    path = Path("/app/uploads/blocked") / stored_name
+    with open(path, "wb") as f:
+        f.write(content)
+    return {"url": f"/uploads/blocked/{stored_name}", "content_type": file.content_type, "size_bytes": len(content)}
+
+@router.post("/blocked-dates/{block_id}/files")
+def upload_blocked_date_file(
+    block_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate, BlockedDateFile
+    b = db.query(BlockedDate).filter(BlockedDate.id == block_id).first()
+    if not b:
+        raise HTTPException(status_code=404, detail="Hittades inte")
+    saved = _save_blocked_date_file(file)
+    bf = BlockedDateFile(
+        blocked_date_id=block_id,
+        filename=file.filename,
+        url=saved["url"],
+        content_type=saved["content_type"],
+        size_bytes=saved["size_bytes"],
+    )
+    db.add(bf)
+    db.commit()
+    db.refresh(bf)
+    return {"id": bf.id, "filename": bf.filename, "url": bf.url,
+            "content_type": bf.content_type, "size_bytes": bf.size_bytes}
+
+@router.delete("/blocked-dates/{block_id}/files/{file_id}")
+def delete_blocked_date_file(
+    block_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDateFile
+    bf = db.query(BlockedDateFile).filter(
+        BlockedDateFile.id == file_id, BlockedDateFile.blocked_date_id == block_id
+    ).first()
+    if not bf:
+        raise HTTPException(status_code=404, detail="Filen hittades inte")
+    try:
+        p = Path("/app/uploads") / bf.url.replace("/uploads/", "", 1)
+        if p.exists():
+            p.unlink()
+    except Exception:
+        pass
+    db.delete(bf)
     db.commit()
     return {"ok": True}
 
