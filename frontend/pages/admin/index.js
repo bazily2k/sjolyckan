@@ -69,6 +69,10 @@ export default function AdminBookings() {
   const [nbError, setNbError] = useState('');
   const [nbAvailability, setNbAvailability] = useState(null); // null=okänt, {available:bool, reason}
   const [nbAvailChecking, setNbAvailChecking] = useState(false);
+  const [nbPayMethods, setNbPayMethods] = useState(['manual']);
+  const nbTogglePayMethod = (m) => {
+    setNbPayMethods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
+  };
 
 
   const toggleSort = (col) => {
@@ -233,6 +237,10 @@ export default function AdminBookings() {
       setNbError('Namn, e-post och datum krävs');
       return;
     }
+    if (nbPayMethods.length === 0) {
+      setNbError('Välj minst en betalningsmetod');
+      return;
+    }
     if (nbAvailability && nbAvailability.available === false) {
       setNbError('De valda datumen är inte lediga — ' + (nbAvailability.reason || ''));
       return;
@@ -248,6 +256,8 @@ export default function AdminBookings() {
         guests_count: Number(nb.guests_count) || 2,
         article_ids: Object.keys(nbArticleQtys).map(Number),
         article_quantities: nbArticleQtys,
+        payment_method: nbPayMethods[0],
+        payment_methods: nbPayMethods.join(','),
       };
       const r = await adminApi.createBooking(payload);
       alert(`Bokning skapad: ${r.data.booking_ref}`);
@@ -256,6 +266,7 @@ export default function AdminBookings() {
       setNbArticleQtys({});
       setNbPriceCheck(null);
       setNbAvailability(null);
+      setNbPayMethods(['manual']);
       load();
     } catch (e) {
       setNbError(e.response?.data?.detail || e.message);
@@ -729,14 +740,15 @@ export default function AdminBookings() {
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Betalningsmetod</label>
-                <select value={nb.payment_method} onChange={e => setNb(f => ({ ...f, payment_method: e.target.value }))}
-                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }}>
-                  <option value="manual">Manuell</option>
-                  <option value="swish">Swish</option>
-                  <option value="paypal">PayPal</option>
-                  <option value="stripe">Stripe</option>
-                </select>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Betalningsmetod(er)</label>
+                <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
+                  {[{v:'swish',l:'Swish'},{v:'paypal',l:'PayPal'},{v:'stripe',l:'Stripe'},{v:'manual',l:'Manuell'}].map(m => (
+                    <label key={m.v} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={nbPayMethods.includes(m.v)} onChange={() => nbTogglePayMethod(m.v)} />
+                      {m.l}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div style={{ marginBottom: 14 }}>
