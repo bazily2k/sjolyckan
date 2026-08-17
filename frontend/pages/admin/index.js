@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import Head from 'next/head';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { adminApi } from '../../lib/api';
 import axios from 'axios';
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
+
+// Samma lila färgschema som Förmedlar-bokningar har i admin-kalendern, så det
+// är uppenbart att det är samma typ av post och inte en riktig bokning.
+const AGENT_BG = '#e0d4f0';
+const AGENT_FG = '#4b2e78';
 
 const STATUS_COLORS = {
   pending: { bg: '#fef3cd', color: '#856404', label: 'Väntar' },
@@ -18,7 +24,9 @@ const STATUS_COLORS = {
 };
 
 export default function AdminBookings() {
+  const router = useRouter();
   const [bookings, setBookings] = useState([]);
+  const [agentBlocks, setAgentBlocks] = useState([]);
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +141,12 @@ export default function AdminBookings() {
   };
 
   useEffect(() => { load(); }, [filter, showHidden]);
+
+  useEffect(() => {
+    adminApi.getBlockedDates()
+      .then(r => setAgentBlocks((r.data || []).filter(b => b.agent_id)))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     adminApi.listArticles().then(r => setAvailableArticles(r.data)).catch(() => {});
@@ -294,7 +308,56 @@ export default function AdminBookings() {
           </button>
         </div>
 
+        {/* Förmedlar-bokningar (från Blockerade datum, kopplade till en förmedlare) */}
+        {agentBlocks.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px',
+                borderRadius: 20, background: AGENT_BG, color: AGENT_FG, fontSize: 12, fontWeight: 700,
+              }}>🤝 FÖRMEDLARE</span>
+              <span style={{ fontSize: 13, color: 'var(--ink-light)' }}>Bokningar via förmedlare (hanteras under Blockerade datum)</span>
+            </div>
+            <div style={{ background: AGENT_BG + '55', borderRadius: 'var(--radius-lg)', border: `1px solid ${AGENT_BG}`, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: AGENT_BG, borderBottom: `1px solid ${AGENT_FG}22` }}>
+                    {['Förmedlare', 'Gäst', 'Datum', 'Personer', 'Tillägg'].map(label => (
+                      <th key={label} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: AGENT_FG, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {agentBlocks
+                    .sort((a, b) => (a.date_from < b.date_from ? 1 : -1))
+                    .map(b => (
+                      <tr key={b.id} style={{ borderBottom: `1px solid ${AGENT_BG}`, cursor: 'pointer' }}
+                        onClick={() => router.push('/admin/blocked-dates')}>
+                        <td style={{ padding: '10px 14px', fontWeight: 600, color: AGENT_FG }}>🤝 {b.agent_name}</td>
+                        <td style={{ padding: '10px 14px' }}>{b.guest_name || '–'}</td>
+                        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{b.date_from} – {b.date_to}</td>
+                        <td style={{ padding: '10px 14px' }}>
+                          {b.adults_count != null ? `👥${b.adults_count}${b.children_count ? `+${b.children_count}` : ''}${b.pets_count ? ` 🐾${b.pets_count}` : ''}` : '–'}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          {(b.articles || []).filter(a => (a.quantity || 0) > 0).length > 0
+                            ? b.articles.filter(a => (a.quantity || 0) > 0).map(a => `${a.name_sv}${a.quantity > 1 ? ` ×${a.quantity}` : ''}`).join(', ')
+                            : '–'}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Tabell */}
+        {agentBlocks.length > 0 && (
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-light)', marginBottom: 8 }}>Bokningar</div>
+        )}
         <div style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--sand-dark)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
