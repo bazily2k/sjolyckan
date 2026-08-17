@@ -770,6 +770,33 @@ async def admin_confirm_booking(
     )
 
 
+# ─── Admin: Kontrollera lediga datum (för live-varning i "Ny bokning") ───
+@router.get("/admin/availability")
+def admin_check_availability(
+    date_from: date, date_to: date,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import BlockedDate
+    if date_to <= date_from:
+        return {"available": False, "reason": "Avresa måste vara efter ankomst"}
+    conflict = db.query(Booking).filter(
+        Booking.status != BookingStatus.cancelled,
+        Booking.date_from < date_to,
+        Booking.date_to > date_from,
+    ).first()
+    if conflict:
+        return {"available": False, "reason": f"Krockar med bokning {conflict.booking_ref} ({conflict.guest_name})"}
+    blocked = db.query(BlockedDate).filter(
+        BlockedDate.date_from < date_to,
+        BlockedDate.date_to > date_from,
+    ).first()
+    if blocked:
+        label = f"förmedlar-bokning ({blocked.agent.name})" if blocked.agent_id and blocked.agent else "blockering"
+        return {"available": False, "reason": f"Krockar med en {label}: {blocked.reason or ''}".strip()}
+    return {"available": True}
+
+
 # ─── Admin: Skapa bokning direkt (t.ex. per telefon/mejl) ───
 @router.post("/admin/bookings")
 async def admin_create_booking(
