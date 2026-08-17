@@ -54,7 +54,7 @@ export default function AdminBookings() {
 
   // Admin: skapa bokning direkt
   const emptyNewBooking = () => ({
-    user_id: null, guest_name: '', guest_email: '', guest_phone: '', guest_country: 'SE',
+    user_id: null, guest_name: '', guest_email: '', guest_phone: '', guest_country: 'SE', guest_address: '',
     date_from: '', date_to: '', guests_count: 2, adults_count: '', children_count: '', pets_count: '',
     message: '', payment_method: 'manual', admin_note: '', mark_fully_paid: false,
   });
@@ -67,6 +67,8 @@ export default function AdminBookings() {
   const [nbPriceLoading, setNbPriceLoading] = useState(false);
   const [nbSaving, setNbSaving] = useState(false);
   const [nbError, setNbError] = useState('');
+  const [nbAvailability, setNbAvailability] = useState(null); // null=okänt, {available:bool, reason}
+  const [nbAvailChecking, setNbAvailChecking] = useState(false);
 
 
   const toggleSort = (col) => {
@@ -172,13 +174,32 @@ export default function AdminBookings() {
   }).slice(0, 8);
 
   const nbSelectUser = (u) => {
+    const addressParts = [u.address_line1, u.address_line2].filter(Boolean);
+    const cityLine = [u.postal_code, u.city].filter(Boolean).join(' ');
+    if (cityLine) addressParts.push(cityLine);
     setNb(f => ({
       ...f, user_id: u.id, guest_name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
       guest_email: u.email, guest_phone: u.phone || '', guest_country: u.country || 'SE',
+      guest_address: addressParts.join(', '),
     }));
     setNbUserSearch('');
     setNbPriceCheck(null);
   };
+
+  // Live tillgänglighetskontroll — kollar automatiskt så fort både ankomst
+  // och avresa är ifyllda, så en krock upptäcks direkt istället för vid inskick.
+  useEffect(() => {
+    if (!showNewBooking || !nb.date_from || !nb.date_to) { setNbAvailability(null); return; }
+    let cancelled = false;
+    setNbAvailChecking(true);
+    const t = setTimeout(() => {
+      adminApi.checkAvailability(nb.date_from, nb.date_to)
+        .then(r => { if (!cancelled) setNbAvailability(r.data); })
+        .catch(() => { if (!cancelled) setNbAvailability(null); })
+        .finally(() => { if (!cancelled) setNbAvailChecking(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [showNewBooking, nb.date_from, nb.date_to]);
 
   const nbSetArticleQty = (articleId, qty) => {
     setNbArticleQtys(prev => {
@@ -212,6 +233,10 @@ export default function AdminBookings() {
       setNbError('Namn, e-post och datum krävs');
       return;
     }
+    if (nbAvailability && nbAvailability.available === false) {
+      setNbError('De valda datumen är inte lediga — ' + (nbAvailability.reason || ''));
+      return;
+    }
     setNbSaving(true); setNbError('');
     try {
       const payload = {
@@ -230,9 +255,11 @@ export default function AdminBookings() {
       setNb(emptyNewBooking());
       setNbArticleQtys({});
       setNbPriceCheck(null);
+      setNbAvailability(null);
       load();
     } catch (e) {
       setNbError(e.response?.data?.detail || e.message);
+
     } finally {
       setNbSaving(false);
     }
@@ -564,21 +591,29 @@ export default function AdminBookings() {
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Sök befintlig kund (valfritt)</label>
                 <input value={nbUserSearch} onChange={e => setNbUserSearch(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && nbFilteredUsers.length === 1) { e.preventDefault(); nbSelectUser(nbFilteredUsers[0]); } }}
                   placeholder="Namn eller e-post…"
                   style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
                 {nbFilteredUsers.length > 0 && (
-                  <div style={{ border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', marginTop: 4, maxHeight: 160, overflowY: 'auto' }}>
-                    {nbFilteredUsers.map(u => (
-                      <div key={u.id} onClick={() => nbSelectUser(u)} style={{ padding: '7px 10px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid var(--sand-dark)' }}>
-                        {u.first_name} {u.last_name} <span style={{ color: 'var(--ink-pale)' }}>· {u.email}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <>
+                    <div style={{ fontSize: 11, color: 'var(--ink-pale)', marginTop: 4 }}>👉 Klicka på kunden för att fylla i uppgifterna nedan</div>
+                    <div style={{ border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', marginTop: 4, maxHeight: 160, overflowY: 'auto' }}>
+                      {nbFilteredUsers.map(u => (
+                        <div key={u.id}
+                          onMouseDown={e => { e.preventDefault(); nbSelectUser(u); }}
+                          style={{ padding: '8px 10px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid var(--sand-dark)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--sand)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          {u.first_name} {u.last_name} <span style={{ color: 'var(--ink-pale)' }}>· {u.email}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
                 {nb.user_id && (
-                  <div style={{ fontSize: 12, color: 'var(--forest)', marginTop: 4 }}>
-                    ✓ Kopplad till konto #{nb.user_id}
-                    <button onClick={() => setNb(f => ({ ...f, user_id: null }))} style={{ marginLeft: 8, border: 'none', background: 'none', color: 'var(--ink-pale)', cursor: 'pointer', fontSize: 12 }}>(ta bort koppling)</button>
+                  <div style={{ fontSize: 12, color: 'var(--forest)', marginTop: 4, fontWeight: 600 }}>
+                    ✓ Kopplad till konto #{nb.user_id} — fälten nedan är förifyllda från kundens profil
+                    <button onClick={() => setNb(f => ({ ...f, user_id: null }))} style={{ marginLeft: 8, border: 'none', background: 'none', color: 'var(--ink-pale)', cursor: 'pointer', fontSize: 12, fontWeight: 400 }}>(ta bort koppling)</button>
                   </div>
                 )}
               </div>
@@ -605,9 +640,15 @@ export default function AdminBookings() {
                   <input value={nb.guest_country} onChange={e => setNb(f => ({ ...f, guest_country: e.target.value }))}
                     style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
                 </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Adress (valfritt)</label>
+                  <input value={nb.guest_address} onChange={e => setNb(f => ({ ...f, guest_address: e.target.value }))}
+                    placeholder="Gatuadress, postnr ort"
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4 }} />
+                </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Ankomst</label>
                   <input type="date" value={nb.date_from} onChange={e => { setNb(f => ({ ...f, date_from: e.target.value })); setNbPriceCheck(null); }}
@@ -620,6 +661,19 @@ export default function AdminBookings() {
                 </div>
               </div>
 
+              {nbAvailChecking && (
+                <div style={{ fontSize: 12, color: 'var(--ink-pale)', marginBottom: 14 }}>Kontrollerar lediga datum…</div>
+              )}
+              {!nbAvailChecking && nbAvailability && nbAvailability.available === false && (
+                <div style={{ background: '#fdecea', color: '#c0392b', borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 14, fontSize: 13, fontWeight: 600 }}>
+                  ⚠️ Datumen är inte lediga — {nbAvailability.reason}
+                </div>
+              )}
+              {!nbAvailChecking && nbAvailability && nbAvailability.available === true && (
+                <div style={{ background: '#e8f6ec', color: 'var(--forest)', borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 14, fontSize: 13, fontWeight: 600 }}>
+                  ✓ Datumen är lediga
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
                 {[
                   ['guests_count', 'Gäster totalt'], ['adults_count', 'Vuxna'],
