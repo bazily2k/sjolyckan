@@ -43,6 +43,8 @@ export const adminApi = {
     api.get(`/bookings/admin/list${status ? `?status=${status}` : ''}${showHidden ? (status ? '&show_hidden=true' : '?show_hidden=true') : ''}`),
   getBooking: (id) => api.get(`/bookings/admin/${id}`),
   confirmBooking: (id, data) => api.post(`/bookings/admin/${id}/confirm`, data),
+  createBooking: (data) => api.post('/bookings/admin/bookings', data),
+  checkAvailability: (dateFrom, dateTo) => api.get('/bookings/admin/availability', { params: { date_from: dateFrom, date_to: dateTo } }),
   rejectBooking: (id) => api.post(`/bookings/admin/${id}/reject`),
   registerPayment: (id, data) => api.post(`/bookings/admin/${id}/payment`, data),
   listSeasons: () => api.get('/admin/seasons'),
