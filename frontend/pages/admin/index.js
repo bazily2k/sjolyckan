@@ -69,7 +69,7 @@ export default function AdminBookings() {
   const [nbError, setNbError] = useState('');
   const [nbAvailability, setNbAvailability] = useState(null); // null=okänt, {available:bool, reason}
   const [nbAvailChecking, setNbAvailChecking] = useState(false);
-  const [nbPayMethods, setNbPayMethods] = useState(['manual']);
+  const [nbPayMethods, setNbPayMethods] = useState(['swish', 'paypal', 'stripe', 'manual']);
   const nbTogglePayMethod = (m) => {
     setNbPayMethods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
   };
@@ -273,7 +273,7 @@ export default function AdminBookings() {
       setNbArticleQtys({});
       setNbPriceCheck(null);
       setNbAvailability(null);
-      setNbPayMethods(['manual']);
+      setNbPayMethods(['swish', 'paypal', 'stripe', 'manual']);
       load();
     } catch (e) {
       setNbError(e.response?.data?.detail || e.message);
