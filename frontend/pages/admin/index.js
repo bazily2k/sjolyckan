@@ -69,7 +69,7 @@ export default function AdminBookings() {
   const [nbError, setNbError] = useState('');
   const [nbAvailability, setNbAvailability] = useState(null); // null=okänt, {available:bool, reason}
   const [nbAvailChecking, setNbAvailChecking] = useState(false);
-  const [nbPayMethods, setNbPayMethods] = useState(['manual']);
+  const [nbPayMethods, setNbPayMethods] = useState(['swish', 'paypal', 'stripe', 'manual']);
   const nbTogglePayMethod = (m) => {
     setNbPayMethods(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
   };
@@ -215,8 +215,8 @@ export default function AdminBookings() {
   };
 
   const nbCheckPrice = async () => {
-    if (!nb.date_from || !nb.date_to) { setNbError('Ange ankomst- och avresedatum först'); return; }
-    setNbPriceLoading(true); setNbError('');
+    if (!nb.date_from || !nb.date_to) { setNbPriceCheck(null); return; }
+    setNbPriceLoading(true);
     const article_ids = Object.keys(nbArticleQtys).map(Number);
     try {
       const r = await bookingApi.priceCheck({
@@ -226,11 +226,18 @@ export default function AdminBookings() {
       setNbPriceCheck(r.data);
     } catch (e) {
       setNbPriceCheck(null);
-      setNbError(e.response?.data?.detail || 'Kunde inte beräkna pris');
     } finally {
       setNbPriceLoading(false);
     }
   };
+
+  // Live prisförhandsvisning — beräknas automatiskt (debounce 400ms), precis
+  // som på den publika bokningssidan, så admin ser samma pris/summa som gästen ser.
+  useEffect(() => {
+    if (!showNewBooking || !nb.date_from || !nb.date_to) { setNbPriceCheck(null); return; }
+    const timer = setTimeout(() => { nbCheckPrice(); }, 400);
+    return () => clearTimeout(timer);
+  }, [showNewBooking, nb.date_from, nb.date_to, nb.guests_count, nb.lang, nbArticleQtys]);
 
   const nbSubmit = async () => {
     if (!nb.guest_name.trim() || !nb.guest_email.trim() || !nb.date_from || !nb.date_to) {
@@ -266,7 +273,7 @@ export default function AdminBookings() {
       setNbArticleQtys({});
       setNbPriceCheck(null);
       setNbAvailability(null);
-      setNbPayMethods(['manual']);
+      setNbPayMethods(['swish', 'paypal', 'stripe', 'manual']);
       load();
     } catch (e) {
       setNbError(e.response?.data?.detail || e.message);
@@ -714,7 +721,12 @@ export default function AdminBookings() {
                   <div style={{ border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', marginTop: 4, maxHeight: 180, overflowY: 'auto' }}>
                     {availableArticles.map(a => (
                       <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderBottom: '1px solid var(--sand-dark)', fontSize: 13 }}>
-                        <span>{a.name_sv}</span>
+                        <div>
+                          <div>{a.name_sv}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-pale)' }}>
+                            {a.price?.toLocaleString('sv-SE')} kr {a.price_type === 'per_night' ? '/ natt' : a.price_type === 'per_guest' ? '/ gäst' : a.price_type === 'per_occasion' ? '/ st' : a.price_type === 'per_pet' ? '/ husdjur' : ''}
+                          </div>
+                        </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <button onClick={() => nbSetArticleQty(a.id, (nbArticleQtys[a.id] || 0) - 1)} style={{ width: 22, height: 22, border: '1px solid var(--sand-dark)', borderRadius: 4, background: 'white', cursor: 'pointer' }}>−</button>
                           <span style={{ minWidth: 16, textAlign: 'center' }}>{nbArticleQtys[a.id] || 0}</span>
@@ -732,21 +744,48 @@ export default function AdminBookings() {
                   style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', fontSize: 13, marginTop: 4, fontFamily: 'inherit', resize: 'vertical' }} />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <button onClick={nbCheckPrice} disabled={nbPriceLoading} style={{
-                  padding: '8px 16px', border: '1px solid var(--water)', color: 'var(--water)', background: 'white',
-                  borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                }}>
-                  {nbPriceLoading ? 'Beräknar…' : '💰 Beräkna pris'}
-                </button>
-                {nbPriceCheck && (
-                  <div style={{ fontSize: 13 }}>
-                    <strong>{nbPriceCheck.nights} nätter · {nbPriceCheck.total_amount.toLocaleString('sv-SE')} kr</strong>
-                    {nbPriceCheck.deposit_amount > 0 && <span style={{ color: 'var(--ink-light)' }}> (varav handpenning {nbPriceCheck.deposit_amount.toLocaleString('sv-SE')} kr)</span>}
-                    {nbPriceCheck.discount_amount > 0 && <span style={{ color: 'var(--forest)' }}> · rabatt {nbPriceCheck.discount_pct}%</span>}
-                  </div>
-                )}
-              </div>
+              {/* Live prisuppdelning — samma vy som gästen ser vid bokning, uppdateras automatiskt */}
+              {(nbPriceLoading || nbPriceCheck) && (
+                <div style={{ border: '1px solid var(--sand-dark)', borderRadius: 'var(--radius-md)', padding: '10px 12px', marginBottom: 14, fontSize: 13, background: 'var(--sand-light, #faf7f2)' }}>
+                  {nbPriceLoading && !nbPriceCheck && <div style={{ color: 'var(--ink-pale)' }}>Beräknar pris…</div>}
+                  {nbPriceCheck && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                        <span>{Math.round(nbPriceCheck.base_amount / nbPriceCheck.nights).toLocaleString('sv-SE')} kr × {nbPriceCheck.nights} {nbPriceCheck.nights === 1 ? 'natt' : 'nätter'}</span>
+                        <span>{nbPriceCheck.base_amount?.toLocaleString('sv-SE')} kr</span>
+                      </div>
+                      {nbPriceCheck.extra_guest_fee > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                          <span>Extra gästavgift ({nbPriceCheck.extra_guests} över {nbPriceCheck.extra_guest_threshold})</span>
+                          <span>{nbPriceCheck.extra_guest_fee?.toLocaleString('sv-SE')} kr</span>
+                        </div>
+                      )}
+                      {nbPriceCheck.articles?.map(a => (
+                        <div key={a.article_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                          <span>{(nb.lang === 'de' ? a.name_de : nb.lang === 'en' ? a.name_en : a.name_sv)}{a.quantity > 1 ? ` ×${a.quantity}` : ''}</span>
+                          <span>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+                        </div>
+                      ))}
+                      {nbPriceCheck.discount_amount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: 'var(--forest)' }}>
+                          <span>Rabatt ({nbPriceCheck.discount_pct}%)</span>
+                          <span>−{nbPriceCheck.discount_amount?.toLocaleString('sv-SE')} kr</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0 0', marginTop: 4, borderTop: '1px solid var(--sand-dark)', fontWeight: 600 }}>
+                        <span>Totalt</span>
+                        <span>{nbPriceCheck.total_amount?.toLocaleString('sv-SE')} kr</span>
+                      </div>
+                      {nbPriceCheck.deposit_amount > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: 'var(--water)', fontSize: 12 }}>
+                          <span>Handpenning ({nbPriceCheck.deposit_pct}%)</span>
+                          <span>{nbPriceCheck.deposit_amount?.toLocaleString('sv-SE')} kr</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-light)' }}>Betalningsmetod(er)</label>
