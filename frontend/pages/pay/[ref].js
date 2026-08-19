@@ -10,6 +10,7 @@ const T = {
     deposit_label: 'Handpenning att betala', final_label: 'Slutbetalning att betala',
     due: 'Förfaller', pay_btn: 'Betala med PayPal', processing: 'Öppnar PayPal...',
     error: 'Något gick fel. Försök igen.', stripe_btn: 'Betala med kort', stripe_processing: 'Öppnar betalning...', swish_title: 'Betala med Swish', swish_ref: 'Ange bokningsnummer', secure: 'Säker betalning via PayPal eller kort', no_deposit: 'Ingen handpenning krävs', pay_deposit: 'Betala handpenning', pay_full: 'Betala hela beloppet nu', pay_later: 'Betala senare',
+    manual_only_title: 'Betalning hanteras manuellt', manual_only_text: 'Vi hör av oss med instruktioner för hur du betalar. Har du frågor, kontakta oss gärna direkt.',
   },
   en: {
     title: 'Pay your booking', loading: 'Loading booking information...',
@@ -18,6 +19,7 @@ const T = {
     deposit_label: 'Deposit to pay', final_label: 'Final payment to pay',
     due: 'Due by', pay_btn: 'Pay with PayPal', processing: 'Opening PayPal...',
     error: 'Something went wrong. Please try again.', stripe_btn: 'Pay by card', stripe_processing: 'Opening payment...', secure: 'Secure payment via PayPal or card', no_deposit: 'No deposit required', pay_deposit: 'Pay deposit', pay_full: 'Pay full amount now', pay_later: 'Pay later',
+    manual_only_title: 'Payment handled manually', manual_only_text: 'We will contact you with instructions on how to pay. If you have any questions, please get in touch directly.',
   },
   de: {
     title: 'Buchung bezahlen', loading: 'Buchungsinformationen werden geladen...',
@@ -26,6 +28,7 @@ const T = {
     deposit_label: 'Anzahlung zu bezahlen', final_label: 'Restzahlung zu bezahlen',
     due: 'Fällig bis', pay_btn: 'Mit PayPal bezahlen', processing: 'PayPal wird geöffnet...',
     error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.', stripe_btn: 'Mit Karte bezahlen', stripe_processing: 'Zahlung wird geöffnet...', secure: 'Sichere Zahlung über PayPal oder Karte', no_deposit: 'Keine Anzahlung erforderlich', pay_deposit: 'Anzahlung bezahlen', pay_full: 'Gesamtbetrag jetzt bezahlen', pay_later: 'Später bezahlen',
+    manual_only_title: 'Zahlung wird manuell abgewickelt', manual_only_text: 'Wir melden uns mit Anweisungen, wie Sie bezahlen können. Bei Fragen kontaktieren Sie uns gerne direkt.',
   },
 };
 
@@ -101,6 +104,28 @@ export default function PayPage() {
     </div></div>
   );
 
+  const methods = (booking.payment_methods || 'swish,paypal,stripe').split(',');
+  const or = <div style={s.divider}><span>{lang === 'de' ? 'oder' : lang === 'sv' ? 'eller' : 'or'}</span></div>;
+  const btns = [];
+  if (methods.includes('paypal')) btns.push(
+    <button key="pp" onClick={handlePayPal} disabled={paying || payingStripe} style={{ ...s.btn, opacity: paying ? 0.7 : 1 }}>
+      {paying ? t.processing : <><span style={{ marginRight: 8 }}>🔵</span>{t.pay_btn}</>}
+    </button>
+  );
+  if (methods.includes('stripe')) btns.push(
+    <button key="st" onClick={handleStripe} disabled={paying || payingStripe} style={{ ...s.stripeBtn, opacity: payingStripe ? 0.7 : 1 }}>
+      {payingStripe ? t.stripe_processing : <><span style={{ marginRight: 8 }}>💳</span>{t.stripe_btn}</>}
+    </button>
+  );
+  if (methods.includes('swish') && booking.swish_number) btns.push(
+    <div key="sw" style={s.swishBox}>
+      <div style={s.swishTitle}>📱 {t.swish_title}</div>
+      <div style={s.swishNum}>{booking.swish_number}</div>
+      <div style={s.swishRef}>{t.swish_ref}: <strong>{booking.booking_ref}</strong></div>
+    </div>
+  );
+  const paymentButtons = btns.length > 0 ? btns.reduce((acc, btn, i) => i === 0 ? [btn] : [...acc, or, btn], []) : null;
+
   return (
     <div style={s.page}>
       <div style={s.card}>
@@ -147,30 +172,15 @@ export default function PayPage() {
             <div style={s.amt}>{fmtSEK(booking.total_amount)}</div>
           </div>
         )}
-        {(() => {
-          const methods = (booking.payment_methods || 'swish,paypal,stripe').split(',');
-          const or = <div style={s.divider}><span>{lang === 'de' ? 'oder' : lang === 'sv' ? 'eller' : 'or'}</span></div>;
-          const btns = [];
-          if (methods.includes('paypal')) btns.push(
-            <button key="pp" onClick={handlePayPal} disabled={paying || payingStripe} style={{ ...s.btn, opacity: paying ? 0.7 : 1 }}>
-              {paying ? t.processing : <><span style={{ marginRight: 8 }}>🔵</span>{t.pay_btn}</>}
-            </button>
-          );
-          if (methods.includes('stripe')) btns.push(
-            <button key="st" onClick={handleStripe} disabled={paying || payingStripe} style={{ ...s.stripeBtn, opacity: payingStripe ? 0.7 : 1 }}>
-              {payingStripe ? t.stripe_processing : <><span style={{ marginRight: 8 }}>💳</span>{t.stripe_btn}</>}
-            </button>
-          );
-          if (methods.includes('swish') && booking.swish_number) btns.push(
-            <div key="sw" style={s.swishBox}>
-              <div style={s.swishTitle}>📱 {t.swish_title}</div>
-              <div style={s.swishNum}>{booking.swish_number}</div>
-              <div style={s.swishRef}>{t.swish_ref}: <strong>{booking.booking_ref}</strong></div>
-            </div>
-          );
-          return btns.reduce((acc, btn, i) => i === 0 ? [btn] : [...acc, or, btn], []);
-        })()}
-        <p style={s.secure}>🔒 {t.secure}</p>
+        {paymentButtons || (
+          // Endast manuell betalning konfigurerad — inget självbetjäningsflöde finns,
+          // så visa ett tydligt meddelande istället för en tom "säker betalning"-yta.
+          <div style={s.manualBox}>
+            <div style={s.manualTitle}>✉️ {t.manual_only_title}</div>
+            <div style={s.manualText}>{t.manual_only_text}</div>
+          </div>
+        )}
+        {btns.length > 0 && <p style={s.secure}>🔒 {t.secure}</p>}
       </div>
     </div>
   );
@@ -193,6 +203,9 @@ const s = {
   btn:     { width: '100%', padding: 14, background: '#003087', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   secure:    { textAlign: 'center', fontSize: 12, color: '#aaa', marginTop: 12 },
   stripeBtn: { width: '100%', padding: 14, background: '#635bff', color: '#fff', border: 'none', borderRadius: 8, fontSize: 16, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  manualBox: { background: '#f8f6f1', border: '1px solid #e5e0d8', borderRadius: 8, padding: '18px 16px', textAlign: 'center' },
+  manualTitle: { fontSize: 15, fontWeight: 600, color: '#333', marginBottom: 6 },
+  manualText: { fontSize: 13, color: '#666', lineHeight: 1.5 },
   divider:   { display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0', color: '#ccc', fontSize: 12, textAlign: 'center' },
   swishBox:  { background: '#f0faf0', border: '1px solid #a8d8a8', borderRadius: 8, padding: 16, textAlign: 'center', marginTop: 8 },
   swishTitle:{ fontSize: 14, fontWeight: 600, color: '#2d6a2d', marginBottom: 8 },
