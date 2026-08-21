@@ -46,6 +46,7 @@ export default function AdminLayout({ children, title = 'Admin' }) {
     { href: '/admin/email-templates', label: '✉️ Mailmallar' },
     { href: '/admin/checkin-info',  label: '🔑 Incheckningsinfo' },
     { href: '/admin/blocked-dates', label: '🚫 Blockerade datum' },
+    { href: '/admin/client-errors', label: '⚠️ Felrapporter' },
   ];
 
   return (
