@@ -180,7 +180,7 @@ export default function AdminUsers() {
                 )}
               </td>
               <td style={{ padding:'10px 14px', color:'var(--ink-pale)', fontSize:12, display: isMobile ? 'none' : '' }}>
-                {u.last_login ? new Date(u.last_login).toLocaleDateString('sv-SE') : '–'}
+                {u.last_login ? new Date(u.last_login).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' }) : '–'}
               </td>
               <td style={{ padding:'10px 14px', display: isMobile ? 'none' : '' }}>
                 <span style={{ fontSize:11, color: u.is_active ? 'var(--forest)' : 'var(--red)' }}>
