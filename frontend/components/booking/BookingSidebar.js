@@ -4,6 +4,7 @@ import { bookingApi, publicApi } from '../../lib/api';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth';
 import axios from 'axios';
+import { reportClientError } from '../../lib/errorReporting';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -226,6 +227,11 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
           setPrice(null);
           const msg = e.response?.data?.detail;
           if (msg) setDateError(msg);
+          reportClientError({
+            context: 'price-check', error: e.response?.data?.detail || e.message,
+            guest_email: form.guest_email || user?.email, lang,
+            extra: { date_from: checkIn, date_to: checkOut, guests_count: guests, status: e.response?.status },
+          });
         });
     }, 400);
     return () => clearTimeout(timer);
@@ -356,6 +362,11 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
       onConfirm?.();
     } catch(e) {
       setErrors({ submit: e.response?.data?.detail || 'Ett fel uppstod. Försök igen.' });
+      reportClientError({
+        context: 'booking-submit', error: e.response?.data?.detail || e.message,
+        guest_email: form.guest_email, lang,
+        extra: { date_from: checkIn, date_to: checkOut, status: e.response?.status },
+      });
     } finally {
       setLoading(false);
     }
