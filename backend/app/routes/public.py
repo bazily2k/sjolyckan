@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
 from app.models.database import get_db
@@ -6,6 +6,36 @@ from app.models.models import Season, Article, Booking, BookingStatus, PriceOver
 from app.core.booking_logic import get_price_for_date
 
 router = APIRouter(prefix="/api/public", tags=["public"])
+
+
+@router.post("/client-error")
+async def report_client_error(request: Request, db: Session = Depends(get_db)):
+    """Tar emot felrapporter från gästens webbläsare på bokningssidorna, så
+    admin kan felsöka problem gästen inte kan beskriva själv. Görs medvetet
+    tolerant (fångar allt, misslyckas aldrig högljutt) eftersom felrapportering
+    aldrig får krascha eller störa gästens upplevelse."""
+    from app.models.models import ClientErrorLog
+    try:
+        data = await request.json()
+    except Exception:
+        return {"ok": False}
+    try:
+        log = ClientErrorLog(
+            context=str(data.get("context") or "")[:100] or None,
+            message=str(data.get("message") or "")[:4000] or None,
+            stack=str(data.get("stack") or "")[:4000] or None,
+            url=str(data.get("url") or "")[:500] or None,
+            user_agent=str(data.get("user_agent") or "")[:500] or None,
+            lang=str(data.get("lang") or "")[:5] or None,
+            guest_email=str(data.get("guest_email") or "")[:255] or None,
+            extra=data.get("extra") if isinstance(data.get("extra"), dict) else None,
+        )
+        db.add(log)
+        db.commit()
+    except Exception:
+        db.rollback()
+    return {"ok": True}
+
 
 
 @router.get("/articles")
