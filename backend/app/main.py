@@ -83,6 +83,7 @@ def _ensure_booking_constraints():
             conn.exec_driver_sql("ALTER TABLE blocked_dates ADD COLUMN IF NOT EXISTS pets_count integer")
             conn.exec_driver_sql("ALTER TABLE blocked_dates ADD COLUMN IF NOT EXISTS articles json DEFAULT '[]'")
             conn.exec_driver_sql("ALTER TABLE blocked_dates ADD COLUMN IF NOT EXISTS internal_note text")
+            conn.exec_driver_sql("ALTER TABLE blocked_dates ADD COLUMN IF NOT EXISTS hidden boolean NOT NULL DEFAULT false")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_expires TIMESTAMPTZ")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS email_verify_reminder_sent BOOLEAN DEFAULT false")
             conn.exec_driver_sql("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS adults_count integer")

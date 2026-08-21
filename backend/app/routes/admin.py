@@ -436,6 +436,7 @@ def _blocked_dict(b) -> dict:
         "guest_country": b.guest_country, "adults_count": b.adults_count,
         "children_count": b.children_count, "pets_count": b.pets_count,
         "articles": b.articles or [],
+        "hidden": bool(b.hidden),
         "files": [
             {"id": f.id, "filename": f.filename, "url": f.url,
              "content_type": f.content_type, "size_bytes": f.size_bytes}
@@ -490,6 +491,9 @@ def update_blocked_date(
                   "guest_email", "guest_phone", "guest_country",
                   "adults_count", "children_count", "pets_count", "articles"):
         if field in data: setattr(b, field, data[field] or ([] if field == "articles" else None))
+    # Boolean-fält kan inte gå igenom loopen ovan ("False or None" skulle bli None).
+    if "hidden" in data:
+        b.hidden = bool(data["hidden"])
     db.commit(); db.refresh(b)
     return _blocked_dict(b)
 

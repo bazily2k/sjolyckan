@@ -386,6 +386,9 @@ class BlockedDate(Base):
     pets_count = Column(Integer, nullable=True)
     # Aktiva tillägg för förmedlar-bokningen: [{"article_id","name_sv","name_en","name_de","quantity"}, ...]
     articles = Column(JSON, nullable=False, default=list)
+    # Låter admin dölja en post från förmedlar-sektionen på Bokningar-sidan,
+    # på samma sätt som riktiga bokningar kan döljas (utan att radera den).
+    hidden = Column(Boolean, nullable=False, default=False)
 
     agent = relationship("Agent")
     files = relationship("BlockedDateFile", back_populates="blocked_date",
