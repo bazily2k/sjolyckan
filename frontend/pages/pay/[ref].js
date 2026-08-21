@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import { reportClientError } from '../../lib/errorReporting';
 
 const T = {
   sv: {
@@ -59,6 +60,10 @@ export default function PayPage() {
       .catch(e => {
         setErrKey(e.response?.status === 404 ? 'not_found' : e.response?.status === 400 ? 'no_payment' : 'error');
         setLoading(false);
+        reportClientError({
+          context: 'pay-lookup', error: e.response?.data?.detail || e.message,
+          extra: { booking_ref: ref, status: e.response?.status },
+        });
       });
   }, [ref]);
 
@@ -76,6 +81,10 @@ export default function PayPage() {
     } catch (e) {
       setErrKey('error');
       setPayingStripe(false);
+      reportClientError({
+        context: 'pay-stripe', error: e.response?.data?.detail || e.message, lang,
+        guest_email: booking?.guest_email, extra: { booking_ref: ref, status: e.response?.status },
+      });
     }
   };
 
@@ -90,6 +99,10 @@ export default function PayPage() {
     } catch (e) {
       setErrKey('error');
       setPaying(false);
+      reportClientError({
+        context: 'pay-paypal', error: e.response?.data?.detail || e.message, lang,
+        guest_email: booking?.guest_email, extra: { booking_ref: ref, status: e.response?.status },
+      });
     }
   };
 
