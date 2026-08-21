@@ -408,6 +408,23 @@ class BlockedDateFile(Base):
 
     blocked_date = relationship("BlockedDate", back_populates="files")
 
+
+class ClientErrorLog(Base):
+    """Fel som fångas i gästens webbläsare på bokningssidorna (bokning, tillägg,
+    betalning m.m.), så administratören kan felsöka problem gästen inte kan
+    beskriva själv (t.ex. 'jag fick ett fel men vet inte vad')."""
+    __tablename__ = "client_error_logs"
+    id = Column(Integer, primary_key=True)
+    context = Column(String(100), nullable=True)     # t.ex. "price-check", "booking-submit", "uncaught"
+    message = Column(Text, nullable=True)
+    stack = Column(Text, nullable=True)
+    url = Column(String(500), nullable=True)          # sidan felet inträffade på
+    user_agent = Column(String(500), nullable=True)
+    lang = Column(String(5), nullable=True)
+    guest_email = Column(String(255), nullable=True)  # om känt vid felet (t.ex. redan ifyllt i formuläret)
+    extra = Column(JSON, nullable=True)                # ev. extra kontext (t.ex. request-data, ej känsligt)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 class BookingAddon(Base):
     """Tilläggsbegäran kopplad till en bekräftad bokning."""
     __tablename__ = "booking_addons"
