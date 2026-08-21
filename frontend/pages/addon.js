@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import axios from 'axios';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import { reportClientError } from '../lib/errorReporting';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -43,6 +44,10 @@ export default function AddonPage() {
       setStep('select');
     } catch(e) {
       setError(e.response?.data?.detail || (lang==='en'?'Booking not found':'Bokning hittades inte'));
+      reportClientError({
+        context: 'addon-lookup', error: e.response?.data?.detail || e.message, lang,
+        extra: { booking_ref: (refStr || bookingRef || '').trim().toUpperCase(), status: e.response?.status },
+      });
     } finally { setLoading(false); }
   };
 
@@ -76,6 +81,11 @@ export default function AddonPage() {
       setResult(r.data); setStep('done');
     } catch(e) {
       setError(e.response?.data?.detail || 'Ett fel uppstod');
+      reportClientError({
+        context: 'addon-submit', error: e.response?.data?.detail || e.message,
+        guest_email: booking?.guest_email, lang,
+        extra: { booking_ref: booking?.booking_ref, status: e.response?.status },
+      });
     } finally { setLoading(false); }
   };
 
