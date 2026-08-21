@@ -511,6 +511,40 @@ def delete_blocked_date(
     db.commit()
     return {"ok": True}
 
+# ─── Klientfel från bokningssidorna (för gästsupport) ───
+@router.get("/client-errors")
+def list_client_errors(
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import ClientErrorLog
+    rows = db.query(ClientErrorLog).order_by(ClientErrorLog.created_at.desc()).limit(min(limit, 500)).all()
+    return [
+        {
+            "id": r.id, "context": r.context, "message": r.message, "stack": r.stack,
+            "url": r.url, "user_agent": r.user_agent, "lang": r.lang,
+            "guest_email": r.guest_email, "extra": r.extra,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
+
+@router.delete("/client-errors/{error_id}")
+def delete_client_error(
+    error_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.models import ClientErrorLog
+    row = db.query(ClientErrorLog).filter(ClientErrorLog.id == error_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Hittades inte")
+    db.delete(row)
+    db.commit()
+    return {"ok": True}
+
+
 # ─── Bifogade filer till blockerade datum (PDF, Word, e-post m.m.) ─────
 BLOCKED_FILES_ALLOWED_EXT = {"pdf", "doc", "docx", "eml", "msg"}
 BLOCKED_FILES_MAX_SIZE = 20 * 1024 * 1024  # 20 MB
