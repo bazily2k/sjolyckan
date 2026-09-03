@@ -505,6 +505,67 @@ def admin_list_bookings(
     }
 
 
+# ─── Admin/Personal: Betalningsrapport ───────────────────
+@router.get("/admin/payment-report")
+def admin_payment_report(
+    show_hidden: bool = False,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Sammanställning per bokning: förfallodatum och beräknade påminnelsedatum."""
+    q = db.query(Booking)
+    if not show_hidden:
+        q = q.filter(Booking.hidden == False)
+    bookings = q.order_by(Booking.date_from.asc()).all()
+
+    rows = []
+    for b in bookings:
+        snap = b.snapshot or {}
+        r1_days = snap.get("reminder_1_days", 14)
+        r2_days = snap.get("reminder_2_days", 3)
+
+        reminder_1_date = (b.payment_due_date - timedelta(days=r1_days)) if b.payment_due_date else None
+        reminder_2_date = (b.payment_due_date - timedelta(days=r2_days)) if b.payment_due_date else None
+
+        final_paid = next(
+            (p for p in b.payments if p.type in (PaymentType.final, PaymentType.full) and p.status == PaymentStatus.paid),
+            None
+        )
+        deposit_paid = next(
+            (p for p in b.payments if p.type == PaymentType.deposit and p.status == PaymentStatus.paid),
+            None
+        )
+        reminder_sent_log = next(
+            (el for el in sorted(b.email_logs, key=lambda x: x.sent_at or datetime.min.replace(tzinfo=timezone.utc))
+             if el.email_type == "payment_reminder"),
+            None
+        )
+
+        rows.append({
+            "booking_id": b.id,
+            "booking_ref": b.booking_ref,
+            "guest_name": b.guest_name,
+            "guest_email": b.guest_email,
+            "date_from": b.date_from.isoformat() if b.date_from else None,
+            "date_to": b.date_to.isoformat() if b.date_to else None,
+            "total_amount": float(b.total_amount) if b.total_amount is not None else None,
+            "deposit_amount": float(b.deposit_amount) if b.deposit_amount is not None else None,
+            "deposit_due_date": b.deposit_due_date.isoformat() if b.deposit_due_date else None,
+            "deposit_paid": bool(deposit_paid),
+            "payment_due_date": b.payment_due_date.isoformat() if b.payment_due_date else None,
+            "final_paid": bool(final_paid),
+            "reminder_1_days": r1_days,
+            "reminder_1_date": reminder_1_date.isoformat() if reminder_1_date else None,
+            "reminder_2_days": r2_days,
+            "reminder_2_date": reminder_2_date.isoformat() if reminder_2_date else None,
+            "reminder_sent_at": reminder_sent_log.sent_at.isoformat() if reminder_sent_log else None,
+            "status": b.status.value if hasattr(b.status, "value") else b.status,
+            "hidden": b.hidden,
+        })
+
+    return {"items": rows, "total": len(rows)}
+
+
 # ─── Admin/Personal: Kalender ───────────────────────────
 @router.get("/admin/calendar")
 def admin_calendar(
