@@ -104,7 +104,7 @@ export default function PaymentReportPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--sand)', borderBottom: '1px solid var(--sand-dark)' }}>
-                  {['Ref', 'Gäst', 'Ankomst', 'Avresa', 'Belopp', 'Status', 'Förfaller', 'Påminnelse 1', 'Påminnelse 2', 'Skickad påminnelse'].map(h => (
+                  {['Ref', 'Gäst', 'Ankomst', 'Avresa', 'Belopp', 'Status', 'Förfaller', 'Betaldatum', 'Påminnelse 1', 'Påminnelse 2', 'Påminnelse skickad?'].map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 500, color: 'var(--ink-light)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -133,10 +133,23 @@ export default function PaymentReportPage() {
                         {fmtDate(r.payment_due_date)}
                         {overdue && <div style={{ fontSize: 10 }}>Förfallen</div>}
                       </td>
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: r.paid_at ? 'var(--ink)' : 'var(--ink-pale)' }}>
+                        {r.paid_at ? fmtDate(r.paid_at) : '–'}
+                      </td>
                       <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{fmtDate(r.reminder_1_date)}</td>
                       <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{fmtDate(r.reminder_2_date)}</td>
-                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: r.reminder_sent_at ? 'var(--ink)' : 'var(--ink-pale)' }}>
-                        {r.reminder_sent_at ? fmtDate(r.reminder_sent_at) : '– ej skickad'}
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 500,
+                          background: r.reminder_sent ? '#d4edda' : '#f1f1f1',
+                          color: r.reminder_sent ? '#155724' : 'var(--ink-pale)',
+                        }}>
+                          {r.reminder_sent ? '✓ Skickad' : '✗ Ej skickad'}
+                        </span>
+                        {r.reminder_sent && r.reminder_sent_at && (
+                          <div style={{ fontSize: 10, color: 'var(--ink-pale)', marginTop: 2 }}>{fmtDate(r.reminder_sent_at)}</div>
+                        )}
                       </td>
                     </tr>
                   );
