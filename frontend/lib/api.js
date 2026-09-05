@@ -39,6 +39,7 @@ export const bookingApi = {
 };
 export const adminApi = {
   getCalendar: (start, end) => api.get('/bookings/admin/calendar', { params: { start, end } }),
+  getPaymentReport: (showHidden) => api.get('/bookings/admin/payment-report', { params: showHidden ? { show_hidden: true } : {} }),
   listBookings: (status, showHidden) =>
     api.get(`/bookings/admin/list${status ? `?status=${status}` : ''}${showHidden ? (status ? '&show_hidden=true' : '?show_hidden=true') : ''}`),
   getBooking: (id) => api.get(`/bookings/admin/${id}`),

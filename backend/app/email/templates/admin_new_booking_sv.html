@@ -44,6 +44,9 @@
     {% for art in snap.articles %}
     <tr><td>{{ art.name_sv }}</td><td>{{ "{:,.0f}".format(art.line_total).replace(",", "\xa0") }} kr</td></tr>
     {% endfor %}
+    {% if snap.extra_guest_fee and snap.extra_guest_fee > 0 %}
+    <tr><td>Extra gäster ({{ snap.extra_guests }} utöver {{ snap.extra_guest_threshold }})</td><td>{{ "{:,.0f}".format(snap.extra_guest_fee).replace(",", "\xa0") }} kr</td></tr>
+    {% endif %}
     <tr class="total"><td>Totalt</td><td>{{ "{:,.0f}".format(booking.total_amount).replace(",", "\xa0") }} kr</td></tr>
     <tr class="total"><td>Handpenning ({{ snap.deposit_pct }}%)</td><td>{{ "{:,.0f}".format(booking.deposit_amount).replace(",", "\xa0") }} kr</td></tr>
   </table>

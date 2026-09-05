@@ -878,6 +878,17 @@ export default function AdminBookings() {
                   <span>Boende ({selected.nights} nätter)</span>
                   <span>{selected.base_amount?.toLocaleString('sv-SE')} kr</span>
                 </div>
+                {selected.snapshot?.extra_guest_fee > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--ink-light)' }}>
+                    <span>
+                      Extra gäster ({selected.snapshot.extra_guests} utöver {selected.snapshot.extra_guest_threshold})
+                      <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-pale)', marginTop: 2 }}>
+                        {selected.snapshot.extra_guest_rate?.toLocaleString('sv-SE')} kr × {selected.snapshot.extra_guests} × {selected.nights} nätter
+                      </span>
+                    </span>
+                    <span style={{ whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>{selected.snapshot.extra_guest_fee?.toLocaleString('sv-SE')} kr</span>
+                  </div>
+                )}
                 {(selected.snapshot?.articles || selected.articles)?.map((a, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: 13, padding: '4px 0', color: 'var(--ink-light)' }}>
                     <span style={{ flex: 1, minWidth: 0 }}>
@@ -887,6 +898,22 @@ export default function AdminBookings() {
                     <span style={{ whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
                   </div>
                 ))}
+                {selected.addons?.filter(ad => ad.status === 'confirmed').map((ad) => (
+                  (ad.articles || []).map((a, i) => (
+                    <div key={`addon-${ad.id}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: 13, padding: '4px 0', color: 'var(--ink-light)' }}>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        {a.name_sv}{a.quantity > 1 ? ` × ${a.quantity}` : ''}
+                        <span style={{ display: 'block', fontSize: 11, color: 'var(--water)', marginTop: 2 }}>Tilläggsbeställning {new Date(ad.created_at).toLocaleDateString('sv-SE')}</span>
+                      </span>
+                      <span style={{ whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>{a.line_total?.toLocaleString('sv-SE')} kr</span>
+                    </div>
+                  ))
+                ))}
+                {selected.addons?.some(ad => ad.status === 'pending') && (
+                  <div style={{ fontSize: 12, color: 'var(--ink-pale)', padding: '4px 0', fontStyle: 'italic' }}>
+                    + {selected.addons.filter(ad => ad.status === 'pending').length} väntande tilläggsbeställning(ar), ej bekräftade och ej inräknade i totalen
+                  </div>
+                )}
                 {selected.snapshot?.discount_amount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--forest)' }}>
                     <span>Rabatt ({selected.snapshot.discount_pct}%)</span>
