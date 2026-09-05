@@ -552,6 +552,7 @@ def admin_payment_report(
             "deposit_amount": float(b.deposit_amount) if b.deposit_amount is not None else None,
             "deposit_due_date": b.deposit_due_date.isoformat() if b.deposit_due_date else None,
             "deposit_paid": bool(deposit_paid),
+            "deposit_paid_at": deposit_paid.paid_at.isoformat() if (deposit_paid and deposit_paid.paid_at) else None,
             "payment_due_date": b.payment_due_date.isoformat() if b.payment_due_date else None,
             "final_paid": bool(final_paid),
             "paid_at": final_paid.paid_at.isoformat() if (final_paid and final_paid.paid_at) else None,
