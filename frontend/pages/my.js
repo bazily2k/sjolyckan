@@ -375,6 +375,16 @@ export default function MyPage({ locale }) {
                               ))}
                             </div>
                           )}
+                          {b.snapshot?.extra_guest_fee > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: 13, padding: '3px 0', color: 'var(--ink-light)' }}>
+                              <span style={{ flex: 1, minWidth: 0 }}>
+                                {lang === 'sv' ? `Extra gäster (${b.snapshot.extra_guests} utöver ${b.snapshot.extra_guest_threshold})`
+                                  : lang === 'de' ? `Zusätzliche Gäste (${b.snapshot.extra_guests} über ${b.snapshot.extra_guest_threshold})`
+                                  : `Extra guests (${b.snapshot.extra_guests} over ${b.snapshot.extra_guest_threshold})`}
+                              </span>
+                              <span style={{ whiteSpace: 'nowrap', marginLeft: 8, flexShrink: 0 }}>{b.snapshot.extra_guest_fee?.toLocaleString('sv-SE')} kr</span>
+                            </div>
+                          )}
                           {/* Villkor */}
                           {b.terms_snapshot && (
                             <div style={{ marginTop: 12, borderTop: '1px solid var(--sand-dark)', paddingTop: 12 }}>
