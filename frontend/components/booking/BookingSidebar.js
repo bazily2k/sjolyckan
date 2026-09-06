@@ -549,80 +549,84 @@ export default function BookingSidebar({ articles, initialCheckIn = '', initialC
         </div>
       )}
 
+      <div style={{ marginBottom:12 }}>
+
+        {/* Gästinformation */}
+        <div style={{ fontSize:12, fontWeight:600, color:'var(--water)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:10, paddingBottom:6, borderBottom:'1px solid var(--sand-dark)' }}>
+          {L.guests_section}
+        </div>
+
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+          <span style={{ fontSize:13, color:'var(--ink-light)' }}>{L.adults}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <button onClick={() => setAdults(a => Math.max(1,a-1))} style={guestBtn}>−</button>
+            <span style={{ fontSize:14, fontWeight:500, minWidth:20, textAlign:'center' }}>{adults}</span>
+            <button onClick={() => setAdults(a => Math.min(8,a+1))} style={guestBtn}>+</button>
+          </div>
+        </div>
+
+        <div style={{ marginBottom:10 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+            <span style={{ fontSize:13, color:'var(--ink-light)' }}>{L.children}</span>
+            <button onClick={addChild} disabled={adults+children.length>=8} style={{
+              fontSize:12, color:'var(--water)', background:'none', border:'1px solid var(--water)',
+              borderRadius:'var(--radius-md)', padding:'3px 10px', cursor:'pointer',
+            }}>{L.add_child}</button>
+          </div>
+          {children.map((age, i) => (
+            <div key={i} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+              <span style={{ fontSize:13, color:'var(--ink-light)', minWidth:60 }}>
+                {lang==='de'?'Kind':'Child'} {i+1}
+              </span>
+              <input type="number" min="0" max="17" value={age}
+                onChange={e => setChildAge(i, e.target.value)}
+                placeholder={L.child_age_ph}
+                style={{ ...inp, width:80, textAlign:'center' }} />
+              <span style={{ fontSize:12, color:'var(--ink-pale)' }}>{L.child_age_ph}</span>
+              <button onClick={() => removeChild(i)} style={{ fontSize:11, color:'var(--red)', background:'none', border:'none', cursor:'pointer' }}>
+                {L.remove_child}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', marginBottom:12 }}>
+          <div style={{ fontSize:12, fontWeight:500, color:'var(--ink-light)', marginBottom:8 }}>{L.pets}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:6 }}>
+            <div>
+              <label style={{ fontSize:11, color:'var(--ink-pale)', display:'block', marginBottom:3 }}>{L.dogs} 🐕</label>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <button onClick={() => setDogs(d => Math.max(0,d-1))} style={smallBtn}>−</button>
+                <span style={{ fontSize:13, fontWeight:500, minWidth:16, textAlign:'center' }}>{dogs}</span>
+                <button onClick={() => setDogs(d => Math.min(4,d+1))} style={smallBtn}>+</button>
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize:11, color:'var(--ink-pale)', display:'block', marginBottom:3 }}>{L.cats} 🐈</label>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <button onClick={() => setCats(c => Math.max(0,c-1))} style={smallBtn}>−</button>
+                <span style={{ fontSize:13, fontWeight:500, minWidth:16, textAlign:'center' }}>{cats}</span>
+                <button onClick={() => setCats(c => Math.min(4,c+1))} style={smallBtn}>+</button>
+              </div>
+            </div>
+          </div>
+          <p style={{ fontSize:11, color:'var(--ink-pale)', margin:0 }}>{L.pets_note}</p>
+          {(() => { const pa = articles.find(a => a.is_pet_fee); const tp = dogs+cats; return pa && tp > 0 ? (
+            <p style={{ fontSize:12, color:'var(--water)', margin:'6px 0 0', fontWeight:500 }}>
+              {lang==='de'?'Tiergebühr':lang==='en'?'Pet fee':'Husdjursavgift'}: {(pa.price*tp).toLocaleString('sv-SE')} kr ({tp} {tp===1?(lang==='de'?'Tier':lang==='en'?'pet':'husdjur'):(lang==='de'?'Tiere':lang==='en'?'pets':'husdjur')})
+            </p>
+          ) : null; })()} 
+        </div>
+      </div>
+
       {step === 'form' && (
         <div style={{ marginBottom:12 }}>
-
-          {/* Gästinformation */}
-          <div style={{ fontSize:12, fontWeight:600, color:'var(--water)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:10, paddingBottom:6, borderBottom:'1px solid var(--sand-dark)' }}>
-            {L.guests_section}
-          </div>
-
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-            <span style={{ fontSize:13, color:'var(--ink-light)' }}>{L.adults}</span>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <button onClick={() => setAdults(a => Math.max(1,a-1))} style={guestBtn}>−</button>
-              <span style={{ fontSize:14, fontWeight:500, minWidth:20, textAlign:'center' }}>{adults}</span>
-              <button onClick={() => setAdults(a => Math.min(8,a+1))} style={guestBtn}>+</button>
-            </div>
-          </div>
-
-          <div style={{ marginBottom:10 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-              <span style={{ fontSize:13, color:'var(--ink-light)' }}>{L.children}</span>
-              <button onClick={addChild} disabled={adults+children.length>=8} style={{
-                fontSize:12, color:'var(--water)', background:'none', border:'1px solid var(--water)',
-                borderRadius:'var(--radius-md)', padding:'3px 10px', cursor:'pointer',
-              }}>{L.add_child}</button>
-            </div>
-            {children.map((age, i) => (
-              <div key={i} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
-                <span style={{ fontSize:13, color:'var(--ink-light)', minWidth:60 }}>
-                  {lang==='de'?'Kind':'Child'} {i+1}
-                </span>
-                <input type="number" min="0" max="17" value={age}
-                  onChange={e => setChildAge(i, e.target.value)}
-                  placeholder={L.child_age_ph}
-                  style={{ ...inp, width:80, textAlign:'center' }} />
-                <span style={{ fontSize:12, color:'var(--ink-pale)' }}>{L.child_age_ph}</span>
-                <button onClick={() => removeChild(i)} style={{ fontSize:11, color:'var(--red)', background:'none', border:'none', cursor:'pointer' }}>
-                  {L.remove_child}
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ background:'var(--sand)', borderRadius:'var(--radius-md)', padding:'10px 12px', marginBottom:12 }}>
-            <div style={{ fontSize:12, fontWeight:500, color:'var(--ink-light)', marginBottom:8 }}>{L.pets}</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:6 }}>
-              <div>
-                <label style={{ fontSize:11, color:'var(--ink-pale)', display:'block', marginBottom:3 }}>{L.dogs} 🐕</label>
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <button onClick={() => setDogs(d => Math.max(0,d-1))} style={smallBtn}>−</button>
-                  <span style={{ fontSize:13, fontWeight:500, minWidth:16, textAlign:'center' }}>{dogs}</span>
-                  <button onClick={() => setDogs(d => Math.min(4,d+1))} style={smallBtn}>+</button>
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize:11, color:'var(--ink-pale)', display:'block', marginBottom:3 }}>{L.cats} 🐈</label>
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <button onClick={() => setCats(c => Math.max(0,c-1))} style={smallBtn}>−</button>
-                  <span style={{ fontSize:13, fontWeight:500, minWidth:16, textAlign:'center' }}>{cats}</span>
-                  <button onClick={() => setCats(c => Math.min(4,c+1))} style={smallBtn}>+</button>
-                </div>
-              </div>
-            </div>
-            <p style={{ fontSize:11, color:'var(--ink-pale)', margin:0 }}>{L.pets_note}</p>
-            {(() => { const pa = articles.find(a => a.is_pet_fee); const tp = dogs+cats; return pa && tp > 0 ? (
-              <p style={{ fontSize:12, color:'var(--water)', margin:'6px 0 0', fontWeight:500 }}>
-                {lang==='de'?'Tiergebühr':lang==='en'?'Pet fee':'Husdjursavgift'}: {(pa.price*tp).toLocaleString('sv-SE')} kr ({tp} {tp===1?(lang==='de'?'Tier':lang==='en'?'pet':'husdjur'):(lang==='de'?'Tiere':lang==='en'?'pets':'husdjur')})
-              </p>
-            ) : null; })()} 
-          </div>
 
           {/* Kontaktuppgifter */}
           <div style={{ fontSize:12, fontWeight:600, color:'var(--water)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:10, paddingBottom:6, borderBottom:'1px solid var(--sand-dark)' }}>
             {L.contact_section}
           </div>
+
 
           {prefilled && (
             <div style={{ background:'#e8f4f8', borderRadius:'var(--radius-md)', padding:'8px 12px', fontSize:12, color:'var(--ink-light)', marginBottom:10 }}>
