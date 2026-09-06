@@ -10,7 +10,8 @@
   table{width:100%;border-collapse:collapse;margin:16px 0}
   td{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
   td:last-child{text-align:right;font-weight:500}
-  .box{background:#faeeda;border-radius:6px;padding:16px;margin:16px 0;font-size:14px}
+  .box{background:#e9f7ee;border-radius:6px;padding:16px;margin:16px 0;font-size:14px}
+  .box.blue{background:#e6f1fb}
   h3{font-size:15px;margin:0 0 8px}
   p{font-size:14px;line-height:1.6;color:#333}
   .footer{text-align:center;font-size:12px;color:#999;margin-top:24px}
@@ -20,28 +21,23 @@
 <div class="card">
   <div class="header">
     <h1>Sjölyckan, Rolsmo</h1>
-    <div class="ref">Erinnerung Restzahlung · {{ booking.booking_ref }}</div>
+    <div class="ref">Anzahlung erhalten · {{ booking.booking_ref }}</div>
   </div>
   <p>Hallo {{ booking.guest_name }},</p>
-  <p>Dies ist eine Erinnerung, dass die Restzahlung für Ihre Sjölyckan-Buchung bald fällig ist — bitte zahlen Sie rechtzeitig, um Ihren Aufenthalt zu sichern.</p>
+  <p>Vielen Dank! Wir haben Ihre Anzahlung für Ihre Sjölyckan-Buchung erhalten.</p>
   <table>
     <tr><td>Anreise</td><td>{{ booking.date_from.strftime('%d %B %Y') }}</td></tr>
     <tr><td>Abreise</td><td>{{ booking.date_to.strftime('%d %B %Y') }}</td></tr>
     <tr><td>Nächte</td><td>{{ booking.nights }}</td></tr>
   </table>
   <div class="box">
+    <h3>✅ Anzahlung bezahlt</h3>
+    <p>{{ "{:,.0f}".format(booking.deposit_amount).replace(",", "\xa0") }} SEK wurden als bezahlt registriert.</p>
+  </div>
+  <div class="box blue">
     <h3>💳 Restzahlung</h3>
-    <p>Verbleibender Betrag <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount).replace(",", "\xa0") }} kr</strong> ist fällig bis <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong></p>
-    <p style="text-align:center;margin-top:16px">
-      <a href="{{ frontend_url }}/pay/{{ booking.booking_ref }}"
-         style="display:inline-block;background:#2d6a8f;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:15px;font-weight:600">
-        Jetzt bezahlen
-      </a>
-    </p>
-    <p style="font-size:12px;color:#777;text-align:center;margin-top:6px">
-      Oder Link kopieren: {{ frontend_url }}/pay/{{ booking.booking_ref }}
-    </p>
-    <p style="font-size:12px;color:#777;text-align:center;margin-top:8px">Probleme mit der Zahlung? Kontaktieren Sie uns für andere Möglichkeiten.</p>
+    <p>Der Restbetrag von <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount).replace(",", "\xa0") }} SEK</strong> ist spätestens am <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong> fällig.</p>
+    <p style="font-size:12px;color:#777">Sie müssen jetzt nichts weiter tun — wir senden Ihnen rechtzeitig vor Fälligkeit der Restzahlung eine Erinnerung.</p>
   </div>
   <p>Fragen? Kontaktieren Sie uns unter <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
   <div class="footer">Sjölyckan, Rolsmo · Linneryd, Kronobergs län<br>Buchungsnummer: {{ booking.booking_ref }}</div>

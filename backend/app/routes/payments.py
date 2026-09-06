@@ -247,7 +247,7 @@ async def capture_paypal_order(data: dict, background_tasks: BackgroundTasks,
 
     if new_status == BookingStatus.deposit_paid:
         from app.email.service import send_booking_email_by_id
-        background_tasks.add_task(send_booking_email_by_id, booking.id, "payment_reminder")
+        background_tasks.add_task(send_booking_email_by_id, booking.id, "deposit_confirmed")
 
     return {
         "success":      True,
@@ -373,7 +373,7 @@ async def capture_stripe_payment(data: dict, background_tasks: BackgroundTasks,
 
     if new_status == BookingStatus.deposit_paid:
         from app.email.service import send_booking_email_by_id
-        background_tasks.add_task(send_booking_email_by_id, booking.id, "payment_reminder")
+        background_tasks.add_task(send_booking_email_by_id, booking.id, "deposit_confirmed")
 
     return {
         "success":      True,
