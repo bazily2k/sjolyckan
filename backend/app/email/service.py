@@ -110,6 +110,11 @@ SUBJECTS = {
         "en": "Reminder: Deposit due soon – {ref}",
         "de": "Erinnerung: Anzahlung bald fällig – {ref}",
     },
+    "deposit_confirmed": {
+        "sv": "Handpenning mottagen – {ref}",
+        "en": "Deposit received – {ref}",
+        "de": "Anzahlung erhalten – {ref}",
+    },
     "payment_reminder": {
         "sv": "Påminnelse: Slutbetalning förfaller {date} – {ref}",
         "en": "Reminder: Final payment due {date} – {ref}",
