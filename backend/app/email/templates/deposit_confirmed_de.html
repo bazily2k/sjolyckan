@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
+  .card{background:#fff;border-radius:8px;max-width:600px;margin:0 auto;padding:32px}
+  .header{background:#2d6a8f;color:#fff;border-radius:6px;padding:24px;text-align:center;margin-bottom:24px}
+  h1{margin:0;font-size:20px}
+  .ref{font-size:14px;opacity:0.85;margin-top:4px}
+  table{width:100%;border-collapse:collapse;margin:16px 0}
+  td{padding:8px 0;border-bottom:1px solid #eee;font-size:14px}
+  td:last-child{text-align:right;font-weight:500}
+  .box{background:#e9f7ee;border-radius:6px;padding:16px;margin:16px 0;font-size:14px}
+  .box.blue{background:#e6f1fb}
+  h3{font-size:15px;margin:0 0 8px}
+  p{font-size:14px;line-height:1.6;color:#333}
+  .footer{text-align:center;font-size:12px;color:#999;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>Sjölyckan, Rolsmo</h1>
+    <div class="ref">Anzahlung erhalten · {{ booking.booking_ref }}</div>
+  </div>
+  <p>Hallo {{ booking.guest_name }},</p>
+  <p>Vielen Dank! Wir haben Ihre Anzahlung für Ihre Sjölyckan-Buchung erhalten.</p>
+  <table>
+    <tr><td>Anreise</td><td>{{ booking.date_from.strftime('%d %B %Y') }}</td></tr>
+    <tr><td>Abreise</td><td>{{ booking.date_to.strftime('%d %B %Y') }}</td></tr>
+    <tr><td>Nächte</td><td>{{ booking.nights }}</td></tr>
+  </table>
+  <div class="box">
+    <h3>✅ Anzahlung bezahlt</h3>
+    <p>{{ "{:,.0f}".format(booking.deposit_amount).replace(",", "\xa0") }} SEK wurden als bezahlt registriert.</p>
+  </div>
+  <div class="box blue">
+    <h3>💳 Restzahlung</h3>
+    <p>Der Restbetrag von <strong>{{ "{:,.0f}".format(booking.total_amount - booking.deposit_amount).replace(",", "\xa0") }} SEK</strong> ist spätestens am <strong>{{ booking.payment_due_date.strftime('%d %B %Y') if booking.payment_due_date else '' }}</strong> fällig.</p>
+    <p style="font-size:12px;color:#777">Sie müssen jetzt nichts weiter tun — wir senden Ihnen rechtzeitig vor Fälligkeit der Restzahlung eine Erinnerung.</p>
+  </div>
+  <p>Fragen? Kontaktieren Sie uns unter <a href="mailto:{{ admin_email }}">{{ admin_email }}</a></p>
+  <div class="footer">Sjölyckan, Rolsmo · Linneryd, Kronobergs län<br>Buchungsnummer: {{ booking.booking_ref }}</div>
+</div>
+</body>
+</html>
