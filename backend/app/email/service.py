@@ -120,6 +120,16 @@ SUBJECTS = {
         "en": "Reminder: Final payment due {date} – {ref}",
         "de": "Erinnerung: Restzahlung fällig {date} – {ref}",
     },
+    "payment_overdue": {
+        "sv": "Slutbetalning förfallen – {ref}",
+        "en": "Final payment overdue – {ref}",
+        "de": "Restzahlung überfällig – {ref}",
+    },
+    "deposit_overdue": {
+        "sv": "Handpenning förfallen – {ref}",
+        "en": "Deposit overdue – {ref}",
+        "de": "Anzahlung überfällig – {ref}",
+    },
     "admin_new_booking": {
         "sv": "Ny bokningsförfrågan inkommen – {ref}",
         "en": "New booking request – {ref}",
