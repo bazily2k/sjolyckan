@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Europe/Stockholm
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -36,6 +37,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       SWISH_NUMBER: ${SWISH_NUMBER}
+      TZ: Europe/Stockholm
     networks:
       - internal
     volumes:
@@ -61,6 +63,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      TZ: Europe/Stockholm
     networks:
       - internal
       - web
@@ -84,6 +87,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       FRONTEND_URL: ${FRONTEND_URL}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
+      TZ: Europe/Stockholm
     networks:
       - internal
 
