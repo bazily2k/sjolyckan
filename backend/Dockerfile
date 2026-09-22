@@ -2,6 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+ENV TZ=Europe/Stockholm
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
@@ -16,8 +19,6 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
-
-ENV TZ=Europe/Stockholm
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
