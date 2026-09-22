@@ -94,18 +94,24 @@ async def run_daily_checks():
                         await send_booking_email(db, booking, "admin_new_booking", to_admin=True)
 
                 # ── Påminnelse slutbetalning ─────────────────
+                # Tröskelbaserad (<=) istället för exakt datum-träff: annars missas
+                # påminnelser helt för sena bokningar (t.ex. en vecka innan ankomst)
+                # där days_left aldrig hinner passera exakt r1/r2, samt om
+                # schemaläggaren skulle vara nere just den exakta dagen.
                 if booking.payment_due_date:
                     days_left = (booking.payment_due_date - today).days
+                    reminders_sent = sum(1 for e in booking.email_logs if e.email_type == "payment_reminder")
 
-                    if days_left == r1:
-                        logger.info(f"Bokning {booking.booking_ref}: påminnelse 1 ({r1} dagar)")
-                        await send_booking_email(db, booking, "payment_reminder")
+                    if days_left >= 0:
+                        if reminders_sent == 0 and days_left <= r1:
+                            logger.info(f"Bokning {booking.booking_ref}: påminnelse 1 (senast {r1} dagar innan förfall, {days_left} kvar)")
+                            await send_booking_email(db, booking, "payment_reminder")
 
-                    elif days_left == r2:
-                        logger.info(f"Bokning {booking.booking_ref}: påminnelse 2 ({r2} dagar)")
-                        await send_booking_email(db, booking, "payment_reminder")
+                        elif reminders_sent == 1 and days_left <= r2:
+                            logger.info(f"Bokning {booking.booking_ref}: påminnelse 2 (senast {r2} dagar innan förfall, {days_left} kvar)")
+                            await send_booking_email(db, booking, "payment_reminder")
 
-                    elif days_left < 0:
+                    else:
                         # Förfallen — notifiera admin
                         final_payment = next(
                             (p for p in booking.payments
