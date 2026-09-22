@@ -17,14 +17,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def _log_scheduler_error(db: Session, ref: str, err: Exception):
-    """Sparar ett kraschat schemaläggarsteg i client_error_logs (samma tabell
-    som visas under admin → Felrapporter), så det syns tydligt vad som gick fel."""
+def _log_scheduler_error(db: Session, ref: str, message: str, stack: str = ""):
+    """Sparar ett kraschat schemaläggarsteg (eller ett misslyckat mejlutskick) i
+    client_error_logs (samma tabell som visas under admin → Felrapporter)."""
     try:
         db.add(ClientErrorLog(
             context="scheduler",
-            message=f"[{ref}] {err}"[:4000],
-            stack=traceback.format_exc()[:4000],
+            message=f"[{ref}] {message}"[:4000],
+            stack=(stack or traceback.format_exc())[:4000],
             url="scheduler/run_daily_checks",
         ))
         db.commit()
@@ -33,9 +33,24 @@ def _log_scheduler_error(db: Session, ref: str, err: Exception):
         logger.error(f"Kunde inte spara felrapport för {ref} i client_error_logs")
 
 
+async def _send(db: Session, booking, ref: str, email_type: str, errors: list, to_admin: bool = False):
+    """Skickar ett bokningsmejl via send_booking_email. send_booking_email fångar
+    redan sina egna fel internt och returnerar bara True/False (loggar till
+    email_logs) — utan detta skulle ett misslyckat utskick (t.ex. MailerSend nere)
+    passera helt obemärkt förbi Felrapporter och adminvarningen."""
+    ok = await send_booking_email(db, booking, email_type, to_admin=to_admin)
+    if not ok:
+        msg = f"Misslyckades skicka {email_type}-mejl"
+        logger.error(f"Bokning {ref}: {msg}")
+        _log_scheduler_error(db, ref, msg)
+        errors.append({"ref": ref, "error": msg})
+    return ok
+
+
 async def _send_crash_summary(errors: list):
-    """Skickar ett samlat varningsmejl till admin om dagens körning innehöll fel,
-    istället för ett mejl per fel (för att undvika spam vid många samtidiga fel)."""
+    """Skickar ett samlat varningsmejl till admin om dagens körning innehöll fel
+    (krascher och/eller misslyckade mejlutskick), istället för ett mejl per fel
+    (för att undvika spam vid många samtidiga fel)."""
     if not errors:
         return
     rows = "".join(
@@ -74,6 +89,7 @@ async def run_daily_checks():
         ).all()
 
         for booking in confirmed_bookings:
+            ref = booking.booking_ref
             try:
                 snap = booking.snapshot
                 r1 = snap.get("reminder_1_days", 14)
@@ -89,9 +105,9 @@ async def run_daily_checks():
                         None
                     )
                     if not deposit_payment:
-                        logger.warning(f"Bokning {booking.booking_ref}: handpenning förfallen")
-                        await send_booking_email(db, booking, "deposit_overdue")
-                        await send_booking_email(db, booking, "admin_new_booking", to_admin=True)
+                        logger.warning(f"Bokning {ref}: handpenning förfallen")
+                        await _send(db, booking, ref, "deposit_overdue", errors)
+                        await _send(db, booking, ref, "admin_new_booking", errors, to_admin=True)
 
                 # ── Påminnelse slutbetalning ─────────────────
                 # Tröskelbaserad (<=) istället för exakt datum-träff: annars missas
@@ -104,12 +120,12 @@ async def run_daily_checks():
 
                     if days_left >= 0:
                         if reminders_sent == 0 and days_left <= r1:
-                            logger.info(f"Bokning {booking.booking_ref}: påminnelse 1 (senast {r1} dagar innan förfall, {days_left} kvar)")
-                            await send_booking_email(db, booking, "payment_reminder")
+                            logger.info(f"Bokning {ref}: påminnelse 1 (senast {r1} dagar innan förfall, {days_left} kvar)")
+                            await _send(db, booking, ref, "payment_reminder", errors)
 
                         elif reminders_sent == 1 and days_left <= r2:
-                            logger.info(f"Bokning {booking.booking_ref}: påminnelse 2 (senast {r2} dagar innan förfall, {days_left} kvar)")
-                            await send_booking_email(db, booking, "payment_reminder")
+                            logger.info(f"Bokning {ref}: påminnelse 2 (senast {r2} dagar innan förfall, {days_left} kvar)")
+                            await _send(db, booking, ref, "payment_reminder", errors)
 
                     else:
                         # Förfallen — notifiera admin
@@ -120,19 +136,19 @@ async def run_daily_checks():
                             None
                         )
                         if not final_payment:
-                            logger.warning(f"Bokning {booking.booking_ref}: slutbetalning förfallen")
-                            await send_booking_email(db, booking, "payment_overdue")
+                            logger.warning(f"Bokning {ref}: slutbetalning förfallen")
+                            await _send(db, booking, ref, "payment_overdue", errors)
 
                 # ── Välkomstmejl: på valt datum om satt, annars dagen innan ankomst ─
                 _send_day = booking.checkin_send_date or (booking.date_from - timedelta(days=1))
                 if _send_day == today:
                     if booking.status in (BookingStatus.paid, BookingStatus.deposit_paid):
-                        logger.info(f"Bokning {booking.booking_ref}: skickar välkomstmejl")
-                        await send_booking_email(db, booking, "checkin_info")
+                        logger.info(f"Bokning {ref}: skickar välkomstmejl")
+                        await _send(db, booking, ref, "checkin_info", errors)
             except Exception as e:
-                logger.error(f"Fel vid hantering av bokning {booking.booking_ref}: {e}")
-                _log_scheduler_error(db, booking.booking_ref, e)
-                errors.append({"ref": booking.booking_ref, "error": str(e)})
+                logger.error(f"Fel vid hantering av bokning {ref}: {e}")
+                _log_scheduler_error(db, ref, str(e))
+                errors.append({"ref": ref, "error": str(e)})
                 continue
 
         # ── Påminnelse: obekräftad e-postadress ──────
@@ -153,13 +169,13 @@ async def run_daily_checks():
                     await _send_email_verify(b.id)
             except Exception as e:
                 logger.error(f"Fel vid e-postverifieringspåminnelse för {b.booking_ref}: {e}")
-                _log_scheduler_error(db, b.booking_ref, e)
+                _log_scheduler_error(db, b.booking_ref, str(e))
                 errors.append({"ref": b.booking_ref, "error": str(e)})
                 continue
 
     except Exception as e:
         logger.error(f"Fel i dagliga kontroller: {e}")
-        _log_scheduler_error(db, "run_daily_checks", e)
+        _log_scheduler_error(db, "run_daily_checks", str(e))
         errors.append({"ref": "(hela körningen)", "error": str(e)})
     finally:
         db.close()
