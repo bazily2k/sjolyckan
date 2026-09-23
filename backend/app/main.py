@@ -129,6 +129,7 @@ def _seed_email_templates():
         ("payment_reminder",  "Betalningspåminnelse",           "guest", 6),
         ("payment_overdue",   "Slutbetalning förfallen",         "guest", 6),
         ("deposit_overdue",   "Handpenning förfallen",           "guest", 6),
+        ("deposit_overdue_admin", "Handpenning förfallen (till admin)", "admin", 6),
         ("deposit_confirmed", "Bekräftelse handpenning mottagen", "guest", 6),
         ("checkin_info",      "Incheckning imorgon",            "guest", 7),
     ]
