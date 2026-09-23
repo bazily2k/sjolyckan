@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head><meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px}
+  .card{background:#fff;border-radius:8px;max-width:600px;margin:0 auto;padding:32px}
+  .header{background:#922b21;color:#fff;border-radius:6px;padding:20px;text-align:center;margin-bottom:24px}
+  h1{margin:0;font-size:18px}
+  table{width:100%;border-collapse:collapse;margin:12px 0}
+  td{padding:7px 0;border-bottom:1px solid #eee;font-size:14px}
+  td:last-child{text-align:right;font-weight:500}
+  .btn{display:inline-block;background:#1a5276;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;margin:16px 8px 0 0}
+  p{font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header"><h1>⚠️ Handpenning förfallen</h1></div>
+
+  <p>Handpenningen för nedanstående bokning har passerat sitt förfallodatum och är ännu inte registrerad som betald.</p>
+
+  <table>
+    <tr><td>Referens</td><td>{{ booking.booking_ref }}</td></tr>
+    <tr><td>Gäst</td><td>{{ booking.guest_name }}</td></tr>
+    <tr><td>E-post</td><td>{{ booking.guest_email }}</td></tr>
+    <tr><td>Telefon</td><td>{{ booking.guest_phone or '–' }}</td></tr>
+    <tr><td>Ankomst</td><td>{{ booking.date_from }}</td></tr>
+    <tr><td>Avresa</td><td>{{ booking.date_to }}</td></tr>
+    <tr><td>Handpenning</td><td>{{ "{:,.0f}".format(booking.deposit_amount).replace(",", "\xa0") }} kr</td></tr>
+    <tr><td>Förfallodatum</td><td>{{ booking.deposit_due_date }}</td></tr>
+  </table>
+
+  <p>Gästen har fått en automatisk påminnelse. Gå till admin-panelen om du vill kontakta gästen manuellt eller avboka:</p>
+
+  <a href="{{ frontend_url }}/admin" class="btn">Hantera bokning →</a>
+</div>
+</body>
+</html>
