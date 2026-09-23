@@ -107,7 +107,7 @@ async def run_daily_checks():
                     if not deposit_payment:
                         logger.warning(f"Bokning {ref}: handpenning förfallen")
                         await _send(db, booking, ref, "deposit_overdue", errors)
-                        await _send(db, booking, ref, "admin_new_booking", errors, to_admin=True)
+                        await _send(db, booking, ref, "deposit_overdue_admin", errors, to_admin=True)
 
                 # ── Påminnelse slutbetalning ─────────────────
                 # Tröskelbaserad (<=) istället för exakt datum-träff: annars missas
