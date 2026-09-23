@@ -130,6 +130,11 @@ SUBJECTS = {
         "en": "Deposit overdue – {ref}",
         "de": "Anzahlung überfällig – {ref}",
     },
+    "deposit_overdue_admin": {
+        "sv": "⚠️ Handpenning förfallen – {ref}",
+        "en": "⚠️ Deposit overdue – {ref}",
+        "de": "⚠️ Anzahlung überfällig – {ref}",
+    },
     "admin_new_booking": {
         "sv": "Ny bokningsförfrågan inkommen – {ref}",
         "en": "New booking request – {ref}",
@@ -257,7 +262,9 @@ async def send_booking_email(
         recipient = (booking.user.email if booking.user_id and booking.user else None) or booking.guest_email
 
     # Försök hämta mall från databasen
-    actual_type = "admin_new_booking" if to_admin else email_type
+    # Adminmejl renderas med sin egen mall/typ (t.ex. "admin_new_booking",
+    # "deposit_overdue_admin") — inte alltid samma mall oavsett händelse.
+    actual_type = email_type
     subject = None; html = None
     if db:
         try:
